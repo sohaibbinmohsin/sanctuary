@@ -542,7 +542,7 @@ git commit -m "feat: add multi-tenant schema, RLS, and TOSC seed"
 ### Task 4: PowerSync schema, connector, and sync rules
 
 **Files:**
-- Create: `src/lib/supabase.ts`, `src/lib/powersync/schema.ts`, `src/lib/powersync/database.ts`, `src/lib/powersync/connector.ts`, `powersync/sync-rules.yaml`
+- Create: `src/shared/lib/supabase.ts`, `src/features/sync/powersync/schema.ts`, `src/features/sync/powersync/database.ts`, `src/features/sync/powersync/connector.ts`, `powersync/sync-rules.yaml`
 
 **Interfaces:**
 - Produces: `getPowerSyncDb(): AbstractPowerSyncDatabase`, `SupabaseConnector` implementing PowerSync backend connector upload/download auth
@@ -555,7 +555,7 @@ npm install @supabase/supabase-js @powersync/web @powersync/react @journeyapps/w
 
 - [ ] **Step 2: Client schema mirroring Postgres tables used offline**
 
-Define `AppSchema` in `src/lib/powersync/schema.ts` with tables: `organizations`, `org_members`, `animal_statuses`, `animals`, `treatments`, `ledger_categories`, `ledger_entries`, `photos` — column types matching migration (text/integer). Follow [PowerSync JS web schema docs](https://docs.powersync.com/client-sdks/reference/javascript-web).
+Define `AppSchema` in `src/features/sync/powersync/schema.ts` with tables: `organizations`, `org_members`, `animal_statuses`, `animals`, `treatments`, `ledger_categories`, `ledger_entries`, `photos` — column types matching migration (text/integer). Follow [PowerSync JS web schema docs](https://docs.powersync.com/client-sdks/reference/javascript-web).
 
 - [ ] **Step 3: Sync rules (org-scoped via membership)**
 
@@ -585,7 +585,7 @@ Implement `SupabaseConnector` with `fetchCredentials` returning Supabase JWT + P
 - [ ] **Step 5: Wire `PowerSyncContext` in `App.tsx` after login; commit**
 
 ```bash
-git add src/lib/powersync src/lib/supabase.ts powersync
+git add src/features/sync/powersync src/shared/lib/supabase.ts powersync
 git commit -m "feat: wire PowerSync schema, connector, and org sync rules"
 ```
 
@@ -594,8 +594,8 @@ git commit -m "feat: wire PowerSync schema, connector, and org sync rules"
 ### Task 5: Auth + sync banner + support message
 
 **Files:**
-- Create: `src/screens/LoginScreen.tsx`, `src/components/SyncBanner.tsx`, `src/hooks/useSyncStatus.ts`
-- Modify: `src/App.tsx`
+- Create: `src/features/auth/LoginScreen.tsx`, `src/shared/ui/SyncBanner.tsx`, `src/shared/hooks/useSyncStatus.ts`
+- Modify: `src/app/App.tsx`
 
 **Interfaces:**
 - Produces: email/password login; `SyncBanner` showing offline / pending / failed with exact support copy
@@ -623,7 +623,7 @@ git commit -m "feat: add login and sync status banner with support CTA"
 ### Task 6: Statuses domain + settings editor
 
 **Files:**
-- Create: `src/domain/statuses.ts`, `src/screens/SettingsScreen.tsx`
+- Create: `src/features/statuses/domain/statuses.ts`, `src/features/settings/screens/SettingsScreen.tsx`
 
 **Interfaces:**
 - Produces:
@@ -649,8 +649,8 @@ git commit -m "feat: org status editor (add, rename, reorder, archive)"
 ### Task 7: Animals list, intake, detail
 
 **Files:**
-- Create: `src/domain/animals.ts`, `src/screens/AnimalsListScreen.tsx`, `src/screens/AnimalIntakeScreen.tsx`, `src/screens/AnimalDetailScreen.tsx`, `src/components/AnimalCard.tsx`, `src/components/StatusBadge.tsx`
-- Create: `src/lib/morale/messages.ts`, `src/components/MoraleToast.tsx`
+- Create: `src/features/animals/domain/animals.ts`, `src/features/animals/screens/AnimalsListScreen.tsx`, `src/features/animals/screens/AnimalIntakeScreen.tsx`, `src/features/animals/screens/AnimalDetailScreen.tsx`, `src/features/animals/components/AnimalCard.tsx`, `src/shared/ui/StatusBadge.tsx`
+- Create: `src/shared/lib/morale/messages.ts`, `src/shared/ui/MoraleToast.tsx`
 
 **Interfaces:**
 - Produces:
@@ -683,7 +683,7 @@ git commit -m "feat: animal intake, list search/filter, and detail"
 ### Task 8: Photo capture, local queue, R2 upload
 
 **Files:**
-- Create: `src/domain/photos.ts`, `src/components/PhotoCapture.tsx`, `src/lib/r2/upload.ts`
+- Create: `src/features/photos/domain/photos.ts`, `src/features/animals/components/PhotoCapture.tsx`, `src/shared/lib/r2/upload.ts`
 - Create: Supabase Edge Function `supabase/functions/r2-sign/index.ts` (signed PUT URL)
 
 **Interfaces:**
@@ -711,8 +711,8 @@ git commit -m "feat: offline photo queue with R2 signed uploads"
 ### Task 9: Treatments log
 
 **Files:**
-- Create: `src/domain/treatments.ts`
-- Modify: `src/screens/AnimalDetailScreen.tsx`
+- Create: `src/features/treatments/domain/treatments.ts`
+- Modify: `src/features/animals/screens/AnimalDetailScreen.tsx`
 
 **Interfaces:**
 - Produces: `addTreatment(db, { orgId, animalId, treatmentType, notes, treatedAt?, ledgerEntryId? })` append-only insert
@@ -732,8 +732,8 @@ git commit -m "feat: append-only treatments log on animals"
 ### Task 10: Ledger
 
 **Files:**
-- Create: `src/domain/ledger.ts`, `src/screens/LedgerScreen.tsx`
-- Modify: `src/screens/SettingsScreen.tsx` (category editor)
+- Create: `src/features/ledger/domain/ledger.ts`, `src/features/ledger/screens/LedgerScreen.tsx`
+- Modify: `src/features/settings/screens/SettingsScreen.tsx` (category editor)
 
 **Interfaces:**
 - Produces:
@@ -757,8 +757,8 @@ git commit -m "feat: org ledger with optional animal link and categories"
 ### Task 11: Dashboard + morale greeting + share image
 
 **Files:**
-- Create: `src/screens/DashboardScreen.tsx`, `src/lib/share/dashboardImage.ts`
-- Modify: `src/lib/morale/messages.ts`
+- Create: `src/features/dashboard/screens/DashboardScreen.tsx`, `src/shared/lib/share/dashboardImage.ts`
+- Modify: `src/shared/lib/morale/messages.ts`
 
 **Interfaces:**
 - Produces:
@@ -784,8 +784,8 @@ git commit -m "feat: dashboard headcount, money snapshot, and share image"
 ### Task 12: Data export CSV + images ZIP
 
 **Files:**
-- Create: `src/lib/export/csv.ts`, `src/lib/export/zipImages.ts`
-- Modify: `src/screens/SettingsScreen.tsx`
+- Create: `src/shared/lib/export/csv.ts`, `src/shared/lib/export/zipImages.ts`
+- Modify: `src/features/settings/screens/SettingsScreen.tsx`
 - Test: `tests/unit/shared/csv.test.ts`
 
 **Interfaces:**
