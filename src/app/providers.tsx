@@ -1,7 +1,9 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { PowerSyncContext } from '@powersync/react'
-import type { AbstractPowerSyncDatabase } from '@powersync/web'
-import { getPowerSyncDb, connectPowerSync } from '@/features/sync/powersync/database'
+import {
+  getPowerSyncDb,
+  connectPowerSync,
+} from '@/features/sync/powersync/database'
 import { supabase, supabaseConfigured } from '@/shared/lib/supabase'
 
 type ProvidersProps = {
@@ -10,7 +12,7 @@ type ProvidersProps = {
 }
 
 export function Providers({ children, sessionReady }: ProvidersProps) {
-  const [db] = useState<AbstractPowerSyncDatabase>(() => getPowerSyncDb())
+  const [db] = useState(() => getPowerSyncDb())
 
   useEffect(() => {
     if (!sessionReady || !supabaseConfigured) return
