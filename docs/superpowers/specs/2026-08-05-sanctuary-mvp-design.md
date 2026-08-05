@@ -116,7 +116,8 @@ Sanctuary helps shelter operators replace memory, scattered notes, and spreadshe
 
 ### Animals
 
-- Auto-generated unique **shelter ID** (e.g. `TOSC-0042`) — always present; primary stable handle
+- Auto-generated unique **shelter ID** — always present; primary stable handle  
+  **Format:** org prefix = first letter of each word in the organization name (e.g. Tales of Second Chances → `TOSC`) + sequential number (e.g. `TOSC-0042`)
 - **Name/nickname** — optional
 - **Photo** — strongly encouraged at intake; not a hard block if she must save fast (warn once)
 - Species/type, sex if known, colors/markings, intake date (default today), current status, notes
@@ -188,7 +189,7 @@ Sanctuary helps shelter operators replace memory, scattered notes, and spreadshe
 - Local writes are the success path; cloud problems are sync/upload problems, never “your save vanished”
 - **Cloud unreachable (exact copy):**  
   `Can’t reach Sanctuary cloud right now. Your data is safe on this phone. Please contact support.`
-- Support contact lives in Settings (The Mohsin Project — e.g. WhatsApp/email)
+- Support contact lives in Settings: **support@themohsinproject.org**
 - Photo upload failures retry; show count of waiting photos
 - Disk full on device: clear block message
 - Auth: first login needs network; expired session keeps local readable; reconnect to sync; no auto-wipe on logout; separate destructive “clear local data”
@@ -205,7 +206,7 @@ Sanctuary helps shelter operators replace memory, scattered notes, and spreadshe
 - Role column ready; enforce server-side as features expand  
 - Minimize donor PII in v1 (ledger notes only as needed)  
 - R2 access via short-lived signed uploads/downloads; no public bucket listing of all shelter media  
-- Data export path required by MOU — implement a practical export before partner dependence deepens (can follow core loops closely if sequenced in the implementation plan)
+- Data export path required by MOU — **CSV of records + ZIP of images**; implement before partner dependence deepens (sequence in the implementation plan)
 
 ---
 
@@ -235,11 +236,9 @@ Sanctuary helps shelter operators replace memory, scattered notes, and spreadshe
 
 ## 12. Open points deferred (intentionally)
 
-- Exact shelter ID format string (e.g. `TOSC-####` vs `C-####`) — decide at implementation with Madiha’s preference  
-- Support channel URL/number — configure in Settings at deploy time  
 - Final morale copy list — write during UI implementation  
-- Data export format (JSON/CSV/zip of images) — specify in implementation plan before deep pilot dependence  
 - PowerSync hosting/plan details — confirm during plan/spike  
+- CSV column set and ZIP layout for export — detail in implementation plan (format locked: CSV + images ZIP)  
 
 ---
 
@@ -252,7 +251,9 @@ Sanctuary helps shelter operators replace memory, scattered notes, and spreadshe
 | Sync | PowerSync ↔ Supabase Postgres |
 | Files | Cloudflare R2 |
 | Supabase plan | Free to start; Pro when pilot is critical |
-| Core record | Animals; auto ID; optional name |
+| Core record | Animals; auto ID (`{ORG_INITIALS}-####`, e.g. `TOSC-0042`); optional name |
+| Support | support@themohsinproject.org |
+| Data export | CSV + ZIP of images |
 | Money | Org ledger + optional animal link |
 | Care | Simple treatments log |
 | Statuses | Per-org editable list; sanctuary-oriented starter |
