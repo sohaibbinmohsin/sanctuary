@@ -24,6 +24,8 @@
 - Roles in schema from day one (`admin` | `staff` | `volunteer`); pilot seeds one admin
 - Prefer soft-delete/archive over hard delete
 - Morale: soft toasts on major saves + occasional dashboard greeting; mute-able later
+- **Production structure:** scalable app layout (`src/app`, `src/features`, `src/shared`); no god files; strict TypeScript
+- **Tests never live under `src/`:** all tests under top-level `tests/` (`tests/unit`, `tests/integration`, `tests/setup`)
 
 ---
 
@@ -34,6 +36,7 @@ sanctuary/
   package.json
   vite.config.ts
   tsconfig.json
+  tsconfig.node.json
   index.html
   .env.example
   public/
@@ -43,60 +46,89 @@ sanctuary/
     migrations/
       001_initial_schema.sql
     seed.sql
+    functions/
+      r2-sign/
   powersync/
     sync-rules.yaml
+  tests/
+    setup/
+      vitest.setup.ts
+    unit/
+      shared/
+        orgInitials.test.ts
+        shelterId.test.ts
+        csv.test.ts
+    integration/
+      .gitkeep
   src/
     main.tsx
-    App.tsx
+    app/
+      App.tsx
+      router.tsx
+      providers.tsx
     styles/
       tokens.css
       global.css
-    lib/
-      supabase.ts
-      powersync/
-        database.ts
-        connector.ts
-        schema.ts
-      r2/
-        upload.ts
-      ids/
-        orgInitials.ts
-        shelterId.ts
-      export/
-        csv.ts
-        zipImages.ts
-      share/
-        dashboardImage.ts
-      morale/
-        messages.ts
-    hooks/
-      useSyncStatus.ts
-      useCurrentMember.ts
-    components/
-      SyncBanner.tsx
-      MoraleToast.tsx
-      AnimalCard.tsx
-      PhotoCapture.tsx
-      StatusBadge.tsx
-    screens/
-      LoginScreen.tsx
-      AnimalsListScreen.tsx
-      AnimalDetailScreen.tsx
-      AnimalIntakeScreen.tsx
-      LedgerScreen.tsx
-      DashboardScreen.tsx
-      SettingsScreen.tsx
-    domain/
-      animals.ts
-      treatments.ts
-      ledger.ts
-      statuses.ts
-      photos.ts
-  src/test/
-    setup.ts
-    orgInitials.test.ts
-    shelterId.test.ts
-    csv.test.ts
+    shared/
+      lib/
+        supabase.ts
+        ids/
+          orgInitials.ts
+          shelterId.ts
+        export/
+          csv.ts
+          zipImages.ts
+        share/
+          dashboardImage.ts
+        morale/
+          messages.ts
+        r2/
+          upload.ts
+      ui/
+        SyncBanner.tsx
+        MoraleToast.tsx
+        StatusBadge.tsx
+      hooks/
+        useSyncStatus.ts
+        useCurrentMember.ts
+    features/
+      auth/
+        LoginScreen.tsx
+      animals/
+        domain/
+          animals.ts
+        components/
+          AnimalCard.tsx
+          PhotoCapture.tsx
+        screens/
+          AnimalsListScreen.tsx
+          AnimalDetailScreen.tsx
+          AnimalIntakeScreen.tsx
+      treatments/
+        domain/
+          treatments.ts
+      ledger/
+        domain/
+          ledger.ts
+        screens/
+          LedgerScreen.tsx
+      statuses/
+        domain/
+          statuses.ts
+      photos/
+        domain/
+          photos.ts
+      dashboard/
+        screens/
+          DashboardScreen.tsx
+      settings/
+        screens/
+          SettingsScreen.tsx
+      sync/
+        powersync/
+          database.ts
+          connector.ts
+          schema.ts
 ```
 
 ---
@@ -104,11 +136,11 @@ sanctuary/
 ### Task 1: Scaffold Vite React PWA + design tokens
 
 **Files:**
-- Create: `package.json`, `vite.config.ts`, `tsconfig.json`, `index.html`, `src/main.tsx`, `src/App.tsx`, `src/styles/tokens.css`, `src/styles/global.css`, `public/manifest.webmanifest`, `.env.example`, `README.md`
-- Test: `src/test/setup.ts` (Vitest smoke)
+- Create: `package.json`, `vite.config.ts`, `tsconfig.json`, `tsconfig.node.json`, `index.html`, `src/main.tsx`, `src/app/App.tsx`, `src/styles/tokens.css`, `src/styles/global.css`, `public/manifest.webmanifest`, `.env.example`, `README.md`, `tests/setup/vitest.setup.ts`, `tests/unit/.gitkeep`, `tests/integration/.gitkeep`
+- Test: `tests/setup/vitest.setup.ts` (Vitest smoke); keep all future tests under `tests/` only
 
 **Interfaces:**
-- Produces: runnable `npm run dev` / `npm test`; CSS variables `--color-primary`, `--color-bg`, `--color-text`
+- Produces: runnable `npm run dev` / `npm test`; CSS variables `--color-primary`, `--color-bg`, `--color-text`; production folder layout scaffolded (`src/app`, `src/features`, `src/shared`, `tests/`)
 
 - [ ] **Step 1: Scaffold the app**
 
@@ -147,7 +179,13 @@ export default defineConfig({
   ],
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
+    setupFiles: ['./tests/setup/vitest.setup.ts'],
+    include: ['tests/**/*.{test,spec}.{ts,tsx}'],
+  },
+  resolve: {
+    alias: {
+      '@': '/src',
+    },
   },
 })
 ```
@@ -213,8 +251,8 @@ Do not commit `.env` or `.cursor/`.
 ### Task 2: Org initials + shelter ID helpers (TDD)
 
 **Files:**
-- Create: `src/lib/ids/orgInitials.ts`, `src/lib/ids/shelterId.ts`
-- Test: `src/test/orgInitials.test.ts`, `src/test/shelterId.test.ts`
+- Create: `src/shared/lib/ids/orgInitials.ts`, `src/shared/lib/ids/shelterId.ts`
+- Test: `tests/unit/shared/orgInitials.test.ts`, `tests/unit/shared/shelterId.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -225,9 +263,9 @@ Do not commit `.env` or `.cursor/`.
 - [ ] **Step 1: Write failing tests**
 
 ```ts
-// src/test/orgInitials.test.ts
+// tests/unit/shared/orgInitials.test.ts
 import { describe, it, expect } from 'vitest'
-import { orgInitials } from '../lib/ids/orgInitials'
+import { orgInitials } from '@/shared/lib/ids/orgInitials'
 
 describe('orgInitials', () => {
   it('takes first letter of each word', () => {
@@ -240,9 +278,9 @@ describe('orgInitials', () => {
 ```
 
 ```ts
-// src/test/shelterId.test.ts
+// tests/unit/shared/shelterId.test.ts
 import { describe, it, expect } from 'vitest'
-import { formatShelterId, nextShelterId } from '../lib/ids/shelterId'
+import { formatShelterId, nextShelterId } from '@/shared/lib/ids/shelterId'
 
 describe('shelterId', () => {
   it('zero-pads to 4 digits', () => {
@@ -260,13 +298,13 @@ describe('shelterId', () => {
 - [ ] **Step 2: Run tests — expect FAIL**
 
 ```bash
-npm test -- --run src/test/orgInitials.test.ts src/test/shelterId.test.ts
+npm test -- --run tests/unit/shared/orgInitials.test.ts tests/unit/shared/shelterId.test.ts
 ```
 
 - [ ] **Step 3: Implement**
 
 ```ts
-// src/lib/ids/orgInitials.ts
+// src/shared/lib/ids/orgInitials.ts
 export function orgInitials(orgName: string): string {
   return orgName
     .trim()
@@ -278,7 +316,7 @@ export function orgInitials(orgName: string): string {
 ```
 
 ```ts
-// src/lib/ids/shelterId.ts
+// src/shared/lib/ids/shelterId.ts
 export function formatShelterId(prefix: string, sequence: number): string {
   return `${prefix}-${String(sequence).padStart(4, '0')}`
 }
@@ -297,8 +335,8 @@ export function nextShelterId(prefix: string, existingCodes: string[]): string {
 - [ ] **Step 4: Run tests — expect PASS, then commit**
 
 ```bash
-npm test -- --run src/test/orgInitials.test.ts src/test/shelterId.test.ts
-git add src/lib/ids src/test
+npm test -- --run tests/unit/shared/orgInitials.test.ts tests/unit/shared/shelterId.test.ts
+git add src/shared/lib/ids tests/unit/shared
 git commit -m "feat: add org initials and shelter ID allocation"
 ```
 
@@ -748,7 +786,7 @@ git commit -m "feat: dashboard headcount, money snapshot, and share image"
 **Files:**
 - Create: `src/lib/export/csv.ts`, `src/lib/export/zipImages.ts`
 - Modify: `src/screens/SettingsScreen.tsx`
-- Test: `src/test/csv.test.ts`
+- Test: `tests/unit/shared/csv.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -760,7 +798,7 @@ git commit -m "feat: dashboard headcount, money snapshot, and share image"
 - [ ] **Step 1: Failing CSV tests for header row + escaping commas/quotes/Urdu text**
 
 ```ts
-import { animalsToCsv } from '../lib/export/csv'
+import { animalsToCsv } from '@/shared/lib/export/csv'
 import { describe, it, expect } from 'vitest'
 
 it('escapes quotes and keeps Urdu', () => {
