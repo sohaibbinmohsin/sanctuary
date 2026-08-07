@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { usePowerSync } from '@powersync/react'
 import { supabase } from '@/shared/lib/supabase'
 import { asDb } from '@/shared/lib/db'
+import { hydrateOrgBootstrap } from '@/features/sync/hydrateOrgBootstrap'
 
 export type CurrentMember = {
   id: string
@@ -34,21 +35,32 @@ export function useCurrentMember(): {
           return
         }
 
-        const row = await db.getOptional<{
-          id: string
-          org_id: string
-          user_id: string
-          role: string
-          org_name: string
-          org_initials: string
-        }>(
-          `SELECT m.id, m.org_id, m.user_id, m.role, o.name as org_name, o.initials as org_initials
-           FROM org_members m
-           JOIN organizations o ON o.id = m.org_id
-           WHERE m.user_id = ?
-           LIMIT 1`,
-          [userId],
+        const readMember = () =>
+          db.getOptional<{
+            id: string
+            org_id: string
+            user_id: string
+            role: string
+            org_name: string
+            org_initials: string
+          }>(
+            `SELECT m.id, m.org_id, m.user_id, m.role, o.name as org_name, o.initials as org_initials
+             FROM org_members m
+             JOIN organizations o ON o.id = m.org_id
+             WHERE m.user_id = ?
+             LIMIT 1`,
+            [userId],
+          )
+
+        let row = await readMember()
+        const statusCount = await db.getOptional<{ c: number }>(
+          `SELECT COUNT(*) as c FROM animal_statuses`,
         )
+
+        if (!row || (statusCount?.c ?? 0) === 0) {
+          await hydrateOrgBootstrap(db)
+          row = await readMember()
+        }
 
         if (!cancelled) {
           setMember(

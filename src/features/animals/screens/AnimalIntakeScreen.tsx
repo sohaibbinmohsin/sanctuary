@@ -27,10 +27,15 @@ export function AnimalIntakeScreen() {
 
   useEffect(() => {
     if (!db || !member) return
+    let cancelled = false
     void listStatuses(db, member.orgId).then((rows) => {
+      if (cancelled) return
       setStatuses(rows)
-      if (rows[0]) setStatusId(rows[0].id)
+      if (rows[0]) setStatusId((current) => current || rows[0]!.id)
     })
+    return () => {
+      cancelled = true
+    }
   }, [db, member])
 
   async function onSubmit(e: FormEvent) {
@@ -78,6 +83,11 @@ export function AnimalIntakeScreen() {
             onChange={(e) => setStatusId(e.target.value)}
             required
           >
+            {statuses.length === 0 ? (
+              <option value="" disabled>
+                No statuses yet — check Settings or wait for sync
+              </option>
+            ) : null}
             {statuses.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
