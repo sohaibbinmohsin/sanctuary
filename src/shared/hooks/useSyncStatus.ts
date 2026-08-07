@@ -6,27 +6,33 @@ export type SyncStatusKind = 'synced' | 'pending' | 'offline' | 'failed'
 
 export function useSyncStatus(): SyncStatusKind {
   const powerSync = usePowerSync()
-  const [status, setStatus] = useState<SyncStatusKind>('offline')
+  const [status, setStatus] = useState<SyncStatusKind>('pending')
 
   useEffect(() => {
     if (!powerSync) {
-      setStatus('offline')
+      setStatus('pending')
       return
     }
     const db = asDb(powerSync)
 
     const compute = (): SyncStatusKind => {
-      const s = db.currentStatus
       if (!navigator.onLine) return 'offline'
+
+      const s = db.currentStatus
       const flow = s?.dataFlowStatus
+
+      // Only treat as hard failure when PowerSync reports an error
       if (flow?.downloadError || flow?.uploadError) return 'failed'
-      if (flow?.uploading || flow?.downloading || s?.connecting) {
+
+      if (s?.connecting || flow?.uploading || flow?.downloading) {
         return 'pending'
       }
-      if (s?.connected === false) {
-        return navigator.onLine ? 'failed' : 'offline'
-      }
-      return 'synced'
+
+      if (s?.connected) return 'synced'
+
+      // Online but not connected yet (connect in progress / not started) —
+      // do not show the alarmist "contact support" banner.
+      return 'pending'
     }
 
     setStatus(compute())

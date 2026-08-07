@@ -17,7 +17,10 @@ export function Providers({ children, sessionReady }: ProvidersProps) {
   useEffect(() => {
     if (!sessionReady || !supabaseConfigured) return
     void connectPowerSync().catch((err) => {
-      console.warn('PowerSync connect failed:', err)
+      console.warn(
+        'PowerSync connect failed. Check VITE_POWERSYNC_URL, Client Auth (Supabase JWT), and sync rules.',
+        err,
+      )
     })
   }, [sessionReady])
 
