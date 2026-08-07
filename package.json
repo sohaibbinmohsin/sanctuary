@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:setup": "npm run db:setup && vite",
+    "db:setup": "node scripts/db-setup.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest"
@@ -31,6 +33,7 @@
     "@vitejs/plugin-react": "^4.4.1",
     "@vitest/browser": "^3.1.2",
     "jsdom": "^26.1.0",
+    "postgres": "^3.4.7",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
     "vite-plugin-pwa": "^1.0.0",

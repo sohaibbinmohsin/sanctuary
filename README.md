@@ -6,20 +6,47 @@ Shelter management PWA for animal rescues and sanctuaries. Offline-first via Pow
 
 ```bash
 npm install
-cp .env.example .env   # fill values before live sync/login
+cp .env.example .env.local   # fill VITE_* + DATABASE_URL + SEED_USER_ID
+```
+
+### One-time database setup (no SQL copy-paste)
+
+1. Create a user in Supabase **Authentication → Users** and copy their UUID into `SEED_USER_ID`.
+2. Copy the Database **URI** from Project Settings → Database into `DATABASE_URL` (with the real DB password).
+3. Run:
+
+```bash
+npm run db:setup
+```
+
+This applies `supabase/migrations/001_initial_schema.sql` and seeds Tales of Second Chances. Safe to re-run (skips migrate if tables exist; seed is idempotent).
+
+Then start the app:
+
+```bash
 npm run dev
 ```
+
+Or migrate+seed then start in one go:
+
+```bash
+npm run dev:setup
+```
+
+> Migrations are **not** run on every plain `npm run dev` — that needs the DB password and would surprise you on every restart. Use `db:setup` / `dev:setup` when you need schema.
 
 ## Scripts
 
 - `npm run dev` — start Vite dev server
+- `npm run db:setup` — apply schema + seed (needs `DATABASE_URL`, `SEED_USER_ID`)
+- `npm run dev:setup` — `db:setup` then Vite
 - `npm run build` — type-check and production build
 - `npm test` — run Vitest
 - `npm run preview` — preview production build
 
 ## Environment variables
 
-Copy `.env.example` to `.env`. Do not commit `.env`.
+Copy `.env.example` to `.env.local`. Do not commit `.env.local`.
 
 | Variable | Purpose |
 |----------|---------|
@@ -29,6 +56,8 @@ Copy `.env.example` to `.env`. Do not commit `.env`.
 | `VITE_POWERSYNC_URL` | PowerSync instance URL |
 | `VITE_R2_PUBLIC_BASE_URL` | Public base URL for uploaded photos |
 | `VITE_SUPPORT_EMAIL` | Support contact (default `support@themohsinproject.org`) |
+| `DATABASE_URL` | Postgres URI for `npm run db:setup` only (not used by the Vite app) |
+| `SEED_USER_ID` | Auth user UUID to attach as TOSC admin during seed |
 
 ### Edge Function secrets (R2 signing)
 
@@ -45,11 +74,12 @@ Also ensure the function can read `SUPABASE_URL` and `SUPABASE_ANON_KEY` (provid
 ## Supabase setup
 
 1. Create a Free Supabase project.
-2. In the SQL editor, run `supabase/migrations/001_initial_schema.sql`.
-3. Create the pilot user (Auth → Users → Add user), copy their `user_id`.
-4. In `supabase/seed.sql`, replace `:user_id` with that UUID, then run the seed.
-5. Confirm the `powersync` publication exists for all tenant tables.
-6. Expose tables to the Data API if your project defaults to restricted public schema (needed for PowerSync `uploadData` via supabase-js).
+2. Add `DATABASE_URL` + create an Auth user and set `SEED_USER_ID` in `.env.local`.
+3. Run `npm run db:setup` (applies migration + TOSC seed).
+4. Confirm the `powersync` publication exists (created by the migration).
+5. Expose tables to the Data API if your project defaults to restricted public schema (needed for PowerSync `uploadData` via supabase-js).
+
+Manual SQL files remain under `supabase/migrations/` and `supabase/seed.sql` if you prefer the dashboard.
 
 ## PowerSync setup
 
