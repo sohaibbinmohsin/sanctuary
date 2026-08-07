@@ -9,8 +9,12 @@
  * Usage:
  *   npm run db:setup
  *
+ * Why DATABASE_URL (not VITE_SUPABASE_*):
+ *   Publishable/anon keys talk to the Data API with RLS — they cannot CREATE TABLE
+ *   or run migrations. Schema setup needs a direct Postgres connection.
+ *
  * Safe to re-run: skips migrate if `organizations` already exists;
- * seed uses ON CONFLICT so duplicate inserts are ignored.
+ * seed finds-or-creates the org by name and fills missing statuses/categories.
  */
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
@@ -26,9 +30,15 @@ loadEnvFiles(root)
 const databaseUrl = process.env.DATABASE_URL
 const seedUserId = process.env.SEED_USER_ID
 
+const ORG_NAME = 'Tales of Second Chances'
+const ORG_INITIALS = 'TOSC'
+
 if (!databaseUrl) {
   console.error(`
 Missing DATABASE_URL.
+
+VITE_SUPABASE_URL + publishable/anon key are for the app (login, API, RLS).
+They cannot create tables. db:setup needs a Postgres URI:
 
 1. Supabase → Project Settings → Database → Connection string (URI)
 2. Replace [YOUR-PASSWORD] with your database password
@@ -88,9 +98,6 @@ async function migrate() {
 }
 
 async function seed() {
-  const orgId = '11111111-1111-1111-1111-111111111111'
-
-  // Confirm auth user exists
   const users = await sql`
     select id from auth.users where id = ${seedUserId}::uuid limit 1
   `
@@ -100,13 +107,24 @@ async function seed() {
     )
   }
 
-  console.log('→ Seeding Tales of Second Chances …')
+  console.log(`→ Seeding ${ORG_NAME} …`)
 
-  await sql`
-    insert into organizations (id, name, initials)
-    values (${orgId}::uuid, 'Tales of Second Chances', 'TOSC')
-    on conflict (id) do nothing
+  let orgRows = await sql`
+    select id from organizations
+    where name = ${ORG_NAME} or initials = ${ORG_INITIALS}
+    limit 1
   `
+
+  if (orgRows.length === 0) {
+    orgRows = await sql`
+      insert into organizations (name, initials)
+      values (${ORG_NAME}, ${ORG_INITIALS})
+      returning id
+    `
+  }
+
+  const orgId = orgRows[0].id
+  console.log(`  org id: ${orgId}`)
 
   await sql`
     insert into org_members (org_id, user_id, role)
