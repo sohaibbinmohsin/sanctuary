@@ -24,7 +24,8 @@ Copy `.env.example` to `.env`. Do not commit `.env`.
 | Variable | Purpose |
 |----------|---------|
 | `VITE_SUPABASE_URL` | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key (preferred; new dashboard name) |
+| `VITE_SUPABASE_ANON_KEY` | Legacy alias — optional if publishable key is set |
 | `VITE_POWERSYNC_URL` | PowerSync instance URL |
 | `VITE_R2_PUBLIC_BASE_URL` | Public base URL for uploaded photos |
 | `VITE_SUPPORT_EMAIL` | Support contact (default `support@themohsinproject.org`) |

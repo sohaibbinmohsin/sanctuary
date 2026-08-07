@@ -20,7 +20,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
     try {
       if (!supabaseConfigured) {
         throw new Error(
-          'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.',
+          'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY (or VITE_SUPABASE_ANON_KEY).',
         )
       }
       await supabaseConnector.login(email.trim(), password)

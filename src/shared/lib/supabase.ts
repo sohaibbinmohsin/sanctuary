@@ -1,14 +1,18 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? ''
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
+/** Prefer publishable key (new Supabase naming); fall back to legacy anon key. */
+const supabasePublishableKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  ''
 
 export const supabaseConfigured =
-  Boolean(supabaseUrl) && Boolean(supabaseAnonKey)
+  Boolean(supabaseUrl) && Boolean(supabasePublishableKey)
 
 export const supabase: SupabaseClient = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key',
+  supabasePublishableKey || 'placeholder-publishable-key',
   {
     auth: {
       persistSession: true,
