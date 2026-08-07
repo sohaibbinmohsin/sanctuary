@@ -84,9 +84,19 @@ Manual SQL files remain under `supabase/migrations/` and `supabase/seed.sql` if 
 ## PowerSync setup
 
 1. Create a PowerSync instance connected to the Supabase Postgres database.
-2. Deploy sync rules from `powersync/sync-rules.yaml` (or translate to Sync Streams with the same org membership filter).
-3. Configure Supabase JWT auth so PowerSync accepts the user’s access token.
-4. Set `VITE_POWERSYNC_URL` to the instance URL.
+2. **Client Auth:** enable **Use Supabase Auth**, then set **JWKS URI** to:
+
+   `https://<PROJECT_REF>.supabase.co/auth/v1/.well-known/jwks.json`
+
+   (Replace `<PROJECT_REF>` with your project ref, e.g. from `VITE_SUPABASE_URL`.)  
+   Click **Save and Deploy**.
+
+3. **Sync Streams** (required — Health will stay empty until this is done):
+   - Open **Sync Streams** in the sidebar
+   - Paste the contents of `powersync/sync-streams.yaml`
+   - Click **Validate**, then **Deploy**
+
+4. Click **Connect** in the top bar → copy the instance URL into `VITE_POWERSYNC_URL`, then restart `npm run dev`.
 
 ## Cloudflare R2 setup
 

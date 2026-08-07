@@ -1,3 +1,6 @@
+# Legacy Sync Rules format (kept for reference).
+# Prefer powersync/sync-streams.yaml — deploy that under Dashboard → Sync Streams.
+
 bucket_definitions:
   by_user_org:
     parameters: |

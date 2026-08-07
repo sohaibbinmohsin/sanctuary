@@ -1,0 +1,21 @@
+# PowerSync Sync Streams (edition 3) — deploy in Dashboard → Sync Streams → Deploy
+# Filters all tenant data to orgs the signed-in user belongs to.
+
+config:
+  edition: 3
+
+with:
+  user_orgs: SELECT org_id FROM org_members WHERE user_id = auth.user_id()
+
+streams:
+  sanctuary_org_data:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM organizations WHERE id IN user_orgs
+      - SELECT * FROM org_members WHERE org_id IN user_orgs
+      - SELECT * FROM animal_statuses WHERE org_id IN user_orgs
+      - SELECT * FROM animals WHERE org_id IN user_orgs
+      - SELECT * FROM treatments WHERE org_id IN user_orgs
+      - SELECT * FROM ledger_categories WHERE org_id IN user_orgs
+      - SELECT * FROM ledger_entries WHERE org_id IN user_orgs
+      - SELECT * FROM photos WHERE org_id IN user_orgs
