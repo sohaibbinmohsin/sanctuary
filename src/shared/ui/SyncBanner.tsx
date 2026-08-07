@@ -5,12 +5,12 @@ const FAILED_COPY =
   "Can't reach Sanctuary cloud right now. Your data is safe on this phone. Please contact support."
 
 export function SyncBanner() {
-  const status = useSyncStatus()
+  const { kind, errorMessage } = useSyncStatus()
   const supportEmail = getSupportEmail()
 
-  if (status === 'synced') return null
+  if (kind === 'synced') return null
 
-  if (status === 'pending') {
+  if (kind === 'pending') {
     return (
       <div className="sync-banner sync-banner--pending" role="status">
         Syncing changes…
@@ -18,7 +18,7 @@ export function SyncBanner() {
     )
   }
 
-  if (status === 'offline') {
+  if (kind === 'offline') {
     return (
       <div className="sync-banner sync-banner--offline" role="status">
         You&apos;re offline. Changes stay on this phone until you reconnect.
@@ -30,6 +30,11 @@ export function SyncBanner() {
     <div className="sync-banner sync-banner--failed" role="alert">
       <p>{FAILED_COPY}</p>
       <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
+      {errorMessage ? (
+        <p className="sync-banner__detail" title={errorMessage}>
+          Technical detail: {errorMessage}
+        </p>
+      ) : null}
     </div>
   )
 }
