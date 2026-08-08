@@ -1,26 +1,31 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Sanctuary | Shelter records, offline and on the go</title>
-    <meta
-      name="description"
-      content="Sanctuary is offline-first shelter management for animal rescues. Track animals, care, photos, and money, even without signal."
-    />
-    <meta name="theme-color" content="#2F5D3A" />
-    <meta name="color-scheme" content="light" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Outfit:wght@600;700&display=swap"
-      rel="stylesheet"
-    />
-    <style>
+/* Public marketing landing — scoped under .landing */
+
+.landing {
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+.landing *,
+.landing *::before,
+.landing *::after {
+  box-sizing: border-box;
+}
+
+.landing img {
+  max-width: 100%;
+  display: block;
+}
+
+.landing a {
+  color: inherit;
+  text-decoration: none;
+}
+
       /* Design read: nonprofit product landing, forest field-tool, Soft UI preserve.
          Dials: VARIANCE 6 / MOTION 5 / DENSITY 4. Theme: light. Accent: forest. */
 
-      :root {
+      .landing {
         --ink: #1a2e22;
         --ink-muted: #4a5c50;
         --forest: #2f5d3a;
@@ -41,46 +46,13 @@
         --gutter: 1.25rem;
       }
 
-      * {
-        box-sizing: border-box;
-      }
-
-      html {
-        scroll-behavior: smooth;
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        html {
-          scroll-behavior: auto;
-        }
-      }
-
-      body {
-        margin: 0;
-        font-family: var(--font-sans);
-        color: var(--ink);
-        background: var(--mist);
-        -webkit-font-smoothing: antialiased;
-        line-height: 1.5;
-      }
-
-      img {
-        max-width: 100%;
-        display: block;
-      }
-
-      a {
-        color: inherit;
-        text-decoration: none;
-      }
-
-      .wrap {
+      .landing .wrap {
         width: min(100% - (var(--gutter) * 2), var(--max));
         margin-inline: auto;
       }
 
       /* ——— Hero ——— */
-      .hero {
+      .landing .hero {
         position: relative;
         min-height: 100dvh;
         display: grid;
@@ -90,22 +62,22 @@
         background: #132018;
       }
 
-      .hero__media {
+      .landing .hero__media {
         position: absolute;
         inset: 0;
         z-index: 0;
       }
 
-      .hero__media img {
+      .landing .hero__media img {
         width: 100%;
         height: 100%;
         object-fit: cover;
         object-position: 62% 40%;
         transform: scale(1.02);
-        animation: rise 1.1s var(--ease) both;
+        animation: landing-rise 1.1s var(--ease) both;
       }
 
-      .hero__scrim {
+      .landing .hero__scrim {
         position: absolute;
         inset: 0;
         background:
@@ -113,7 +85,7 @@
           linear-gradient(90deg, rgba(19, 32, 24, 0.72) 0%, rgba(19, 32, 24, 0.28) 42%, rgba(19, 32, 24, 0.05) 72%);
       }
 
-      .topbar {
+      .landing .topbar {
         position: absolute;
         top: 0;
         left: 0;
@@ -123,10 +95,10 @@
         max-height: 80px;
         display: flex;
         align-items: center;
-        animation: fade-up 0.65s var(--ease) 0.06s both;
+        animation: landing-fade-up 0.65s var(--ease) 0.06s both;
       }
 
-      .topbar .wrap {
+      .landing .topbar .wrap {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -134,15 +106,16 @@
         width: min(100% - (var(--gutter) * 2), var(--max));
       }
 
-      .brand {
+      .landing .brand {
         font-family: var(--font-display);
         font-weight: 700;
         font-size: clamp(1.85rem, 3.5vw, 2.35rem);
         letter-spacing: -0.03em;
         line-height: 1;
+        color: var(--white);
       }
 
-      .topbar__signin {
+      .landing .topbar__signin {
         font-size: 0.975rem;
         font-weight: 600;
         color: rgba(255, 255, 255, 0.92);
@@ -150,27 +123,26 @@
         transition: border-color 180ms var(--ease);
       }
 
-      .topbar__signin:hover,
-      .topbar__signin:focus-visible {
+      .landing .topbar__signin:hover, .landing .topbar__signin:focus-visible {
         border-bottom-color: rgba(255, 255, 255, 0.8);
         outline: none;
       }
 
-      .hero__content {
+      .landing .hero__content {
         position: relative;
         z-index: 1;
         padding-bottom: max(2.75rem, env(safe-area-inset-bottom));
         padding-top: 1.25rem;
-        animation: fade-up 0.75s var(--ease) 0.16s both;
+        animation: landing-fade-up 0.75s var(--ease) 0.16s both;
       }
 
-      .hero__content .wrap {
+      .landing .hero__content .wrap {
         display: grid;
         gap: 1.1rem;
         max-width: 38rem;
       }
 
-      .hero h1 {
+      .landing .hero h1 {
         margin: 0;
         font-family: var(--font-display);
         font-weight: 700;
@@ -179,7 +151,7 @@
         line-height: 1.04;
       }
 
-      .hero .lede {
+      .landing .hero .lede {
         margin: 0;
         font-size: clamp(1.05rem, 1.4vw, 1.2rem);
         line-height: 1.45;
@@ -187,7 +159,7 @@
         max-width: 32ch;
       }
 
-      .btn {
+      .landing .btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -203,39 +175,37 @@
         transition: transform 150ms var(--ease), background 180ms var(--ease);
       }
 
-      .btn:active {
+      .landing .btn:active {
         transform: scale(0.98);
       }
 
-      .btn--primary {
+      .landing .btn--primary {
         background: var(--forest);
         color: var(--white);
         box-shadow: 0 12px 32px rgba(26, 46, 34, 0.28);
         width: fit-content;
       }
 
-      .btn--primary:hover,
-      .btn--primary:focus-visible {
+      .landing .btn--primary:hover, .landing .btn--primary:focus-visible {
         background: var(--forest-hover);
         outline: 2px solid var(--white);
         outline-offset: 2px;
       }
 
-      .btn--solid {
+      .landing .btn--solid {
         background: var(--forest);
         color: var(--white);
         width: fit-content;
       }
 
-      .btn--solid:hover,
-      .btn--solid:focus-visible {
+      .landing .btn--solid:hover, .landing .btn--solid:focus-visible {
         background: var(--forest-hover);
         outline: 2px solid var(--forest);
         outline-offset: 2px;
       }
 
       /* ——— Intro (phone + thesis, right after hero) ——— */
-      .intro {
+      .landing .intro {
         background:
           radial-gradient(ellipse 70% 60% at 18% 40%, rgba(47, 93, 58, 0.1), transparent 55%),
           radial-gradient(ellipse 50% 50% at 90% 80%, rgba(47, 93, 58, 0.06), transparent 50%),
@@ -244,26 +214,25 @@
         border-bottom: 1px solid var(--border);
       }
 
-      .intro .wrap {
+      .landing .intro .wrap {
         display: grid;
         gap: 2rem;
         align-items: center;
       }
 
-      .intro__device {
+      .landing .intro__device {
         justify-self: center;
-        perspective: 1400px;
-        perspective-origin: 55% 40%;
+        perspective: none;
         padding: 0.75rem 1.25rem 1.25rem;
-        -webkit-font-smoothing: antialiased;
       }
 
-      .intro__phone {
+      .landing .intro__phone {
         position: relative;
-        width: min(100%, 13.5rem);
+        width: min(100%, 12.75rem);
         margin: 0 auto;
-        transform: translate3d(0, 0, 0) rotateY(-14deg) rotateX(3deg) rotateZ(1.25deg);
-        transform-style: preserve-3d;
+        /* Flat on small screens — 3D tilt re-rasterizes and softens UI text */
+        transform: rotate(-2.5deg);
+        transform-style: flat;
         border-radius: 1.85rem;
         background: linear-gradient(145deg, #2a3530 0%, #121916 45%, #0c100e 100%);
         box-shadow:
@@ -271,38 +240,30 @@
           0 8px 16px rgba(26, 46, 34, 0.12),
           inset 0 0 0 2px rgba(255, 255, 255, 0.08);
         padding: 0.4rem;
-        backface-visibility: hidden;
-        -webkit-backface-visibility: hidden;
       }
 
-      .intro__phone-screen {
+      .landing .intro__phone-screen {
         width: 100%;
         border-radius: 1.45rem;
         overflow: hidden;
         background: var(--mist);
         line-height: 0;
-        transform: translateZ(1px);
-        backface-visibility: hidden;
-        -webkit-backface-visibility: hidden;
       }
 
-      .intro__phone-screen img {
+      .landing .intro__phone-screen img {
         width: 100%;
         height: auto;
         display: block;
-        transform: translateZ(0);
-        backface-visibility: hidden;
-        -webkit-backface-visibility: hidden;
       }
 
-      .intro__copy {
+      .landing .intro__copy {
         display: grid;
         gap: 1.15rem;
         justify-items: start;
         align-content: center;
       }
 
-      .intro__copy h2 {
+      .landing .intro__copy h2 {
         margin: 0;
         font-family: var(--font-display);
         font-weight: 700;
@@ -312,7 +273,7 @@
         max-width: none;
       }
 
-      .intro__points {
+      .landing .intro__points {
         margin: 0;
         padding: 0;
         list-style: none;
@@ -322,7 +283,7 @@
         counter-reset: intro-point;
       }
 
-      .intro__points li {
+      .landing .intro__points li {
         position: relative;
         display: grid;
         grid-template-columns: auto 1fr;
@@ -335,7 +296,7 @@
         counter-increment: intro-point;
       }
 
-      .intro__points li::before {
+      .landing .intro__points li::before {
         content: counter(intro-point);
         display: grid;
         place-items: center;
@@ -354,18 +315,18 @@
       }
 
       /* ——— Features bento ——— */
-      .features {
+      .landing .features {
         background: var(--white);
         padding: 4.5rem 0 5rem;
         border-bottom: 1px solid var(--border);
       }
 
-      .features__intro {
+      .landing .features__intro {
         margin-bottom: 2rem;
         max-width: 40rem;
       }
 
-      .features__intro h2 {
+      .landing .features__intro h2 {
         margin: 0 0 0.65rem;
         font-family: var(--font-display);
         font-weight: 700;
@@ -374,20 +335,20 @@
         line-height: 1.15;
       }
 
-      .features__intro p {
+      .landing .features__intro p {
         margin: 0;
         color: var(--ink-muted);
         font-size: 1.05rem;
         max-width: 42ch;
       }
 
-      .bento {
+      .landing .bento {
         display: grid;
         gap: 0.9rem;
         grid-template-columns: 1fr;
       }
 
-      .tile {
+      .landing .tile {
         border-radius: var(--radius-lg);
         padding: 1.5rem 1.4rem;
         background: var(--white);
@@ -399,16 +360,16 @@
         box-shadow: 0 1px 0 rgba(26, 46, 34, 0.03);
       }
 
-      .tile--soft {
+      .landing .tile--soft {
         background: var(--forest-soft);
         border-color: transparent;
       }
 
-      .tile--surface {
+      .landing .tile--surface {
         background: var(--surface);
       }
 
-      .tile--media {
+      .landing .tile--media {
         padding: 0;
         overflow: hidden;
         min-height: 16rem;
@@ -417,7 +378,7 @@
         box-shadow: var(--shadow);
       }
 
-      .tile--media img {
+      .landing .tile--media img {
         width: 100%;
         height: 100%;
         object-fit: cover;
@@ -425,14 +386,14 @@
         inset: 0;
       }
 
-      .tile__label {
+      .landing .tile__label {
         font-family: var(--font-mono);
         font-size: 0.72rem;
         letter-spacing: 0.07em;
         color: var(--forest);
       }
 
-      .tile h3 {
+      .landing .tile h3 {
         margin: 0;
         font-family: var(--font-display);
         font-size: 1.3rem;
@@ -440,7 +401,7 @@
         font-weight: 700;
       }
 
-      .tile p {
+      .landing .tile p {
         margin: 0;
         color: var(--ink-muted);
         font-size: 0.98rem;
@@ -449,19 +410,19 @@
       }
 
       /* ——— Offline split ——— */
-      .offline {
+      .landing .offline {
         background: var(--mist);
         border-bottom: 1px solid var(--border);
         padding: 2.75rem 0;
       }
 
-      .offline .wrap {
+      .landing .offline .wrap {
         display: grid;
         gap: 1.75rem;
         align-items: center;
       }
 
-      .offline__visual {
+      .landing .offline__visual {
         position: relative;
         min-height: 14rem;
         border-radius: var(--radius-lg);
@@ -469,7 +430,7 @@
         background: #c5d4c9;
       }
 
-      .offline__visual img {
+      .landing .offline__visual img {
         width: 100%;
         height: 100%;
         object-fit: cover;
@@ -477,13 +438,13 @@
         inset: 0;
       }
 
-      .offline__copy {
+      .landing .offline__copy {
         display: grid;
         gap: 0.85rem;
         align-content: center;
       }
 
-      .offline__copy h2 {
+      .landing .offline__copy h2 {
         margin: 0;
         font-family: var(--font-display);
         font-weight: 700;
@@ -493,7 +454,7 @@
         max-width: 16ch;
       }
 
-      .offline__copy p {
+      .landing .offline__copy p {
         margin: 0;
         color: var(--ink-muted);
         font-size: 1.05rem;
@@ -502,23 +463,23 @@
       }
 
       /* ——— Mohsin ——— */
-      .mohsin {
+      .landing .mohsin {
         background: var(--surface);
         padding: 2.75rem 0;
       }
 
-      .mohsin__panel {
+      .landing .mohsin__panel {
         display: grid;
         gap: 0;
         width: 100%;
       }
 
-      .mohsin__heading {
+      .landing .mohsin__heading {
         margin: 0 0 0.85rem;
         display: inline-flex;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 0.65rem;
+        gap: 0.75rem 0.85rem;
         font-family: var(--font-display);
         font-weight: 700;
         font-size: clamp(1.75rem, 3vw, 2.5rem);
@@ -527,17 +488,17 @@
         max-width: 100%;
       }
 
-      .mohsin__logo--mark {
-        width: 2.85rem;
+      .landing .mohsin__logo--mark {
+        width: 4.5rem;
         height: auto;
         flex: 0 0 auto;
       }
 
-      .mohsin__logo--aside {
+      .landing .mohsin__logo--aside {
         display: none;
       }
 
-      .mohsin__body p {
+      .landing .mohsin__body p {
         margin: 0 0 0.65rem;
         color: var(--ink-muted);
         max-width: none;
@@ -545,25 +506,25 @@
         font-size: 0.975rem;
       }
 
-      .mohsin__body p:last-of-type {
+      .landing .mohsin__body p:last-of-type {
         margin-bottom: 1.1rem;
       }
 
       /* ——— Footer ——— */
-      .footer {
+      .landing .footer {
         background: var(--ink);
         color: rgba(247, 250, 248, 0.88);
         padding: 3.5rem 0 max(2.75rem, env(safe-area-inset-bottom));
       }
 
-      .footer .wrap {
+      .landing .footer .wrap {
         display: grid;
         gap: 0.85rem;
         justify-items: start;
         text-align: left;
       }
 
-      .footer__brand {
+      .landing .footer__brand {
         font-family: var(--font-display);
         font-weight: 700;
         font-size: 1.65rem;
@@ -572,7 +533,7 @@
         margin: 0;
       }
 
-      .footer__tag {
+      .landing .footer__tag {
         margin: 0;
         max-width: 56ch;
         color: rgba(247, 250, 248, 0.7);
@@ -580,7 +541,7 @@
         line-height: 1.5;
       }
 
-      .footer__bottom {
+      .landing .footer__bottom {
         display: flex;
         flex-direction: column;
         flex-wrap: wrap;
@@ -596,19 +557,18 @@
         width: 100%;
       }
 
-      .footer__bottom a {
+      .landing .footer__bottom a {
         color: rgba(227, 237, 230, 0.9);
         font-weight: 600;
       }
 
-      .footer__bottom a:hover,
-      .footer__bottom a:focus-visible {
+      .landing .footer__bottom a:hover, .landing .footer__bottom a:focus-visible {
         color: var(--white);
         outline: none;
       }
 
       /* ——— Motion ——— */
-      @keyframes fade-up {
+      @keyframes landing-fade-up {
         from {
           opacity: 0;
           transform: translateY(12px);
@@ -619,7 +579,7 @@
         }
       }
 
-      @keyframes rise {
+      @keyframes landing-rise {
         from {
           opacity: 0.65;
           transform: scale(1.05);
@@ -630,26 +590,35 @@
         }
       }
 
-      .reveal {
+      .landing .reveal {
         opacity: 0;
         transform: translateY(14px);
         transition: opacity 0.55s var(--ease), transform 0.55s var(--ease);
       }
 
-      .reveal.is-visible {
+      .landing .reveal.is-visible {
         opacity: 1;
         transform: none;
       }
 
+      /* Opacity-only — a parent transform blurs the phone screenshot */
+      .landing .reveal--fade {
+        transform: none;
+      }
+
+      .landing .reveal--fade.is-visible {
+        transform: none;
+      }
+
       @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
+        .landing *,
+        .landing *::before,
+        .landing *::after {
           animation: none !important;
           transition: none !important;
         }
 
-        .reveal {
+        .landing .reveal {
           opacity: 1;
           transform: none;
         }
@@ -657,11 +626,11 @@
 
       /* ——— Desktop ——— */
       @media (min-width: 768px) {
-        :root {
+        .landing {
           --gutter: 2rem;
         }
 
-        .bento {
+        .landing .bento {
           grid-template-columns: 1.15fr 1fr 1fr;
           grid-template-areas:
             "media animal animal"
@@ -670,104 +639,104 @@
           gap: 1.1rem;
         }
 
-        .tile--hero {
+        .landing .tile--hero {
           grid-area: media;
           min-height: 100%;
         }
 
-        .tile--animal {
+        .landing .tile--animal {
           grid-area: animal;
         }
 
-        .tile--status {
+        .landing .tile--status {
           grid-area: status;
         }
 
-        .tile--care {
+        .landing .tile--care {
           grid-area: care;
         }
 
-        .tile--money {
+        .landing .tile--money {
           grid-area: money;
         }
 
-        .tile--view {
+        .landing .tile--view {
           grid-area: view;
         }
 
-        .tile--zip {
+        .landing .tile--zip {
           grid-area: zip;
         }
 
-        .tile {
+        .landing .tile {
           padding: 1.65rem 1.5rem;
           min-height: 10.5rem;
         }
 
-        .tile h3 {
+        .landing .tile h3 {
           font-size: 1.35rem;
         }
       }
 
       @media (min-width: 1024px) {
-        :root {
+        .landing {
           --gutter: 2.5rem;
         }
 
-        .hero {
+        .landing .hero {
           align-items: center;
         }
 
-        .hero__scrim {
+        .landing .hero__scrim {
           background:
             linear-gradient(90deg, rgba(19, 32, 24, 0.78) 0%, rgba(19, 32, 24, 0.42) 38%, rgba(19, 32, 24, 0.12) 68%, transparent 88%),
             linear-gradient(180deg, rgba(19, 32, 24, 0.35) 0%, rgba(19, 32, 24, 0.2) 45%, rgba(19, 32, 24, 0.45) 100%);
         }
 
-        .topbar {
+        .landing .topbar {
           padding-top: 0.35rem;
         }
 
-        .hero__content {
+        .landing .hero__content {
           padding-top: 4.5rem;
           padding-bottom: 4.5rem;
         }
 
-        .hero__content .wrap {
+        .landing .hero__content .wrap {
           max-width: 44rem;
         }
 
-        .intro {
+        .landing .intro {
           padding: 4rem 0;
         }
 
-        .intro .wrap {
+        .landing .intro .wrap {
           grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
           gap: 2.5rem 2rem;
           align-items: center;
         }
 
-        .intro__device {
+        .landing .intro__device {
           justify-self: end;
-          perspective: 1600px;
-          perspective-origin: 70% 40%;
+          perspective: none;
         }
 
-        .intro__phone {
+        .landing .intro__phone {
           width: 16.5rem;
-          transform: translate3d(0, 0, 0) rotateY(-16deg) rotateX(2deg) rotateZ(1.5deg);
+          transform: rotate(-3.5deg);
+          transform-style: flat;
         }
 
-        .intro__copy {
+        .landing .intro__copy {
           max-width: none;
           justify-self: stretch;
         }
 
-        .intro__copy h2 {
+        .landing .intro__copy h2 {
           max-width: 22ch;
         }
 
-        .intro__points {
+        .landing .intro__points {
           position: relative;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 1.25rem 1.75rem;
@@ -775,7 +744,7 @@
           padding-top: 0.15rem;
         }
 
-        .intro__points::before {
+        .landing .intro__points::before {
           content: "";
           position: absolute;
           top: calc(0.875rem);
@@ -786,7 +755,7 @@
           z-index: 0;
         }
 
-        .intro__points li {
+        .landing .intro__points li {
           grid-template-columns: 1fr;
           gap: 0.7rem;
           justify-items: center;
@@ -794,64 +763,64 @@
           align-items: start;
         }
 
-        .intro__points li::before {
+        .landing .intro__points li::before {
           width: 1.85rem;
           height: 1.85rem;
         }
 
-        .features {
+        .landing .features {
           padding: 6rem 0 6.5rem;
         }
 
-        .features__intro {
+        .landing .features__intro {
           margin-bottom: 2.75rem;
         }
 
-        .offline {
+        .landing .offline {
           padding: 3.5rem 0;
         }
 
-        .offline .wrap {
+        .landing .offline .wrap {
           grid-template-columns: 1.15fr 0.85fr;
           gap: 3.5rem;
           align-items: center;
         }
 
-        .offline__visual {
+        .landing .offline__visual {
           min-height: 22rem;
         }
 
-        .mohsin {
+        .landing .mohsin {
           padding: 3.25rem 0;
         }
 
-        .mohsin__panel {
+        .landing .mohsin__panel {
           grid-template-columns: minmax(0, 1fr) 11rem;
           gap: 2rem 2.5rem;
           align-items: center;
         }
 
-        .mohsin__heading {
+        .landing .mohsin__heading {
           font-size: clamp(1.75rem, 3vw, 2.5rem);
           margin-bottom: 0.85rem;
         }
 
-        .mohsin__logo--mark {
+        .landing .mohsin__logo--mark {
           display: none;
         }
 
-        .mohsin__logo--aside {
+        .landing .mohsin__logo--aside {
           display: block;
           width: 11rem;
           height: auto;
           justify-self: end;
         }
 
-        .footer {
+        .landing .footer {
           padding: 4rem 0 3rem;
         }
 
-        .footer__bottom {
+        .landing .footer__bottom {
           flex-direction: row;
           justify-content: space-between;
           align-items: center;
@@ -861,220 +830,20 @@
       }
 
       @media (min-width: 1280px) {
-        :root {
+        .landing {
           --max: 82rem;
         }
 
-        .hero h1 {
+        .landing .hero h1 {
           font-size: 4.25rem;
         }
 
-        .bento {
+        .landing .bento {
           gap: 1.25rem;
         }
 
-        .tile--media {
+        .landing .tile--media {
           min-height: 22rem;
         }
       }
-    </style>
-  </head>
-  <body>
-    <section class="hero" aria-label="Sanctuary">
-      <div class="hero__media" aria-hidden="true">
-        <img src="assets/landing-care-desk.jpg" alt="" width="1600" height="900" />
-        <div class="hero__scrim"></div>
-      </div>
-
-      <header class="topbar">
-        <div class="wrap">
-          <div class="brand">Sanctuary</div>
-          <a class="topbar__signin" href="#signin">Sign in</a>
-        </div>
-      </header>
-
-      <div class="hero__content">
-        <div class="wrap">
-          <h1>Shelter records, offline and on the go.</h1>
-          <p class="lede">Run daily care and money for animal rescues, even without signal.</p>
-          <a class="btn btn--primary" href="#playground">Try playground</a>
-        </div>
-      </div>
-    </section>
-
-    <section class="intro" id="product" aria-labelledby="intro-heading">
-      <div class="wrap reveal">
-        <div class="intro__copy">
-          <h2 id="intro-heading">One field tool instead of notebooks and spreadsheets.</h2>
-          <ul class="intro__points">
-            <li>Animals, care, and money in one place</li>
-            <li>Works offline in the field</li>
-            <li>Export your records anytime</li>
-          </ul>
-        </div>
-        <div class="intro__device">
-          <div class="intro__phone">
-            <div class="intro__phone-screen">
-              <img
-                src="assets/sanctuary-animals-screen.png"
-                alt="Sanctuary animals list"
-                width="1170"
-                height="2532"
-                decoding="async"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="features" id="features" aria-labelledby="features-heading">
-      <div class="wrap">
-        <div class="features__intro reveal">
-          <h2 id="features-heading">What it does today</h2>
-          <p>Built for daily shelter work: searchable, configurable, and exportable.</p>
-        </div>
-
-        <div class="bento reveal">
-          <article class="tile tile--media tile--hero" aria-label="Intake at the care desk">
-            <img src="assets/landing-intake-desk.jpg" alt="Care desk with intake records and a phone" />
-          </article>
-
-          <article class="tile tile--soft tile--animal">
-            <span class="tile__label">ID</span>
-            <h3>Animal records</h3>
-            <p>
-              Intake with auto shelter IDs, photos, species and markings, notes including Urdu, and searchable photo
-              grids for hundreds of animals.
-            </p>
-          </article>
-
-          <article class="tile tile--status">
-            <span class="tile__label">STATUS</span>
-            <h3>Care status</h3>
-            <p>Configurable stages from intake and quarantine to treatment and life in sanctuary.</p>
-          </article>
-
-          <article class="tile tile--surface tile--care">
-            <span class="tile__label">CARE</span>
-            <h3>Treatments</h3>
-            <p>Care history on each animal so the next person sees what already happened.</p>
-          </article>
-
-          <article class="tile tile--soft tile--money">
-            <span class="tile__label">MONEY</span>
-            <h3>Ledger</h3>
-            <p>Donations and expenses, optionally tied to an animal, with money in and out at a glance.</p>
-          </article>
-
-          <article class="tile tile--view">
-            <span class="tile__label">VIEW</span>
-            <h3>Dashboard</h3>
-            <p>Headcount by status and a financial snapshot you can share or download for donors and boards.</p>
-          </article>
-
-          <article class="tile tile--surface tile--zip">
-            <span class="tile__label">ZIP</span>
-            <h3>Data ownership</h3>
-            <p>Export animals, treatments, ledger, and photos as a ZIP anytime. Your records stay yours.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="offline" aria-labelledby="offline-heading">
-      <div class="wrap">
-        <div class="offline__visual reveal" aria-hidden="true">
-          <img src="assets/landing-field-offline.jpg" alt="" width="1600" height="900" />
-        </div>
-        <div class="offline__copy reveal">
-          <h2 id="offline-heading">Reliable when connectivity is not.</h2>
-          <p>
-            Work continues in the yard, the clinic, and on the road. Sync when you are back online. A phone-first PWA for
-            shelters that cannot wait on signal.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section class="mohsin" id="about" aria-labelledby="mohsin-heading">
-      <div class="wrap">
-        <article class="mohsin__panel reveal">
-          <div class="mohsin__main">
-            <h2 class="mohsin__heading" id="mohsin-heading">
-              Built by The Mohsin Project
-              <img
-                class="mohsin__logo mohsin__logo--mark"
-                src="assets/mohsin-project-logo.svg"
-                alt=""
-                width="40"
-                height="23"
-              />
-            </h2>
-            <div class="mohsin__body">
-              <p>
-                The Mohsin Project partners with nonprofits and independent changemakers to design, engineer, and deploy
-                digital solutions at no cost, so bad tech never blocks the work that matters.
-              </p>
-              <p>
-                Sanctuary is one of those tools: offline-first shelter management for rescues that work where signal
-                fails.
-              </p>
-              <a class="btn btn--solid" href="https://themohsinproject.org/" target="_blank" rel="noopener noreferrer">
-                Visit site
-              </a>
-            </div>
-          </div>
-          <img
-            class="mohsin__logo mohsin__logo--aside"
-            src="assets/mohsin-project-logo.svg"
-            alt="The Mohsin Project"
-            width="176"
-            height="100"
-          />
-        </article>
-      </div>
-    </section>
-
-    <footer class="footer">
-      <div class="wrap">
-        <p class="footer__brand">Sanctuary</p>
-        <p class="footer__tag">Shelter records, offline and on the go. Built for rescues that work in the field.</p>
-        <div class="footer__bottom">
-          <span>
-            A nonprofit product by
-            <a href="https://themohsinproject.org/" target="_blank" rel="noopener noreferrer">The Mohsin Project</a>
-          </span>
-          <a href="mailto:support@themohsinproject.org">support@themohsinproject.org</a>
-        </div>
-      </div>
-    </footer>
-
-    <script>
-      (function () {
-        var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        var nodes = document.querySelectorAll(".reveal");
-        if (reduce || !("IntersectionObserver" in window)) {
-          nodes.forEach(function (el) {
-            el.classList.add("is-visible");
-          });
-          return;
-        }
-        var io = new IntersectionObserver(
-          function (entries) {
-            entries.forEach(function (entry) {
-              if (entry.isIntersecting) {
-                entry.target.classList.add("is-visible");
-                io.unobserve(entry.target);
-              }
-            });
-          },
-          { rootMargin: "0px 0px -8% 0px", threshold: 0.12 }
-        );
-        nodes.forEach(function (el) {
-          io.observe(el);
-        });
-      })();
-    </script>
-  </body>
-</html>
+    

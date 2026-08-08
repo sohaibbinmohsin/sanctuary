@@ -63,9 +63,9 @@ export default defineConfig({
       workbox: {
         // Keep the installable SW lean; wasm loads on demand via runtime cache.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
-        globIgnores: ['**/landing-concepts/**', '**/splashes/**'],
+        globIgnores: ['**/landing/**', '**/splashes/**'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/landing-concepts/],
+        navigateFallbackDenylist: [/^\/api/],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
