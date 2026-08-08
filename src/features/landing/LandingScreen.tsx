@@ -243,7 +243,7 @@ export function LandingScreen() {
                 The Mohsin Project
               </a>
             </span>
-            <a href="mailto:support@themohsinproject.org">support@themohsinproject.org</a>
+            <a href="mailto:hello@themohsinproject.org">hello@themohsinproject.org</a>
           </div>
         </div>
       </footer>
