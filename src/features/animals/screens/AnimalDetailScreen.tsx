@@ -26,6 +26,7 @@ import { SelectField, TextareaField, TextField } from '@/shared/ui/Field'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import {
   deletePhoto,
+  deletePhotosForAnimal,
   getLocalPhoto,
   listPhotosForAnimal,
   localPhotoUrl,
@@ -164,6 +165,7 @@ export function AnimalDetailScreen() {
     if (!ok) return
     setRemovingAnimal(true)
     try {
+      await deletePhotosForAnimal(db, animal.id)
       await archiveAnimal(db, animal.id)
       navigate('/animals', { replace: true })
     } catch (err) {

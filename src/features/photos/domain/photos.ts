@@ -45,6 +45,35 @@ export async function deletePhoto(
   await db.execute(`DELETE FROM photos WHERE id = ?`, [photoId])
 }
 
+export async function deletePhotosForAnimal(
+  db: SanctuaryDb,
+  animalId: string,
+): Promise<void> {
+  const rows = await db.getAll<{ id: string }>(
+    `SELECT id FROM photos WHERE animal_id = ?`,
+    [animalId],
+  )
+  for (const row of rows) {
+    await deletePhoto(db, row.id)
+  }
+}
+
+/** Drop queued uploads whose animal was removed/archived (or no longer exists). */
+export async function purgeOrphanedPendingPhotos(
+  db: SanctuaryDb,
+): Promise<number> {
+  const orphans = await db.getAll<{ id: string }>(
+    `SELECT p.id FROM photos p
+     LEFT JOIN animals a ON a.id = p.animal_id
+     WHERE p.upload_state IN ('pending', 'failed', 'uploading')
+       AND (a.id IS NULL OR a.archived = 1)`,
+  )
+  for (const row of orphans) {
+    await deletePhoto(db, row.id)
+  }
+  return orphans.length
+}
+
 export async function queuePhoto(
   db: SanctuaryDb,
   input: { orgId: string; animalId: string; blob: Blob },
@@ -74,7 +103,16 @@ export async function queuePhoto(
 export async function countPendingPhotos(
   db: SanctuaryDb,
   orgId: string,
+  animalId?: string,
 ): Promise<number> {
+  if (animalId) {
+    const row = await db.getOptional<{ n: number }>(
+      `SELECT COUNT(*) as n FROM photos
+       WHERE org_id = ? AND animal_id = ? AND upload_state IN ('pending', 'failed')`,
+      [orgId, animalId],
+    )
+    return row?.n ?? 0
+  }
   const row = await db.getOptional<{ n: number }>(
     `SELECT COUNT(*) as n FROM photos WHERE org_id = ? AND upload_state IN ('pending', 'failed')`,
     [orgId],
@@ -95,6 +133,7 @@ export async function listPhotosForAnimal(
 export async function processPhotoQueue(
   db: SanctuaryDb,
 ): Promise<{ uploaded: number; failed: number }> {
+  await purgeOrphanedPendingPhotos(db)
   const { requestSignedUpload } = await import('@/shared/lib/r2/upload')
   const pending = await db.getAll<PhotoRecord>(
     `SELECT * FROM photos WHERE upload_state IN ('pending', 'failed') ORDER BY created_at ASC LIMIT 10`,
@@ -115,13 +154,17 @@ export async function processPhotoQueue(
       }
       const key = `${photo.org_id}/${photo.animal_id}/${photo.id}.jpg`
       const { uploadUrl, publicUrl } = await requestSignedUpload(key)
+      // Do not set Content-Type — the presigned URL signs only `host`.
+      // Extra headers cause R2 SignatureDoesNotMatch / CORS preflight failures.
       const put = await fetch(uploadUrl, {
         method: 'PUT',
         body: blob,
-        headers: { 'Content-Type': blob.type || 'image/jpeg' },
       })
       if (!put.ok) {
-        throw new Error(`R2 upload failed: ${put.status}`)
+        const detail = (await put.text().catch(() => '')).slice(0, 200)
+        throw new Error(
+          `R2 upload failed: ${put.status}${detail ? ` ${detail}` : ''}`,
+        )
       }
       await db.execute(
         `UPDATE photos SET r2_key = ?, local_only = 0, upload_state = 'uploaded' WHERE id = ?`,

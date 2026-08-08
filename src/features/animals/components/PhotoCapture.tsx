@@ -28,12 +28,12 @@ export function PhotoCapture({
 
   async function refreshPending() {
     if (!db) return
-    setPending(await countPendingPhotos(db, orgId))
+    setPending(await countPendingPhotos(db, orgId, animalId))
   }
 
   useEffect(() => {
     void refreshPending()
-  }, [db, orgId])
+  }, [db, orgId, animalId])
 
   useEffect(() => {
     if (!db) return
@@ -49,7 +49,7 @@ export function PhotoCapture({
       window.clearInterval(id)
       window.removeEventListener('online', tick)
     }
-  }, [db, orgId])
+  }, [db, orgId, animalId])
 
   async function onFiles(files: FileList | null, input: HTMLInputElement | null) {
     if (!files?.length || !db) return

@@ -169,3 +169,38 @@ export async function countInCare(
   )
   return row?.n ?? 0
 }
+
+export type StatusCount = {
+  statusId: string
+  label: string
+  count: number
+  sortOrder: number
+}
+
+/** Current (non-archived) animals grouped by status, ordered like Settings. */
+export async function countAnimalsByStatus(
+  db: SanctuaryDb,
+  orgId: string,
+): Promise<StatusCount[]> {
+  const rows = await db.getAll<{
+    status_id: string | null
+    label: string | null
+    sort_order: number | null
+    n: number
+  }>(
+    `SELECT a.status_id, s.label, s.sort_order, COUNT(*) as n
+     FROM animals a
+     LEFT JOIN animal_statuses s ON s.id = a.status_id
+     WHERE a.org_id = ? AND a.archived = 0
+     GROUP BY a.status_id, s.label, s.sort_order
+     ORDER BY COALESCE(s.sort_order, 999), s.label ASC`,
+    [orgId],
+  )
+
+  return rows.map((r) => ({
+    statusId: r.status_id ?? 'none',
+    label: r.label?.trim() || 'No status',
+    count: Number(r.n) || 0,
+    sortOrder: r.sort_order ?? 999,
+  }))
+}

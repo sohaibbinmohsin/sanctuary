@@ -101,9 +101,40 @@ Manual SQL files remain under `supabase/migrations/` and `supabase/seed.sql` if 
 ## Cloudflare R2 setup
 
 1. Create a bucket for animal photos.
-2. Configure CORS to allow `PUT`/`GET` from your PWA origin.
-3. Create an API token with object read/write.
-4. Set Edge Function secrets and `VITE_R2_PUBLIC_BASE_URL` (custom domain or r2.dev public URL).
+2. Configure CORS on the bucket (required for browser uploads). In Cloudflare R2 → bucket → Settings → CORS policy:
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://localhost:5173", "http://127.0.0.1:5173"],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Add your production origin to `AllowedOrigins` when you deploy the PWA.
+
+3. Create an R2 API token with Object Read & Write.
+4. Set Edge Function secrets (not Vite env):
+
+| Secret | Example |
+|--------|---------|
+| `R2_ACCESS_KEY_ID` | token access key |
+| `R2_SECRET_ACCESS_KEY` | token secret |
+| `R2_BUCKET` | `sanctuary` |
+| `R2_ENDPOINT` | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` (no bucket path) |
+| `R2_PUBLIC_BASE_URL` | `https://pub-xxxxx.r2.dev` or custom domain |
+
+5. Set `VITE_R2_PUBLIC_BASE_URL` to the same **public** base (r2.dev / custom domain). Do **not** use `*.r2.cloudflarestorage.com/...` — that is the private S3 API host.
+
+6. Redeploy after secret or function changes:
+
+```bash
+supabase functions deploy r2-sign --project-ref <PROJECT_REF>
+```
 
 ## Pilot runbook (Android Chrome)
 

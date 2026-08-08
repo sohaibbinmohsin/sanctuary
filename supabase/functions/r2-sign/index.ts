@@ -10,7 +10,10 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type',
 }
 
-async function hmacSha256(key: ArrayBuffer, message: string): Promise<ArrayBuffer> {
+async function hmacSha256(
+  key: BufferSource,
+  message: string,
+): Promise<ArrayBuffer> {
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
     key,
@@ -27,8 +30,9 @@ async function getSignatureKey(
   region: string,
   service: string,
 ): Promise<ArrayBuffer> {
+  // Pass Uint8Array directly — `.buffer` can include extra bytes and break SigV4.
   const kDate = await hmacSha256(
-    new TextEncoder().encode('AWS4' + secret).buffer,
+    new TextEncoder().encode('AWS4' + secret),
     dateStamp,
   )
   const kRegion = await hmacSha256(kDate, region)
@@ -48,6 +52,16 @@ async function sha256Hex(message: string): Promise<string> {
     new TextEncoder().encode(message),
   )
   return toHex(digest)
+}
+
+/** Account S3 API origin only — strip accidental /bucket paths. */
+function normalizeEndpoint(raw: string): string {
+  const trimmed = raw.trim().replace(/\/$/, '')
+  try {
+    return new URL(trimmed).origin
+  } catch {
+    return trimmed
+  }
 }
 
 Deno.serve(async (req) => {
@@ -107,7 +121,7 @@ Deno.serve(async (req) => {
     const accessKeyId = Deno.env.get('R2_ACCESS_KEY_ID') ?? ''
     const secretAccessKey = Deno.env.get('R2_SECRET_ACCESS_KEY') ?? ''
     const bucket = Deno.env.get('R2_BUCKET') ?? ''
-    const endpoint = (Deno.env.get('R2_ENDPOINT') ?? '').replace(/\/$/, '')
+    const endpoint = normalizeEndpoint(Deno.env.get('R2_ENDPOINT') ?? '')
     const publicBase = (Deno.env.get('R2_PUBLIC_BASE_URL') ?? '').replace(
       /\/$/,
       '',
@@ -130,8 +144,12 @@ Deno.serve(async (req) => {
     const dateStamp = amzDate.slice(0, 8)
     const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`
     const expires = 300
+    // Sign only host — do not send Content-Type from the browser PUT.
     const signedHeaders = 'host'
-    const canonicalUri = `/${bucket}/${key.split('/').map(encodeURIComponent).join('/')}`
+    const canonicalUri = `/${bucket}/${key
+      .split('/')
+      .map(encodeURIComponent)
+      .join('/')}`
 
     const query = new URLSearchParams({
       'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',

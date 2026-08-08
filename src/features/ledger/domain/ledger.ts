@@ -179,3 +179,60 @@ export async function sumLedger(
   }
   return { inCents, outCents }
 }
+
+export type MonthlyLedgerPoint = {
+  /** YYYY-MM */
+  month: string
+  inCents: number
+  outCents: number
+}
+
+/** Last `months` calendar months (including current), oldest first. */
+export async function sumLedgerByMonth(
+  db: SanctuaryDb,
+  orgId: string,
+  months = 6,
+): Promise<MonthlyLedgerPoint[]> {
+  const now = new Date()
+  const keys: string[] = []
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    keys.push(`${y}-${m}`)
+  }
+
+  const from = `${keys[0]}-01`
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  const to = end.toISOString().slice(0, 10)
+
+  const rows = await db.getAll<{
+    month: string
+    direction: string
+    total: number
+  }>(
+    `SELECT substr(entry_date, 1, 7) as month, direction, SUM(amount_cents) as total
+     FROM ledger_entries
+     WHERE org_id = ? AND entry_date >= ? AND entry_date <= ?
+     GROUP BY month, direction`,
+    [orgId, from, to],
+  )
+
+  const map = new Map<string, { inCents: number; outCents: number }>()
+  for (const key of keys) {
+    map.set(key, { inCents: 0, outCents: 0 })
+  }
+  for (const row of rows) {
+    const bucket = map.get(row.month)
+    if (!bucket) continue
+    const total = Number(row.total) || 0
+    if (row.direction === 'in') bucket.inCents = total
+    if (row.direction === 'out') bucket.outCents = total
+  }
+
+  return keys.map((month) => ({
+    month,
+    inCents: map.get(month)?.inCents ?? 0,
+    outCents: map.get(month)?.outCents ?? 0,
+  }))
+}

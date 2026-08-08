@@ -1,4 +1,6 @@
-import { useSyncStatus } from '@/shared/hooks/useSyncStatus'
+import { useEffect, useState } from 'react'
+import { X } from '@phosphor-icons/react'
+import { useSyncStatus, type SyncStatusKind } from '@/shared/hooks/useSyncStatus'
 import { getSupportEmail } from '@/shared/lib/supabase'
 
 const FAILED_COPY =
@@ -7,13 +9,35 @@ const FAILED_COPY =
 export function SyncBanner() {
   const status = useSyncStatus()
   const supportEmail = getSupportEmail()
+  const [dismissedKind, setDismissedKind] = useState<SyncStatusKind | null>(
+    null,
+  )
+
+  useEffect(() => {
+    if (status.kind === 'synced') {
+      setDismissedKind(null)
+    }
+  }, [status.kind])
 
   if (status.kind === 'synced') return null
+  if (dismissedKind === status.kind) return null
+
+  const dismissControl = (
+    <button
+      type="button"
+      className="sync-banner__dismiss"
+      aria-label="Dismiss"
+      onClick={() => setDismissedKind(status.kind)}
+    >
+      <X size={18} weight="bold" aria-hidden />
+    </button>
+  )
 
   if (status.kind === 'pending') {
     return (
       <div className="sync-banner sync-banner--pending" role="status">
-        Saving your updates…
+        <span className="sync-banner__text">Saving your updates…</span>
+        {dismissControl}
       </div>
     )
   }
@@ -21,15 +45,21 @@ export function SyncBanner() {
   if (status.kind === 'offline') {
     return (
       <div className="sync-banner sync-banner--offline" role="status">
-        No internet right now. Your work is safe on this phone.
+        <span className="sync-banner__text">
+          No internet right now. Your work is safe on this phone.
+        </span>
+        {dismissControl}
       </div>
     )
   }
 
   return (
     <div className="sync-banner sync-banner--failed" role="alert">
-      <p>{FAILED_COPY}</p>
-      <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
+      <div className="sync-banner__body">
+        <p>{FAILED_COPY}</p>
+        <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
+      </div>
+      {dismissControl}
     </div>
   )
 }
