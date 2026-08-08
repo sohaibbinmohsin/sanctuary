@@ -15,7 +15,7 @@ describe('searchAnimals', () => {
     expect(params).toEqual(['org-1', '%tillu%', '%tillu%'])
   })
 
-  it('filters by status id and partial species', async () => {
+  it('filters by status id and exact species', async () => {
     const getAll = vi.fn().mockResolvedValue([])
     const db = { getAll } as never
 
@@ -26,7 +26,18 @@ describe('searchAnimals', () => {
 
     const [sql, params] = getAll.mock.calls[0]!
     expect(sql).toContain('a.status_id = ?')
-    expect(sql).toContain('LOWER(a.species) LIKE LOWER(?)')
-    expect(params).toEqual(['org-1', 'status-q', '%dog%'])
+    expect(sql).toContain('LOWER(a.species) = LOWER(?)')
+    expect(params).toEqual(['org-1', 'status-q', 'dog'])
+  })
+
+  it('filters unknown sex with blank/null values', async () => {
+    const getAll = vi.fn().mockResolvedValue([])
+    const db = { getAll } as never
+
+    await searchAnimals(db, 'org-1', { sex: '__unknown__' })
+
+    const [sql, params] = getAll.mock.calls[0]!
+    expect(sql).toContain("a.sex IS NULL OR TRIM(IFNULL(a.sex, '')) = ''")
+    expect(params).toEqual(['org-1'])
   })
 })

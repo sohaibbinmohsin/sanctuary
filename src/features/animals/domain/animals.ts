@@ -18,6 +18,8 @@ export type AnimalSearchFilters = {
   query?: string
   statusId?: string
   species?: string
+  /** Exact sex match; use `__unknown__` for blank/unknown sex. */
+  sex?: string
 }
 
 export type AnimalWithStatus = AnimalRecord & {
@@ -91,8 +93,14 @@ export async function searchAnimals(
     params.push(filters.statusId)
   }
   if (filters.species?.trim()) {
-    clauses.push('LOWER(a.species) LIKE LOWER(?)')
-    params.push(`%${filters.species.trim()}%`)
+    clauses.push('LOWER(a.species) = LOWER(?)')
+    params.push(filters.species.trim())
+  }
+  if (filters.sex === '__unknown__') {
+    clauses.push("(a.sex IS NULL OR TRIM(IFNULL(a.sex, '')) = '')")
+  } else if (filters.sex?.trim()) {
+    clauses.push('LOWER(IFNULL(a.sex, \'\')) = LOWER(?)')
+    params.push(filters.sex.trim())
   }
   if (filters.query?.trim()) {
     // SQLite string literals must use single quotes; "" is an identifier.

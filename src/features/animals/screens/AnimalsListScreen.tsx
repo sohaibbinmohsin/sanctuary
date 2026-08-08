@@ -17,6 +17,22 @@ import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { FilterMenu } from '@/shared/ui/FilterMenu'
+
+const SPECIES_OPTIONS = [
+  { value: 'Dog', label: 'Dog' },
+  { value: 'Cat', label: 'Cat' },
+  { value: 'Horse', label: 'Horse' },
+  { value: 'Donkey', label: 'Donkey' },
+  { value: 'Bird', label: 'Bird' },
+  { value: 'Other', label: 'Other' },
+]
+
+const SEX_OPTIONS = [
+  { value: 'Female', label: 'Female' },
+  { value: 'Male', label: 'Male' },
+  { value: '__unknown__', label: 'Unknown' },
+]
 
 export function AnimalsListScreen() {
   const db = useDb()
@@ -27,6 +43,7 @@ export function AnimalsListScreen() {
   const deferredQuery = useDeferredValue(query)
   const [statusId, setStatusId] = useState('')
   const [species, setSpecies] = useState('')
+  const [sex, setSex] = useState('')
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
@@ -45,6 +62,7 @@ export function AnimalsListScreen() {
           query: deferredQuery,
           statusId: statusId || undefined,
           species: species || undefined,
+          sex: sex || undefined,
         })
         if (cancelled) return
         setAnimals(rows)
@@ -77,14 +95,19 @@ export function AnimalsListScreen() {
     return () => {
       cancelled = true
     }
-  }, [db, member, deferredQuery, statusId, species])
+  }, [db, member, deferredQuery, statusId, species, sex])
 
-  const hasFilters = Boolean(query || statusId || species)
+  const hasFilters = Boolean(query || statusId || species || sex)
   const subtitle = !member?.orgName
     ? 'Everyone currently in your care'
     : hasFilters
       ? `${animals.length} match${animals.length === 1 ? '' : 'es'}`
       : `${animals.length} in care at ${member.orgName}`
+
+  const statusOptions = statuses.map((s) => ({
+    value: s.id,
+    label: s.label,
+  }))
 
   return (
     <section className="screen">
@@ -101,51 +124,49 @@ export function AnimalsListScreen() {
       />
 
       <div className="filter-bar">
-        <div className="filter-bar__row">
-          <div className="filter-bar__search">
-            <MagnifyingGlass size={18} weight="bold" aria-hidden />
-            <input
-              type="search"
-              placeholder="Search by ID or name"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search animals"
-            />
-          </div>
+        <div className="filter-bar__search">
+          <MagnifyingGlass size={18} weight="bold" aria-hidden />
           <input
-            placeholder="Filter by type (dog, cat…)"
-            value={species}
-            onChange={(e) => setSpecies(e.target.value)}
-            aria-label="Filter by animal type"
+            type="search"
+            placeholder="Search by ID or name"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search animals"
           />
         </div>
-        <div className="filter-chips">
-          <button
-            type="button"
-            className="chip"
-            aria-pressed={statusId === ''}
-            onClick={() => setStatusId('')}
-          >
-            All
-          </button>
-          {statuses.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className="chip"
-              aria-pressed={statusId === s.id}
-              onClick={() => setStatusId(s.id)}
-            >
-              {s.label}
-            </button>
-          ))}
+        <div className="filter-menus" role="group" aria-label="List filters">
+          <FilterMenu
+            label="Status"
+            value={statusId}
+            options={statusOptions}
+            allLabel="All statuses"
+            onChange={setStatusId}
+          />
+          <FilterMenu
+            label="Type"
+            value={species}
+            options={SPECIES_OPTIONS}
+            allLabel="All types"
+            onChange={setSpecies}
+          />
+          <FilterMenu
+            label="Gender"
+            value={sex}
+            options={SEX_OPTIONS}
+            allLabel="All genders"
+            onChange={setSex}
+          />
         </div>
       </div>
 
       {loading && animals.length === 0 ? (
         <div className="animal-grid">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="skeleton" style={{ aspectRatio: '1', height: 'auto' }} />
+            <div
+              key={i}
+              className="skeleton"
+              style={{ aspectRatio: '1', height: 'auto' }}
+            />
           ))}
         </div>
       ) : animals.length === 0 ? (
