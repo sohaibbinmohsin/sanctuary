@@ -48,10 +48,18 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
 
   return (
     <main className="login-screen">
-      <Link className="login-screen__back" to="/">
-        <ArrowLeft size={18} weight="bold" aria-hidden />
-        Back
-      </Link>
+      <header className="login-screen__top">
+        <Link className="login-screen__back" to="/">
+          <ArrowLeft
+            className="login-screen__back-icon"
+            size={18}
+            weight="bold"
+            aria-hidden
+          />
+          <span className="login-screen__back-label">Back</span>
+          <span className="login-screen__home-label">Sanctuary</span>
+        </Link>
+      </header>
 
       <div className="login-screen__body">
       <img

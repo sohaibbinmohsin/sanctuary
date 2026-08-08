@@ -214,6 +214,7 @@ export function SettingsScreen() {
   async function onLogout() {
     await disconnectPowerSync()
     await supabaseConnector.logout()
+    window.location.assign('/')
   }
 
   async function onResetPlayground() {
