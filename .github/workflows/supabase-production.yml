@@ -1,6 +1,9 @@
 # Deploys schema + edge functions to sanctuary-prod on push to main.
 # Local development must NEVER use these secrets — use npm run db:push / functions:deploy
 # (those always target the Sanctuary DEV project).
+#
+# We intentionally skip `supabase link`: recent CLI versions fail parsing API key
+# metadata (SchemaError on inserted_at). db push uses --db-url; functions use --project-ref.
 
 name: Deploy Supabase (production)
 
@@ -50,11 +53,11 @@ jobs:
         with:
           version: latest
 
-      - name: Link production project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
-
       - name: Push migrations
-        run: supabase db push
+        run: |
+          ENCODED_PASSWORD=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['SUPABASE_DB_PASSWORD'], safe=''))")
+          DB_URL="postgresql://postgres:${ENCODED_PASSWORD}@db.${SUPABASE_PROJECT_ID}.supabase.co:5432/postgres"
+          supabase db push --db-url "$DB_URL" --yes
 
       - name: Deploy edge functions
-        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_ID"
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_ID" --yes
