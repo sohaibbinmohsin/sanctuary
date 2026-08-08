@@ -41,13 +41,7 @@ export async function deleteLocalPhoto(photoId: string): Promise<void> {
   await cache.delete(localPhotoUrl(photoId))
 }
 
-async function deleteRemotePhoto(photo: {
-  id: string
-  org_id: string
-  animal_id: string
-  r2_key: string | null
-  upload_state?: string | null
-}): Promise<void> {
+async function deleteRemotePhoto(photo: PhotoRecord): Promise<void> {
   const uploaded =
     photo.upload_state === 'uploaded' || Boolean(photo.r2_key)
   if (!uploaded) return
@@ -56,11 +50,16 @@ async function deleteRemotePhoto(photo: {
       'Connect to the internet to delete photos from cloud storage.',
     )
   }
-  const key = r2ObjectKey(photo.r2_key, {
-    orgId: photo.org_id,
-    animalId: photo.animal_id,
-    photoId: photo.id,
-  })
+  const key = r2ObjectKey(
+    photo.r2_key,
+    photo.org_id && photo.animal_id
+      ? {
+          orgId: photo.org_id,
+          animalId: photo.animal_id,
+          photoId: photo.id,
+        }
+      : undefined,
+  )
   if (!key) return
   await requestR2Delete(key)
 }
