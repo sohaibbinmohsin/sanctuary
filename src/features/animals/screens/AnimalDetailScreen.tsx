@@ -39,7 +39,10 @@ const TREATMENT_LABELS: Record<TreatmentType, string> = {
   vet: 'Vet visit',
   procedure: 'Procedure',
   other: 'Other care',
+  intake: 'Intake notes',
 }
+
+const CARE_FORM_TYPES: TreatmentType[] = ['meds', 'vet', 'procedure', 'other']
 
 type PhotoItem = {
   photo: PhotoRecord
@@ -212,6 +215,16 @@ export function AnimalDetailScreen() {
     )
   }
 
+  const intakeNotes = animal.notes?.trim() || null
+  const showLegacyIntakeNotes = Boolean(
+    intakeNotes &&
+      !treatments.some(
+        (t) =>
+          t.treatment_type === 'intake' ||
+          t.notes?.trim() === intakeNotes,
+      ),
+  )
+
   return (
     <section className="screen">
       <Link className="back-link" to="/animals">
@@ -298,7 +311,6 @@ export function AnimalDetailScreen() {
           <p className="muted" style={{ margin: 0 }}>
             Arrived {animal.intake_date}
           </p>
-          {animal.notes ? <p style={{ margin: 0 }}>{animal.notes}</p> : null}
 
           <SelectField
             label="Status"
@@ -335,12 +347,10 @@ export function AnimalDetailScreen() {
           <SelectField
             label="What kind of care?"
             value={treatmentType}
-            options={(Object.keys(TREATMENT_LABELS) as TreatmentType[]).map(
-              (key) => ({
-                value: key,
-                label: TREATMENT_LABELS[key],
-              }),
-            )}
+            options={CARE_FORM_TYPES.map((key) => ({
+              value: key,
+              label: TREATMENT_LABELS[key],
+            }))}
             onChange={(value) => setTreatmentType(value as TreatmentType)}
           />
           <TextField
@@ -404,7 +414,26 @@ export function AnimalDetailScreen() {
             </Button>
           </div>
         ))}
-        {treatments.length === 0 ? (
+        {showLegacyIntakeNotes ? (
+          <div className="list-item list-item--row">
+            <div
+              className="list-item__body timeline-item"
+              style={{ border: 'none', padding: 0 }}
+            >
+              <span className="timeline-dot" aria-hidden />
+              <div>
+                <strong>{TREATMENT_LABELS.intake}</strong>{' '}
+                <span className="muted">
+                  {animal.intake_date
+                    ? new Date(`${animal.intake_date}T12:00:00`).toLocaleString()
+                    : 'Arrival'}
+                </span>
+                <div>{animal.notes}</div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {treatments.length === 0 && !showLegacyIntakeNotes ? (
           <p className="muted">No care notes yet. Tap Log care to add the first one.</p>
         ) : null}
       </div>

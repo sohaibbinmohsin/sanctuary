@@ -1,7 +1,7 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
 import type { TreatmentRecord } from '@/features/sync/powersync/schema'
 
-export type TreatmentType = 'meds' | 'vet' | 'procedure' | 'other'
+export type TreatmentType = 'meds' | 'vet' | 'procedure' | 'other' | 'intake'
 
 export type AddTreatmentInput = {
   orgId: string

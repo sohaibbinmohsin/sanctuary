@@ -164,7 +164,7 @@ export function AnimalIntakeScreen() {
           />
           <TextareaField
             label="Notes"
-            hint="optional"
+            hint="optional — saved to the care log"
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

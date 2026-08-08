@@ -1,6 +1,7 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
 import { nextShelterId } from '@/shared/lib/ids/shelterId'
 import type { AnimalRecord } from '@/features/sync/powersync/schema'
+import { addTreatment } from '@/features/treatments/domain/treatments'
 
 export type CreateAnimalInput = {
   orgId: string
@@ -42,6 +43,8 @@ export async function createAnimal(
   const now = new Date().toISOString()
   const intake_date = input.intakeDate ?? now.slice(0, 10)
 
+  const notes = input.notes?.trim() || null
+
   await db.execute(
     `INSERT INTO animals (
       id, org_id, shelter_code, name, species, sex, markings,
@@ -57,11 +60,21 @@ export async function createAnimal(
       input.markings?.trim() || null,
       intake_date,
       input.statusId,
-      input.notes?.trim() || null,
+      notes,
       now,
       now,
     ],
   )
+
+  if (notes) {
+    await addTreatment(db, {
+      orgId: input.orgId,
+      animalId: id,
+      treatmentType: 'intake',
+      notes,
+      treatedAt: `${intake_date}T12:00:00.000Z`,
+    })
+  }
 
   return {
     id,
@@ -73,7 +86,7 @@ export async function createAnimal(
     markings: input.markings?.trim() || null,
     intake_date,
     status_id: input.statusId,
-    notes: input.notes?.trim() || null,
+    notes,
     archived: 0,
     created_at: now,
     updated_at: now,
