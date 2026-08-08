@@ -130,6 +130,8 @@ Add your production origin to `AllowedOrigins` when you deploy the PWA.
 
 5. Set `VITE_R2_PUBLIC_BASE_URL` to the same **public** base (r2.dev / custom domain). Do **not** use `*.r2.cloudflarestorage.com/...` — that is the private S3 API host.
 
+Photo deletes (single photo or remove animal) call the `r2-sign` edge function with `action: "delete"`, which removes the object in R2 on the server. No extra CORS methods are required for deletes.
+
 6. Redeploy after secret or function changes:
 
 ```bash

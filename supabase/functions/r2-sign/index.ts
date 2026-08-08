@@ -1,6 +1,10 @@
-// Deno Supabase Edge Function — signed R2 PUT URLs
+// Deno Supabase Edge Function — signed R2 PUT URLs + server-side DELETE
 // Secrets: R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_ENDPOINT, R2_PUBLIC_BASE_URL
 // Deploy with: supabase functions deploy r2-sign
+//
+// Body: { key: string, action?: 'upload' | 'delete' }
+// - upload (default): returns { uploadUrl, publicUrl } for browser PUT
+// - delete: deletes the object in R2 from the edge function (no browser CORS needed)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
@@ -64,6 +68,69 @@ function normalizeEndpoint(raw: string): string {
   }
 }
 
+async function signedR2Url(opts: {
+  method: 'PUT' | 'DELETE'
+  key: string
+  accessKeyId: string
+  secretAccessKey: string
+  bucket: string
+  endpoint: string
+}): Promise<string> {
+  const region = 'auto'
+  const service = 's3'
+  const host = new URL(opts.endpoint).host
+  const now = new Date()
+  const amzDate =
+    now.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, 15) + 'Z'
+  const dateStamp = amzDate.slice(0, 8)
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`
+  const expires = 300
+  // Sign only host — do not send Content-Type from the browser PUT.
+  const signedHeaders = 'host'
+  const canonicalUri = `/${opts.bucket}/${opts.key
+    .split('/')
+    .map(encodeURIComponent)
+    .join('/')}`
+
+  const query = new URLSearchParams({
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+    'X-Amz-Credential': `${opts.accessKeyId}/${credentialScope}`,
+    'X-Amz-Date': amzDate,
+    'X-Amz-Expires': String(expires),
+    'X-Amz-SignedHeaders': signedHeaders,
+  })
+
+  const canonicalQuerystring = [...query.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&')
+
+  const canonicalRequest = [
+    opts.method,
+    canonicalUri,
+    canonicalQuerystring,
+    `host:${host}\n`,
+    signedHeaders,
+    'UNSIGNED-PAYLOAD',
+  ].join('\n')
+
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    amzDate,
+    credentialScope,
+    await sha256Hex(canonicalRequest),
+  ].join('\n')
+
+  const signingKey = await getSignatureKey(
+    opts.secretAccessKey,
+    dateStamp,
+    region,
+    service,
+  )
+  const signature = toHex(await hmacSha256(signingKey, stringToSign))
+  return `${opts.endpoint}${canonicalUri}?${canonicalQuerystring}&X-Amz-Signature=${signature}`
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -109,7 +176,10 @@ Deno.serve(async (req) => {
       })
     }
 
-    const body = (await req.json()) as { key?: string }
+    const body = (await req.json()) as {
+      key?: string
+      action?: 'upload' | 'delete'
+    }
     const key = body.key?.replace(/^\/+/, '')
     if (!key || !key.startsWith(`${membership.org_id}/`)) {
       return new Response(JSON.stringify({ error: 'Invalid key' }), {
@@ -117,6 +187,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    const action = body.action === 'delete' ? 'delete' : 'upload'
 
     const accessKeyId = Deno.env.get('R2_ACCESS_KEY_ID') ?? ''
     const secretAccessKey = Deno.env.get('R2_SECRET_ACCESS_KEY') ?? ''
@@ -134,60 +206,42 @@ Deno.serve(async (req) => {
       })
     }
 
-    const region = 'auto'
-    const service = 's3'
-    const method = 'PUT'
-    const host = new URL(endpoint).host
-    const now = new Date()
-    const amzDate =
-      now.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, 15) + 'Z'
-    const dateStamp = amzDate.slice(0, 8)
-    const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`
-    const expires = 300
-    // Sign only host — do not send Content-Type from the browser PUT.
-    const signedHeaders = 'host'
-    const canonicalUri = `/${bucket}/${key
-      .split('/')
-      .map(encodeURIComponent)
-      .join('/')}`
+    if (action === 'delete') {
+      const deleteUrl = await signedR2Url({
+        method: 'DELETE',
+        key,
+        accessKeyId,
+        secretAccessKey,
+        bucket,
+        endpoint,
+      })
+      const del = await fetch(deleteUrl, { method: 'DELETE' })
+      // 404/NoSuchKey: already gone — treat as success
+      if (!del.ok && del.status !== 404) {
+        const detail = (await del.text().catch(() => '')).slice(0, 200)
+        return new Response(
+          JSON.stringify({
+            error: `R2 delete failed: ${del.status}${detail ? ` ${detail}` : ''}`,
+          }),
+          {
+            status: 502,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        )
+      }
+      return new Response(JSON.stringify({ ok: true, key }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-    const query = new URLSearchParams({
-      'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
-      'X-Amz-Credential': `${accessKeyId}/${credentialScope}`,
-      'X-Amz-Date': amzDate,
-      'X-Amz-Expires': String(expires),
-      'X-Amz-SignedHeaders': signedHeaders,
-    })
-
-    const canonicalQuerystring = [...query.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-      .join('&')
-
-    const canonicalRequest = [
-      method,
-      canonicalUri,
-      canonicalQuerystring,
-      `host:${host}\n`,
-      signedHeaders,
-      'UNSIGNED-PAYLOAD',
-    ].join('\n')
-
-    const stringToSign = [
-      'AWS4-HMAC-SHA256',
-      amzDate,
-      credentialScope,
-      await sha256Hex(canonicalRequest),
-    ].join('\n')
-
-    const signingKey = await getSignatureKey(
+    const uploadUrl = await signedR2Url({
+      method: 'PUT',
+      key,
+      accessKeyId,
       secretAccessKey,
-      dateStamp,
-      region,
-      service,
-    )
-    const signature = toHex(await hmacSha256(signingKey, stringToSign))
-    const uploadUrl = `${endpoint}${canonicalUri}?${canonicalQuerystring}&X-Amz-Signature=${signature}`
+      bucket,
+      endpoint,
+    })
     const publicUrl = publicBase ? `${publicBase}/${key}` : key
 
     return new Response(JSON.stringify({ uploadUrl, publicUrl }), {

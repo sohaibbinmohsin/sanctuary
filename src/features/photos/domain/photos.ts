@@ -1,6 +1,10 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
 import type { PhotoRecord } from '@/features/sync/powersync/schema'
-import { compressImage } from '@/shared/lib/r2/upload'
+import {
+  compressImage,
+  requestR2Delete,
+  r2ObjectKey,
+} from '@/shared/lib/r2/upload'
 
 const PHOTO_CACHE = 'sanctuary-photos-v1'
 
@@ -37,10 +41,41 @@ export async function deleteLocalPhoto(photoId: string): Promise<void> {
   await cache.delete(localPhotoUrl(photoId))
 }
 
+async function deleteRemotePhoto(photo: {
+  id: string
+  org_id: string
+  animal_id: string
+  r2_key: string | null
+  upload_state?: string | null
+}): Promise<void> {
+  const uploaded =
+    photo.upload_state === 'uploaded' || Boolean(photo.r2_key)
+  if (!uploaded) return
+  if (!navigator.onLine) {
+    throw new Error(
+      'Connect to the internet to delete photos from cloud storage.',
+    )
+  }
+  const key = r2ObjectKey(photo.r2_key, {
+    orgId: photo.org_id,
+    animalId: photo.animal_id,
+    photoId: photo.id,
+  })
+  if (!key) return
+  await requestR2Delete(key)
+}
+
 export async function deletePhoto(
   db: SanctuaryDb,
   photoId: string,
 ): Promise<void> {
+  const photo = await db.getOptional<PhotoRecord>(
+    `SELECT * FROM photos WHERE id = ?`,
+    [photoId],
+  )
+  if (photo) {
+    await deleteRemotePhoto(photo)
+  }
   await deleteLocalPhoto(photoId)
   await db.execute(`DELETE FROM photos WHERE id = ?`, [photoId])
 }
@@ -49,8 +84,8 @@ export async function deletePhotosForAnimal(
   db: SanctuaryDb,
   animalId: string,
 ): Promise<void> {
-  const rows = await db.getAll<{ id: string }>(
-    `SELECT id FROM photos WHERE animal_id = ?`,
+  const rows = await db.getAll<PhotoRecord>(
+    `SELECT * FROM photos WHERE animal_id = ?`,
     [animalId],
   )
   for (const row of rows) {
