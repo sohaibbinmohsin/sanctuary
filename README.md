@@ -38,7 +38,10 @@ npm run dev:setup
 ## Scripts
 
 - `npm run dev` — start Vite dev server
-- `npm run db:setup` — apply schema + seed (needs `DATABASE_URL`, `SEED_USER_ID`)
+- `npm run db:setup` — apply schema + seed on DEV (needs `DATABASE_URL`, `SEED_USER_ID`)
+- `npm run db:push` — push migrations to Sanctuary DEV via CLI
+- `npm run functions:deploy` — deploy edge functions to Sanctuary DEV
+- `npm run supabase:link` — link CLI to Sanctuary DEV
 - `npm run dev:setup` — `db:setup` then Vite
 - `npm run build` — type-check and production build
 - `npm test` — run Vitest
@@ -71,15 +74,47 @@ Deploy `supabase/functions/r2-sign` and set:
 
 Also ensure the function can read `SUPABASE_URL` and `SUPABASE_ANON_KEY` (provided by Supabase).
 
+## Environments (dev vs production)
+
+| | Local / day-to-day | Production |
+|---|-------------------|------------|
+| Supabase project | **Sanctuary** (`nsplqqaihekmmfznbkzb`) | **sanctuary-prod** (`azfzhbxyxnfqvjehemus`) |
+| How schema/functions deploy | `npm run db:push` / `npm run functions:deploy` (always DEV) | GitHub Action on push to `main` |
+| App env | `.env.local` → DEV keys + PowerSync | Vercel Production env → prod keys |
+
+**Rule:** never `supabase link` or deploy to prod from your laptop. Production is CI-only (`.github/workflows/supabase-production.yml`). The `scripts/supabase-dev.mjs` wrapper refuses the prod project ref.
+
+### GitHub secrets (for prod CI)
+
+In the repo → Settings → Secrets and variables → Actions:
+
+| Secret | Value |
+|--------|--------|
+| `SUPABASE_ACCESS_TOKEN` | [Account access token](https://supabase.com/dashboard/account/tokens) |
+| `PRODUCTION_PROJECT_ID` | `azfzhbxyxnfqvjehemus` |
+| `PRODUCTION_DB_PASSWORD` | Database password for sanctuary-prod |
+
+After secrets are set, merging migration/function changes to `main` runs `supabase db push` + `functions deploy` against prod. Vercel still builds the frontend from the same push.
+
+### Local Supabase CLI (DEV only)
+
+```bash
+npm run supabase:link      # link CLI to Sanctuary DEV
+npm run db:push            # apply new migrations to DEV
+npm run functions:deploy   # deploy edge functions to DEV
+```
+
 ## Supabase setup
 
-1. Create a Free Supabase project.
-2. Add `DATABASE_URL` + create an Auth user and set `SEED_USER_ID` in `.env.local`.
-3. Run `npm run db:setup` (applies migration + TOSC seed).
+1. Create a Free Supabase project (use **Sanctuary** for local; **sanctuary-prod** for production).
+2. Add `DATABASE_URL` + create an Auth user and set `SEED_USER_ID` in `.env.local` (DEV values).
+3. Run `npm run db:setup` (applies migration + TOSC seed on DEV).
 4. Confirm the `powersync` publication exists (created by the migration).
 5. Expose tables to the Data API if your project defaults to restricted public schema (needed for PowerSync `uploadData` via supabase-js).
 
 Manual SQL files remain under `supabase/migrations/` and `supabase/seed.sql` if you prefer the dashboard.
+
+For ongoing schema work after the first setup, prefer `npm run db:push` (tracks migrations via the CLI) over re-running `db:setup`.
 
 ## PowerSync setup
 
@@ -135,7 +170,10 @@ Photo deletes (single photo or remove animal) call the `r2-sign` edge function w
 6. Redeploy after secret or function changes:
 
 ```bash
-supabase functions deploy r2-sign --project-ref <PROJECT_REF>
+# DEV (local) — always use the npm script
+npm run functions:deploy
+
+# PROD — merge to main (GitHub Action). Do not deploy prod from your laptop.
 ```
 
 ## Pilot runbook (Android Chrome)
