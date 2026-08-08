@@ -48,89 +48,83 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
 
   return (
     <main className="login-screen">
-      <header className="login-screen__top">
-        <Link className="login-screen__back" to="/">
-          <ArrowLeft
-            className="login-screen__back-icon"
-            size={18}
-            weight="bold"
-            aria-hidden
-          />
-          <span className="login-screen__back-label">Back</span>
-          <span className="login-screen__home-label">Sanctuary</span>
-        </Link>
-      </header>
+      <Link className="login-screen__back" to="/">
+        <ArrowLeft size={18} weight="bold" aria-hidden />
+        Back
+      </Link>
 
-      <div className="login-screen__body">
-      <img
-        className="login-screen__logo"
-        src="/favicon.svg"
-        alt=""
-        width={44}
-        height={44}
-      />
-      <h1 className="brand">Sanctuary</h1>
-      <p className="lede">
-        Sign in to care for your animals and keep shelter records in one place.
-      </p>
-      <form onSubmit={onSubmit} className="login-form">
-        <TextField
-          label="Email"
-          type="email"
-          autoComplete="username"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <Field label="Password" htmlFor="login-password">
-          <div className="password-field">
-            <input
-              id="login-password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+      <div className="login-screen__panel">
+        <div className="login-screen__body">
+          <img
+            className="login-screen__logo"
+            src="/favicon.svg"
+            alt=""
+            width={44}
+            height={44}
+          />
+          <h1 className="brand">Sanctuary</h1>
+          <p className="lede">
+            Sign in to care for your animals and keep shelter records in one place.
+          </p>
+          <form onSubmit={onSubmit} className="login-form">
+            <TextField
+              label="Email"
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
-            <button
-              type="button"
-              className="password-field__toggle"
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
-              aria-pressed={showPassword}
-              onClick={() => setShowPassword((v) => !v)}
-            >
-              {showPassword ? (
-                <EyeSlash size={20} weight="bold" aria-hidden />
-              ) : (
-                <Eye size={20} weight="bold" aria-hidden />
-              )}
-            </button>
-          </div>
-        </Field>
-        {error ? <p className="form-error">{error}</p> : null}
-        <Button type="submit" variant="primary" block disabled={busy}>
-          {busy ? 'Signing in…' : 'Sign in'}
-        </Button>
-      </form>
-      </div>
+            <Field label="Password" htmlFor="login-password">
+              <div className="password-field">
+                <input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="password-field__toggle"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? (
+                    <EyeSlash size={20} weight="bold" aria-hidden />
+                  ) : (
+                    <Eye size={20} weight="bold" aria-hidden />
+                  )}
+                </button>
+              </div>
+            </Field>
+            {error ? <p className="form-error">{error}</p> : null}
+            <Button type="submit" variant="primary" block disabled={busy}>
+              {busy ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        </div>
 
-      <footer className="login-screen__foot">
-        <a
-          className="mohsin-credit"
-          href="https://themohsinproject.org/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span>Nonprofit software by</span>
-          <span className="mohsin-credit__name">The Mohsin Project</span>
-          <img
-            src="/mohsin-project-logo.svg"
-            alt=""
-            width={88}
-            height={50}
-          />
-        </a>
-      </footer>
+        <footer className="login-screen__foot">
+          <a
+            className="mohsin-credit"
+            href="https://themohsinproject.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>Nonprofit software by</span>
+            <span className="mohsin-credit__name">The Mohsin Project</span>
+            <img
+              src="/mohsin-project-logo.svg"
+              alt=""
+              width={88}
+              height={50}
+            />
+          </a>
+        </footer>
+      </div>
     </main>
   )
 }

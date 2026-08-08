@@ -43,9 +43,11 @@ export default function App() {
 
   if (!ready) {
     return (
-      <main className="login-screen">
-        <h1 className="brand">Sanctuary</h1>
-        <p className="muted">Getting things ready…</p>
+      <main className="boot-screen" aria-busy="true" aria-live="polite">
+        <div className="boot-screen__content">
+          <h1 className="brand">Sanctuary</h1>
+          <p className="muted">Getting things ready…</p>
+        </div>
       </main>
     )
   }
