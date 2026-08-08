@@ -13,16 +13,47 @@ export default defineConfig({
     wasm(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeAssets: [
+        'favicon.svg',
+        'apple-touch-icon.png',
+        'og-image.jpg',
+        'robots.txt',
+        'sitemap.xml',
+      ],
       manifest: {
         name: 'Sanctuary',
         short_name: 'Sanctuary',
-        theme_color: '#87A96B',
-        background_color: '#F5F1E8',
+        description:
+          'Offline-first shelter management for animal rescues. Track animals, care, photos, and money, even without signal.',
+        theme_color: '#2F5D3A',
+        background_color: '#E8EEE9',
         display: 'standalone',
         start_url: '/',
+        scope: '/',
+        lang: 'en',
+        icons: [
+          {
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+        ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff2,webmanifest}'],
       },
     }),
   ],

@@ -1,8 +1,0 @@
-{
-  "name": "Sanctuary",
-  "short_name": "Sanctuary",
-  "theme_color": "#87A96B",
-  "background_color": "#F5F1E8",
-  "display": "standalone",
-  "start_url": "/"
-}
