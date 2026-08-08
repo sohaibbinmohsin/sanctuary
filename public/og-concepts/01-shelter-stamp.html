@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sanctuary OG — Shelter Stamp</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@500&family=Outfit:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #1a2e22;
+        --ink-muted: #4a5c50;
+        --forest: #2f5d3a;
+        --chalk: #f3f6f3;
+        --soft: #e3ede6;
+        --white: #ffffff;
+        --amber: #b45309;
+        --rule: #c5d0c8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        background: #dfe6e1;
+        color: var(--ink);
+        font-family: "Outfit", sans-serif;
+        padding: 2rem 1.25rem 3rem;
+      }
+
+      .page {
+        max-width: 76rem;
+        margin: 0 auto;
+      }
+
+      .intro {
+        margin-bottom: 1.5rem;
+      }
+
+      .intro h1 {
+        margin: 0 0 0.35rem;
+        font-size: 1.35rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .intro p {
+        margin: 0;
+        max-width: 40rem;
+        color: var(--ink-muted);
+        font-size: 0.95rem;
+        line-height: 1.45;
+      }
+
+      .label {
+        display: inline-block;
+        margin-bottom: 0.65rem;
+        font-family: "DM Mono", monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+      }
+
+      .stage {
+        margin-bottom: 2.5rem;
+      }
+
+      /* ——— OG 1200×630 ——— */
+      .og {
+        width: min(100%, 75rem);
+        aspect-ratio: 1200 / 630;
+        position: relative;
+        overflow: hidden;
+        border-radius: 14px;
+        background: var(--chalk);
+        box-shadow: 0 18px 50px rgba(26, 46, 34, 0.12);
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+      }
+
+      .og-copy {
+        padding: clamp(1.5rem, 4.5%, 3rem);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 0.85rem;
+        position: relative;
+        z-index: 1;
+      }
+
+      .eyebrow {
+        font-family: "DM Mono", monospace;
+        font-size: clamp(0.7rem, 1.4vw, 0.85rem);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--amber);
+        font-weight: 500;
+      }
+
+      .brand {
+        margin: 0;
+        font-size: clamp(2.4rem, 5.5vw, 4.25rem);
+        font-weight: 700;
+        letter-spacing: -0.035em;
+        line-height: 1.02;
+        color: var(--forest);
+      }
+
+      .tagline {
+        margin: 0;
+        max-width: 22ch;
+        font-size: clamp(1rem, 2vw, 1.35rem);
+        font-weight: 500;
+        line-height: 1.35;
+        color: var(--ink-muted);
+      }
+
+      .credit {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        margin-top: 0.5rem;
+        font-size: clamp(0.78rem, 1.3vw, 0.95rem);
+        color: var(--ink-muted);
+      }
+
+      .credit img {
+        width: clamp(1.1rem, 2vw, 1.35rem);
+        height: auto;
+        display: block;
+      }
+
+      .og-mark {
+        position: relative;
+        display: grid;
+        place-items: center;
+        padding: clamp(1rem, 3%, 2rem);
+      }
+
+      .stamp {
+        width: min(88%, 22rem);
+        aspect-ratio: 1.15 / 1;
+        border: 3px solid var(--forest);
+        border-radius: 12px;
+        background: var(--white);
+        box-shadow:
+          0 1px 0 rgba(26, 46, 34, 0.06),
+          0 18px 40px rgba(26, 46, 34, 0.1);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: clamp(1rem, 3vw, 1.5rem);
+        transform: rotate(-2.5deg);
+      }
+
+      .stamp-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.75rem;
+        font-family: "DM Mono", monospace;
+        font-size: clamp(0.72rem, 1.3vw, 0.9rem);
+        color: var(--ink-muted);
+      }
+
+      .stamp-id {
+        margin: 0;
+        font-family: "DM Mono", monospace;
+        font-size: clamp(1.8rem, 4.2vw, 3rem);
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        color: var(--forest);
+        line-height: 1;
+      }
+
+      .stamp-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 0.75rem;
+      }
+
+      .stamp-name {
+        font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+        font-weight: 600;
+        color: var(--ink);
+      }
+
+      .stamp-badge {
+        font-family: "DM Mono", monospace;
+        font-size: clamp(0.65rem, 1.1vw, 0.78rem);
+        padding: 0.35rem 0.55rem;
+        border-radius: 999px;
+        background: var(--soft);
+        color: var(--forest);
+        white-space: nowrap;
+      }
+
+      .house {
+        width: clamp(2.2rem, 4vw, 2.8rem);
+        height: auto;
+        color: var(--forest);
+      }
+
+      /* ——— Mobile 9:19.2 ——— */
+      .mobile-wrap {
+        display: flex;
+        justify-content: center;
+      }
+
+      .mobile {
+        width: min(100%, 22.5rem);
+        aspect-ratio: 1080 / 2304;
+        position: relative;
+        overflow: hidden;
+        border-radius: 1.5rem;
+        background: var(--chalk);
+        box-shadow: 0 18px 50px rgba(26, 46, 34, 0.14);
+        padding: 12% 9% 10%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 1.25rem;
+      }
+
+      .mobile .brand {
+        font-size: clamp(2.4rem, 12vw, 3.25rem);
+      }
+
+      .mobile .tagline {
+        font-size: clamp(1rem, 4.2vw, 1.15rem);
+        max-width: none;
+      }
+
+      .mobile .stamp {
+        width: 100%;
+        transform: rotate(-1.5deg);
+        margin-top: 0.5rem;
+      }
+
+      .mobile .credit {
+        margin-top: 0.75rem;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="intro">
+        <h1>01 — Shelter Stamp</h1>
+        <p>
+          Intake-desk vibe. The monospace shelter ID is the signature, not
+          foliage. Feels like records and rescue, not a nature poster.
+        </p>
+      </header>
+
+      <section class="stage">
+        <div class="label">OG · 1200 × 630</div>
+        <article class="og" aria-label="Open Graph preview, Shelter Stamp">
+          <div class="og-copy">
+            <div class="eyebrow">Shelter records</div>
+            <h2 class="brand">Sanctuary</h2>
+            <p class="tagline">Keep every animal’s story offline and on the go.</p>
+            <div class="credit">
+              <span>A non profit software by The Mohsin Project</span>
+              <img src="../mohsin-project-logo.svg" alt="" />
+            </div>
+          </div>
+          <div class="og-mark">
+            <div class="stamp" aria-hidden="true">
+              <div class="stamp-top">
+                <span>Dog</span>
+                <svg class="house" viewBox="0 0 32 32" fill="none">
+                  <path
+                    d="M5 14.5 16 6l11 8.5V26H5V14.5Z"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linejoin="round"
+                  />
+                  <path d="M13 26v-7h6v7" stroke="currentColor" stroke-width="2" />
+                </svg>
+              </div>
+              <p class="stamp-id">TSC-0142</p>
+              <div class="stamp-meta">
+                <span class="stamp-name">Rani</span>
+                <span class="stamp-badge">In sanctuary</span>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="stage">
+        <div class="label">Mobile · 1080 × 2304 · 9:19.2</div>
+        <div class="mobile-wrap">
+          <article class="mobile" aria-label="Mobile preview, Shelter Stamp">
+            <div class="eyebrow">Shelter records</div>
+            <h2 class="brand">Sanctuary</h2>
+            <p class="tagline">Keep every animal’s story offline and on the go.</p>
+            <div class="stamp" aria-hidden="true">
+              <div class="stamp-top">
+                <span>Dog</span>
+                <svg class="house" viewBox="0 0 32 32" fill="none">
+                  <path
+                    d="M5 14.5 16 6l11 8.5V26H5V14.5Z"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linejoin="round"
+                  />
+                  <path d="M13 26v-7h6v7" stroke="currentColor" stroke-width="2" />
+                </svg>
+              </div>
+              <p class="stamp-id">TSC-0142</p>
+              <div class="stamp-meta">
+                <span class="stamp-name">Rani</span>
+                <span class="stamp-badge">In sanctuary</span>
+              </div>
+            </div>
+            <div class="credit">
+              <span>A non profit software by The Mohsin Project</span>
+              <img src="../mohsin-project-logo.svg" alt="" />
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>
