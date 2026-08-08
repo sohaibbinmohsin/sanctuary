@@ -6,30 +6,26 @@ export const DASHBOARD_SHARE_CREDIT =
 export async function renderDashboardImage(
   element: HTMLElement,
 ): Promise<Blob> {
-  const clone = element.cloneNode(true) as HTMLElement
-  clone.setAttribute('aria-hidden', 'true')
-  clone.style.position = 'fixed'
-  clone.style.left = '-10000px'
-  clone.style.top = '0'
-  clone.style.width = `${element.offsetWidth}px`
-  clone.style.margin = '0'
-  clone.style.zIndex = '-1'
-
+  // Capture the live card. An off-screen fixed clone (left: -10000px) made
+  // html-to-image return a blank PNG in Chromium.
   const credit = document.createElement('div')
   credit.className = 'powered-by'
   credit.textContent = DASHBOARD_SHARE_CREDIT
-  clone.appendChild(credit)
+  element.appendChild(credit)
 
-  document.body.appendChild(clone)
   try {
-    const dataUrl = await toPng(clone, {
+    const dataUrl = await toPng(element, {
       cacheBust: true,
       pixelRatio: 2,
       backgroundColor: '#E8EEE9',
+      style: {
+        // Ensure the node itself isn't treated as out-of-viewport.
+        margin: '0',
+      },
     })
     const res = await fetch(dataUrl)
     return res.blob()
   } finally {
-    clone.remove()
+    credit.remove()
   }
 }
