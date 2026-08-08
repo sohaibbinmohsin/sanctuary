@@ -16,37 +16,44 @@ export default defineConfig({
       includeAssets: [
         'favicon.svg',
         'apple-touch-icon.png',
+        'pwa-192x192.png',
+        'pwa-512x512.png',
+        'pwa-512x512-maskable.png',
         'og-image.jpg',
         'mohsin-project-logo.svg',
         'robots.txt',
         'sitemap.xml',
+        'splashes/*.png',
       ],
       manifest: {
+        id: '/',
         name: 'Sanctuary',
         short_name: 'Sanctuary',
         description:
           'Offline-first shelter management for animal rescues. Track animals, care, photos, and money, even without signal.',
         theme_color: '#2F5D3A',
-        background_color: '#E8EEE9',
+        background_color: '#2F5D3A',
         display: 'standalone',
+        orientation: 'portrait-primary',
         start_url: '/',
         scope: '/',
         lang: 'en',
+        categories: ['business', 'productivity'],
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: '/pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/pwa-512x512-maskable.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
@@ -54,7 +61,25 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff2,webmanifest}'],
+        // Keep the installable SW lean; wasm loads on demand via runtime cache.
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
+        globIgnores: ['**/landing-concepts/**', '**/splashes/**'],
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/landing-concepts/],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: /\.wasm$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'sanctuary-wasm',
+              expiration: {
+                maxEntries: 8,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
+        ],
       },
     }),
   ],

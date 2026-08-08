@@ -31,6 +31,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { SelectField } from '@/shared/ui/SelectField'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
+import { InstallAppCard } from '@/shared/ui/InstallAppCard'
 
 export function SettingsScreen() {
   const db = useDb()
@@ -367,6 +368,10 @@ export function SettingsScreen() {
               ))}
           </div>
         </div>
+      </div>
+
+      <div style={{ marginTop: '1.25rem' }}>
+        <InstallAppCard />
       </div>
 
       <div className="panel stack" style={{ marginTop: '1.25rem' }}>
