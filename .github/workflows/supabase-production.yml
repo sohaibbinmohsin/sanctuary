@@ -2,8 +2,10 @@
 # Local development must NEVER use these secrets — use npm run db:push / functions:deploy
 # (those always target the Sanctuary DEV project).
 #
-# We intentionally skip `supabase link`: recent CLI versions fail parsing API key
-# metadata (SchemaError on inserted_at). db push uses --db-url; functions use --project-ref.
+# Notes:
+# - Skip `supabase link` (CLI SchemaError on API key inserted_at).
+# - Use Supavisor session-mode pooler (IPv4). Direct db.* hosts are IPv6-only and
+#   GitHub Actions cannot connect (ECONNREFUSED / network unreachable).
 
 name: Deploy Supabase (production)
 
@@ -55,8 +57,15 @@ jobs:
 
       - name: Push migrations
         run: |
+          set -euo pipefail
           ENCODED_PASSWORD=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['SUPABASE_DB_PASSWORD'], safe=''))")
-          DB_URL="postgresql://postgres:${ENCODED_PASSWORD}@db.${SUPABASE_PROJECT_ID}.supabase.co:5432/postgres"
+          REGION=$(curl -fsS \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_ID}" \
+            | python3 -c "import sys, json; print(json.load(sys.stdin)['region'])")
+          # Session mode (port 5432) supports migrations; transaction mode (6543) does not.
+          DB_URL="postgresql://postgres.${SUPABASE_PROJECT_ID}:${ENCODED_PASSWORD}@aws-0-${REGION}.pooler.supabase.com:5432/postgres"
+          echo "Pushing migrations via session pooler (region=${REGION})"
           supabase db push --db-url "$DB_URL" --yes
 
       - name: Deploy edge functions
