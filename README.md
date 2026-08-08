@@ -96,6 +96,8 @@ In the repo → Settings → Secrets and variables → Actions:
 
 After secrets are set, merging migration/function changes to `main` runs `supabase db push` + `functions deploy` against prod. Vercel still builds the frontend from the same push.
 
+CI connects via the **session pooler** (IPv4). Direct `db.<ref>.supabase.co` is IPv6-only and fails on GitHub Actions.
+
 ### Local Supabase CLI (DEV only)
 
 ```bash
