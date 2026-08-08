@@ -139,21 +139,18 @@ export function AnimalsListScreen() {
             label="Status"
             value={statusId}
             options={statusOptions}
-            allLabel="All statuses"
             onChange={setStatusId}
           />
           <FilterMenu
             label="Type"
             value={species}
             options={SPECIES_OPTIONS}
-            allLabel="All types"
             onChange={setSpecies}
           />
           <FilterMenu
             label="Gender"
             value={sex}
             options={SEX_OPTIONS}
-            allLabel="All genders"
             onChange={setSex}
           />
         </div>

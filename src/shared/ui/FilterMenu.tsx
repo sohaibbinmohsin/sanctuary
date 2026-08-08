@@ -29,9 +29,7 @@ export function FilterMenu({
   const [open, setOpen] = useState(false)
   const selected = options.find((o) => o.value === value)
   const active = Boolean(value)
-  const triggerLabel = selected
-    ? `${label} · ${selected.label}`
-    : `${label}: ${allLabel}`
+  const triggerLabel = selected ? `${label} · ${selected.label}` : label
 
   useEffect(() => {
     if (!open) return
