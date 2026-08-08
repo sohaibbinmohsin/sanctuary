@@ -1,15 +1,32 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft } from '@phosphor-icons/react'
 
 type PageHeaderProps = {
   title: string
   subtitle?: string
   actions?: ReactNode
+  /** When set, shows a back control above the title. */
+  backTo?: string
+  backLabel?: string
 }
 
-export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  subtitle,
+  actions,
+  backTo,
+  backLabel = 'Back',
+}: PageHeaderProps) {
   return (
     <header className="page-header">
       <div>
+        {backTo ? (
+          <Link className="back-link" to={backTo}>
+            <ArrowLeft size={18} weight="bold" aria-hidden />
+            {backLabel}
+          </Link>
+        ) : null}
         <h1>{title}</h1>
         {subtitle ? <p className="page-header__sub">{subtitle}</p> : null}
       </div>

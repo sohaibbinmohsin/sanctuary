@@ -78,6 +78,8 @@ export function AnimalIntakeScreen() {
       <PageHeader
         title="Add an animal"
         subtitle="We'll create a shelter ID when you save."
+        backTo="/animals"
+        backLabel="Animals"
       />
 
       <form className="stack stack--loose" onSubmit={onSubmit}>

@@ -685,6 +685,10 @@ a.primary {
   flex-shrink: 0;
 }
 
+.page-header .back-link {
+  margin-bottom: var(--space-2);
+}
+
 .screen h1 {
   font-family: var(--font-display);
   font-size: var(--text-xl);

@@ -10,6 +10,7 @@ import { AnimalsListScreen } from '@/features/animals/screens/AnimalsListScreen'
 import { AnimalIntakeScreen } from '@/features/animals/screens/AnimalIntakeScreen'
 import { AnimalDetailScreen } from '@/features/animals/screens/AnimalDetailScreen'
 import { LedgerScreen } from '@/features/ledger/screens/LedgerScreen'
+import { LedgerEntryScreen } from '@/features/ledger/screens/LedgerEntryScreen'
 import { DashboardScreen } from '@/features/dashboard/screens/DashboardScreen'
 import { SettingsScreen } from '@/features/settings/screens/SettingsScreen'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
@@ -25,7 +26,7 @@ function NavItems({ className }: { className: string }) {
   return (
     <nav className={className} aria-label="Main">
       {NAV.map(({ to, label, icon: Icon }) => (
-        <NavLink key={to} to={to} end={to === '/animals' ? false : undefined}>
+        <NavLink key={to} to={to} end={to === '/animals' || to === '/ledger' ? false : undefined}>
           <Icon weight="duotone" aria-hidden />
           <span className="app-nav__label">{label}</span>
         </NavLink>
@@ -57,6 +58,7 @@ export function AppShell() {
             <Route path="/animals/new" element={<AnimalIntakeScreen />} />
             <Route path="/animals/:id" element={<AnimalDetailScreen />} />
             <Route path="/ledger" element={<LedgerScreen />} />
+            <Route path="/ledger/new" element={<LedgerEntryScreen />} />
             <Route path="/dashboard" element={<DashboardScreen />} />
             <Route path="/settings" element={<SettingsScreen />} />
           </Routes>
