@@ -17,6 +17,7 @@ export default defineConfig({
         'favicon.svg',
         'apple-touch-icon.png',
         'og-image.jpg',
+        'mohsin-project-logo.svg',
         'robots.txt',
         'sitemap.xml',
       ],
