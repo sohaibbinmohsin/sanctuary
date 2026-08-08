@@ -5,6 +5,7 @@ import {
   connectPowerSync,
 } from '@/features/sync/powersync/database'
 import { supabase, supabaseConfigured } from '@/shared/lib/supabase'
+import { ConfirmProvider } from '@/shared/ui/ConfirmDialog'
 
 type ProvidersProps = {
   children: ReactNode
@@ -25,7 +26,9 @@ export function Providers({ children, sessionReady }: ProvidersProps) {
   }, [sessionReady])
 
   return (
-    <PowerSyncContext.Provider value={db}>{children}</PowerSyncContext.Provider>
+    <PowerSyncContext.Provider value={db}>
+      <ConfirmProvider>{children}</ConfirmProvider>
+    </PowerSyncContext.Provider>
   )
 }
 

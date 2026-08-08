@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { CLOUD_UNREACHABLE_MESSAGE } from '@/shared/ui/SyncBanner'
 
-describe('support copy', () => {
-  it('uses exact cloud unreachable sentence', () => {
+describe('SyncBanner copy', () => {
+  it('keeps a plain-language offline failure message', () => {
     expect(CLOUD_UNREACHABLE_MESSAGE).toBe(
-      "Can't reach Sanctuary cloud right now. Your data is safe on this phone. Please contact support.",
+      "Can't reach Sanctuary right now. Your data is safe on this phone. Please contact support.",
     )
   })
 })

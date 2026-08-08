@@ -1,19 +1,19 @@
 export const INTAKE_MESSAGES = [
-  'Welcome home — another life safe in your care.',
-  'Logged. One more animal with a name on the board.',
-  'Intake saved. You’ve got this.',
+  'Welcome home. Another life safe in your care.',
+  'Saved. One more animal with a place on the board.',
+  'Animal added. You’ve got this.',
   'Recorded. Sanctuary grows one save at a time.',
 ]
 
 export const TREATMENT_MESSAGES = [
-  'Treatment noted — the next handoff will thank you.',
+  'Care note saved. The next person on shift will thank you.',
   'Care history updated.',
   'Logged. Continuity of care starts here.',
 ]
 
 export const LEDGER_MESSAGES = [
-  'Money trail updated.',
-  'Entry saved — clarity for donors and for you.',
+  'Money record updated.',
+  'Entry saved. Clearer numbers for you and your donors.',
   'Books balanced a little more.',
 ]
 
@@ -21,7 +21,7 @@ export const DASHBOARD_GREETINGS = [
   'Another day of quiet courage at the sanctuary.',
   'The animals are lucky to have you.',
   'Steady work. Real impact.',
-  'Here’s today’s snapshot — you’ve earned the pause.',
+  'Here’s today’s snapshot. You’ve earned the pause.',
 ]
 
 export function pickMessage(messages: string[]): string {

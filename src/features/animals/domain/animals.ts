@@ -90,12 +90,15 @@ export async function searchAnimals(
     clauses.push('a.status_id = ?')
     params.push(filters.statusId)
   }
-  if (filters.species) {
-    clauses.push('LOWER(a.species) = LOWER(?)')
-    params.push(filters.species.trim())
+  if (filters.species?.trim()) {
+    clauses.push('LOWER(a.species) LIKE LOWER(?)')
+    params.push(`%${filters.species.trim()}%`)
   }
   if (filters.query?.trim()) {
-    clauses.push('(a.shelter_code LIKE ? OR IFNULL(a.name, "") LIKE ?)')
+    // SQLite string literals must use single quotes; "" is an identifier.
+    clauses.push(
+      '(LOWER(a.shelter_code) LIKE LOWER(?) OR LOWER(IFNULL(a.name, \'\')) LIKE LOWER(?))',
+    )
     const q = `%${filters.query.trim()}%`
     params.push(q, q)
   }
@@ -131,6 +134,17 @@ export async function updateAnimalStatus(
   await db.execute(
     `UPDATE animals SET status_id = ?, updated_at = ? WHERE id = ?`,
     [statusId, new Date().toISOString(), id],
+  )
+}
+
+/** Soft-delete: hides the animal from lists while keeping history syncable. */
+export async function archiveAnimal(
+  db: SanctuaryDb,
+  id: string,
+): Promise<void> {
+  await db.execute(
+    `UPDATE animals SET archived = 1, updated_at = ? WHERE id = ?`,
+    [new Date().toISOString(), id],
   )
 }
 

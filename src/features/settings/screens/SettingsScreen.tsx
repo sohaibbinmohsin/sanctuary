@@ -27,10 +27,15 @@ import {
   listPhotosForAnimal,
 } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
+import { PageHeader } from '@/shared/ui/PageHeader'
+import { Button } from '@/shared/ui/Button'
+import { SelectField } from '@/shared/ui/SelectField'
+import { useConfirm } from '@/shared/ui/ConfirmDialog'
 
 export function SettingsScreen() {
   const db = useDb()
   const { member } = useCurrentMember()
+  const confirm = useConfirm()
   const supportEmail = getSupportEmail()
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
   const [categories, setCategories] = useState<LedgerCategoryRecord[]>([])
@@ -192,9 +197,9 @@ export function SettingsScreen() {
       a.download = `sanctuary-export-${date}.zip`
       a.click()
       URL.revokeObjectURL(url)
-      setMessage('Export downloaded')
+      setMessage('Your records downloaded.')
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Export failed')
+      setMessage(err instanceof Error ? err.message : 'Download failed. Try again.')
     } finally {
       setExportBusy(false)
     }
@@ -207,137 +212,192 @@ export function SettingsScreen() {
 
   return (
     <section className="screen">
-      <h1>Settings</h1>
-      {member ? (
-        <p className="muted">
-          {member.orgName} · {member.role}
-        </p>
-      ) : (
-        <p className="muted">Waiting for org membership to sync…</p>
-      )}
+      <PageHeader
+        title="Settings"
+        subtitle={
+          member
+            ? `${member.orgName} · ${member.role}`
+            : 'Waiting for your shelter info to load…'
+        }
+      />
 
-      <h2>Animal statuses</h2>
-      <form className="row" onSubmit={onAddStatus}>
-        <input
-          placeholder="New status label"
-          value={newStatus}
-          onChange={(e) => setNewStatus(e.target.value)}
-        />
-        <button className="primary" type="submit">
-          Add
-        </button>
-      </form>
-      <div>
-        {statuses
-          .filter((s) => !s.archived)
-          .map((s) => (
-            <div className="list-item row" key={s.id}>
-              <input
-                value={s.label ?? ''}
-                onChange={(e) => {
-                  const label = e.target.value
-                  setStatuses((prev) =>
-                    prev.map((x) => (x.id === s.id ? { ...x, label } : x)),
-                  )
-                }}
-                onBlur={(e) => {
-                  if (!db) return
-                  void renameStatus(db, s.id, e.target.value)
-                }}
-              />
-              <button type="button" onClick={() => void moveStatus(s.id, -1)}>
-                Up
-              </button>
-              <button type="button" onClick={() => void moveStatus(s.id, 1)}>
-                Down
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!db) return
-                  void archiveStatus(db, s.id).then(reload)
-                }}
-              >
-                Archive
-              </button>
-            </div>
-          ))}
-      </div>
-
-      <h2>Ledger categories</h2>
-      <form className="stack" onSubmit={onAddCategory}>
-        <div className="row">
-          <input
-            placeholder="New category"
-            value={newCategory}
-            onChange={(e) => setNewCategory(e.target.value)}
-          />
-          <select
-            value={newCategoryDirection}
-            onChange={(e) =>
-              setNewCategoryDirection(e.target.value as LedgerDirection)
-            }
-          >
-            <option value="in">In</option>
-            <option value="out">Out</option>
-          </select>
-          <button className="primary" type="submit">
-            Add
-          </button>
+      <div className="settings-grid">
+        <div className="panel stack">
+          <p className="section-label">Animal statuses</p>
+          <p className="muted" style={{ margin: 0 }}>
+            Labels like Quarantine or In care. Drag order with Up and Down.
+          </p>
+          <form className="row" onSubmit={onAddStatus}>
+            <input
+              placeholder="New status name"
+              value={newStatus}
+              onChange={(e) => setNewStatus(e.target.value)}
+              aria-label="New status name"
+              style={{ flex: 1, minWidth: '8rem' }}
+            />
+            <Button type="submit" variant="secondary">
+              Add
+            </Button>
+          </form>
+          <div>
+            {statuses
+              .filter((s) => !s.archived)
+              .map((s) => (
+                <div className="list-item row" key={s.id}>
+                  <input
+                    value={s.label ?? ''}
+                    onChange={(e) => {
+                      const label = e.target.value
+                      setStatuses((prev) =>
+                        prev.map((x) => (x.id === s.id ? { ...x, label } : x)),
+                      )
+                    }}
+                    onBlur={(e) => {
+                      if (!db) return
+                      void renameStatus(db, s.id, e.target.value)
+                    }}
+                    aria-label="Status name"
+                    style={{ flex: 1, minWidth: '6rem' }}
+                  />
+                  <Button type="button" variant="ghost" onClick={() => void moveStatus(s.id, -1)}>
+                    Up
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => void moveStatus(s.id, 1)}>
+                    Down
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger-ghost"
+                    onClick={() => {
+                      if (!db) return
+                      void (async () => {
+                        const ok = await confirm({
+                          title: `Hide “${s.label}”?`,
+                          body: 'It will no longer show when adding or updating animals.',
+                          confirmLabel: 'Hide status',
+                          tone: 'danger',
+                        })
+                        if (!ok) return
+                        await archiveStatus(db, s.id)
+                        await reload()
+                      })()
+                    }}
+                  >
+                    Hide
+                  </Button>
+                </div>
+              ))}
+          </div>
         </div>
-      </form>
-      <div>
-        {categories
-          .filter((c) => !c.archived)
-          .map((c) => (
-            <div className="list-item row" key={c.id}>
+
+        <div className="panel stack">
+          <p className="section-label">Money categories</p>
+          <form className="stack" onSubmit={onAddCategory}>
+            <div className="row" style={{ alignItems: 'flex-end' }}>
               <input
-                value={c.label ?? ''}
-                onChange={(e) => {
-                  const label = e.target.value
-                  setCategories((prev) =>
-                    prev.map((x) => (x.id === c.id ? { ...x, label } : x)),
-                  )
-                }}
-                onBlur={(e) => {
-                  if (!db) return
-                  void renameLedgerCategory(db, c.id, e.target.value)
-                }}
+                placeholder="New category"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                aria-label="New money category"
+                style={{ flex: 1, minWidth: '8rem' }}
               />
-              <span className="muted">{c.direction}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!db) return
-                  void archiveLedgerCategory(db, c.id).then(reload)
-                }}
-              >
-                Archive
-              </button>
+              <div style={{ minWidth: '8.5rem', flex: '0 0 auto' }}>
+                <SelectField
+                  label="Direction"
+                  hideLabel
+                  value={newCategoryDirection}
+                  options={[
+                    { value: 'in', label: 'Money in' },
+                    { value: 'out', label: 'Money out' },
+                  ]}
+                  onChange={(value) =>
+                    setNewCategoryDirection(value as LedgerDirection)
+                  }
+                />
+              </div>
+              <Button type="submit" variant="secondary">
+                Add
+              </Button>
             </div>
-          ))}
+          </form>
+          <div>
+            {categories
+              .filter((c) => !c.archived)
+              .map((c) => (
+                <div className="list-item row" key={c.id}>
+                  <input
+                    value={c.label ?? ''}
+                    onChange={(e) => {
+                      const label = e.target.value
+                      setCategories((prev) =>
+                        prev.map((x) => (x.id === c.id ? { ...x, label } : x)),
+                      )
+                    }}
+                    onBlur={(e) => {
+                      if (!db) return
+                      void renameLedgerCategory(db, c.id, e.target.value)
+                    }}
+                    aria-label="Category name"
+                    style={{ flex: 1, minWidth: '6rem' }}
+                  />
+                  <span className="muted">
+                    {c.direction === 'in' ? 'in' : 'out'}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="danger-ghost"
+                    onClick={() => {
+                      if (!db) return
+                      void (async () => {
+                        const ok = await confirm({
+                          title: `Hide “${c.label}”?`,
+                          body: 'It will no longer show when adding money entries.',
+                          confirmLabel: 'Hide category',
+                          tone: 'danger',
+                        })
+                        if (!ok) return
+                        await archiveLedgerCategory(db, c.id)
+                        await reload()
+                      })()
+                    }}
+                  >
+                    Hide
+                  </Button>
+                </div>
+              ))}
+          </div>
+        </div>
       </div>
 
-      <h2>Data export</h2>
-      <button
-        type="button"
-        className="primary"
-        disabled={exportBusy || !member}
-        onClick={() => void exportData()}
-      >
-        {exportBusy ? 'Exporting…' : 'Export my data'}
-      </button>
+      <div className="panel stack" style={{ marginTop: '1.25rem' }}>
+        <p className="section-label">Your data</p>
+        <p className="muted" style={{ margin: 0 }}>
+          Download a zip of animal records, care notes, money entries, and photos.
+        </p>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={exportBusy || !member}
+          onClick={() => void exportData()}
+        >
+          {exportBusy ? 'Preparing download…' : 'Download my records'}
+        </Button>
+        {message ? <p className="muted">{message}</p> : null}
+      </div>
 
-      <h2>Support</h2>
-      <p>
-        <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
-      </p>
+      <div className="panel stack" style={{ marginTop: '1.25rem' }}>
+        <p className="section-label">Help</p>
+        <p style={{ margin: 0 }}>
+          <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
+        </p>
+      </div>
 
-      <h2>Account</h2>
-      <button type="button" onClick={() => void onLogout()}>
-        Sign out
-      </button>
-      {message ? <p className="muted">{message}</p> : null}
+      <div className="panel stack" style={{ marginTop: '1.25rem' }}>
+        <p className="section-label">Account</p>
+        <Button type="button" variant="danger-outline" onClick={() => void onLogout()}>
+          Sign out
+        </Button>
+      </div>
     </section>
   )
 }

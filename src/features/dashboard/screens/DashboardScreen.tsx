@@ -6,6 +6,8 @@ import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { DASHBOARD_GREETINGS, pickMessage } from '@/shared/lib/morale/messages'
 import { renderDashboardImage } from '@/shared/lib/share/dashboardImage'
 import { MoraleToast } from '@/shared/ui/MoraleToast'
+import { PageHeader } from '@/shared/ui/PageHeader'
+import { Button } from '@/shared/ui/Button'
 
 const GREETING_KEY = 'sanctuary.dashboardGreetingShown'
 
@@ -56,16 +58,16 @@ export function DashboardScreen() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `sanctuary-dashboard-${new Date().toISOString().slice(0, 10)}.png`
+    a.download = `sanctuary-overview-${new Date().toISOString().slice(0, 10)}.png`
     a.click()
     URL.revokeObjectURL(url)
-    setToast('Dashboard image downloaded')
+    setToast('Image saved')
   }
 
   async function shareImage() {
     if (!cardRef.current) return
     const blob = await renderDashboardImage(cardRef.current)
-    const file = new File([blob], 'sanctuary-dashboard.png', {
+    const file = new File([blob], 'sanctuary-overview.png', {
       type: 'image/png',
     })
     if (navigator.canShare?.({ files: [file] })) {
@@ -82,36 +84,41 @@ export function DashboardScreen() {
 
   return (
     <section className="screen">
-      <h1>Dashboard</h1>
-      {greeting ? <p className="muted">{greeting}</p> : null}
+      <PageHeader
+        title="Overview"
+        subtitle={greeting ?? 'A quick look you can share with supporters.'}
+      />
 
       <div className="dashboard-card" ref={cardRef}>
-        <h2 style={{ marginTop: 0 }}>{member?.orgName ?? 'Your shelter'}</h2>
-        <p style={{ fontSize: '2rem', margin: '0.5rem 0' }}>{headcount}</p>
-        <p className="muted">animals in care</p>
-        <div className="row" style={{ marginTop: '1rem' }}>
+        <h2 style={{ marginTop: 0, fontFamily: 'var(--font-display)' }}>
+          {member?.orgName ?? 'Your shelter'}
+        </h2>
+        <p className="dashboard-card__count">{headcount}</p>
+        <p className="muted" style={{ margin: 0 }}>
+          animals in care
+        </p>
+        <div className="row" style={{ marginTop: '1.25rem', gap: '2rem' }}>
           <div>
-            <div className="muted">Month in</div>
-            <strong>{formatPkr(money.inCents)}</strong>
+            <div className="muted">Money in this month</div>
+            <strong className="money-in">{formatPkr(money.inCents)}</strong>
           </div>
           <div>
-            <div className="muted">Month out</div>
-            <strong>{formatPkr(money.outCents)}</strong>
+            <div className="muted">Money out this month</div>
+            <strong className="money-out">{formatPkr(money.outCents)}</strong>
           </div>
         </div>
-        <div className="powered-by">Powered by Sanctuary</div>
       </div>
 
-      <div className="row" style={{ marginTop: '1rem' }}>
-        <button type="button" className="primary" onClick={() => void copySummary()}>
-          Copy summary
-        </button>
-        <button type="button" className="primary" onClick={() => void downloadPng()}>
-          Download PNG
-        </button>
-        <button type="button" className="primary" onClick={() => void shareImage()}>
+      <div className="row" style={{ marginTop: '1.25rem' }}>
+        <Button type="button" variant="primary" onClick={() => void shareImage()}>
           Share
-        </button>
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => void copySummary()}>
+          Copy text
+        </Button>
+        <Button type="button" variant="ghost" onClick={() => void downloadPng()}>
+          Save image
+        </Button>
       </div>
       <MoraleToast message={toast} onDone={() => setToast(null)} />
     </section>

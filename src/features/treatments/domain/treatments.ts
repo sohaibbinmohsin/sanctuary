@@ -57,3 +57,10 @@ export async function listTreatmentsForAnimal(
     [animalId],
   )
 }
+
+export async function deleteTreatment(
+  db: SanctuaryDb,
+  id: string,
+): Promise<void> {
+  await db.execute(`DELETE FROM treatments WHERE id = ?`, [id])
+}

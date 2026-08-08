@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import { Camera, ImageSquare } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   countPendingPhotos,
   processPhotoQueue,
   queuePhoto,
 } from '@/features/photos/domain/photos'
+import { Button } from '@/shared/ui/Button'
 
 type PhotoCaptureProps = {
   orgId: string
@@ -18,7 +20,8 @@ export function PhotoCapture({
   onQueued,
 }: PhotoCaptureProps) {
   const db = useDb()
-  const inputRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,7 +51,7 @@ export function PhotoCapture({
     }
   }, [db, orgId])
 
-  async function onFiles(files: FileList | null) {
+  async function onFiles(files: FileList | null, input: HTMLInputElement | null) {
     if (!files?.length || !db) return
     setBusy(true)
     setError(null)
@@ -59,35 +62,58 @@ export function PhotoCapture({
       await refreshPending()
       onQueued?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not queue photo')
+      setError(
+        err instanceof Error ? err.message : 'Could not save photo. Try again.',
+      )
     } finally {
       setBusy(false)
-      if (inputRef.current) inputRef.current.value = ''
+      if (input) input.value = ''
     }
   }
 
   return (
     <div className="stack">
+      {/* Camera: capture hint opens rear camera on phones */}
       <input
-        ref={inputRef}
+        ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
+        hidden
+        onChange={(e) => void onFiles(e.target.files, cameraRef.current)}
+      />
+      {/* Gallery: no capture attribute so the photo library is offered */}
+      <input
+        ref={galleryRef}
+        type="file"
+        accept="image/*"
         multiple
         hidden
-        onChange={(e) => void onFiles(e.target.files)}
+        onChange={(e) => void onFiles(e.target.files, galleryRef.current)}
       />
       <div className="row">
-        <button
+        <Button
           type="button"
-          className="primary"
+          variant="secondary"
           disabled={busy}
-          onClick={() => inputRef.current?.click()}
+          onClick={() => cameraRef.current?.click()}
         >
-          {busy ? 'Saving…' : 'Add photo'}
-        </button>
+          <Camera size={18} weight="bold" aria-hidden />
+          {busy ? 'Saving…' : 'Take photo'}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={busy}
+          onClick={() => galleryRef.current?.click()}
+        >
+          <ImageSquare size={18} weight="bold" aria-hidden />
+          From gallery
+        </Button>
         {pending > 0 ? (
-          <span className="muted">{pending} photos waiting</span>
+          <span className="muted">
+            {pending} photo{pending === 1 ? '' : 's'} waiting to upload
+          </span>
         ) : null}
       </div>
       {error ? <p className="form-error">{error}</p> : null}

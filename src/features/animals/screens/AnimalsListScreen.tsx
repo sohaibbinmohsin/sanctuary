@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState, useDeferredValue } from 'react'
+import { MagnifyingGlass, PawPrint } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { AnimalCard } from '@/features/animals/components/AnimalCard'
 import {
@@ -14,6 +14,9 @@ import {
   localPhotoUrl,
 } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
+import { PageHeader } from '@/shared/ui/PageHeader'
+import { Button } from '@/shared/ui/Button'
+import { EmptyState } from '@/shared/ui/EmptyState'
 
 export function AnimalsListScreen() {
   const db = useDb()
@@ -21,9 +24,11 @@ export function AnimalsListScreen() {
   const [animals, setAnimals] = useState<AnimalWithStatus[]>([])
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
   const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
   const [statusId, setStatusId] = useState('')
   const [species, setSpecies] = useState('')
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!db || !member) return
@@ -33,81 +38,139 @@ export function AnimalsListScreen() {
   useEffect(() => {
     if (!db || !member) return
     let cancelled = false
+    setLoading(true)
     void (async () => {
-      const rows = await searchAnimals(db, member.orgId, {
-        query,
-        statusId: statusId || undefined,
-        species: species || undefined,
-      })
-      if (cancelled) return
-      setAnimals(rows)
+      try {
+        const rows = await searchAnimals(db, member.orgId, {
+          query: deferredQuery,
+          statusId: statusId || undefined,
+          species: species || undefined,
+        })
+        if (cancelled) return
+        setAnimals(rows)
 
-      const urls: Record<string, string> = {}
-      for (const animal of rows.slice(0, 60)) {
-        const photos = await listPhotosForAnimal(db, animal.id)
-        const first = photos[0]
-        if (!first) continue
-        const remote = publicPhotoUrl(first.r2_key)
-        if (remote) {
-          urls[animal.id] = remote
-          continue
+        const urls: Record<string, string> = {}
+        for (const animal of rows.slice(0, 60)) {
+          const photos = await listPhotosForAnimal(db, animal.id)
+          const first = photos[0]
+          if (!first) continue
+          const remote = publicPhotoUrl(first.r2_key)
+          if (remote) {
+            urls[animal.id] = remote
+            continue
+          }
+          const local = await getLocalPhoto(first.id)
+          if (local) {
+            urls[animal.id] = URL.createObjectURL(local)
+          } else {
+            urls[animal.id] = localPhotoUrl(first.id)
+          }
         }
-        const local = await getLocalPhoto(first.id)
-        if (local) {
-          urls[animal.id] = URL.createObjectURL(local)
-        } else {
-          urls[animal.id] = localPhotoUrl(first.id)
-        }
+        if (!cancelled) setPhotoUrls(urls)
+      } catch (err) {
+        console.warn('Animal search failed', err)
+        if (!cancelled) setAnimals([])
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      if (!cancelled) setPhotoUrls(urls)
     })()
     return () => {
       cancelled = true
     }
-  }, [db, member, query, statusId, species])
+  }, [db, member, deferredQuery, statusId, species])
+
+  const hasFilters = Boolean(query || statusId || species)
+  const subtitle = !member?.orgName
+    ? 'Everyone currently in your care'
+    : hasFilters
+      ? `${animals.length} match${animals.length === 1 ? '' : 'es'}`
+      : `${animals.length} in care at ${member.orgName}`
 
   return (
     <section className="screen">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h1>Animals</h1>
-        <Link className="primary" to="/animals/new" style={{ textDecoration: 'none' }}>
-          Intake
-        </Link>
-      </div>
-      <div className="stack">
-        <input
-          placeholder="Search by ID or name"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <div className="row">
-          <select value={statusId} onChange={(e) => setStatusId(e.target.value)}>
-            <option value="">All statuses</option>
-            {statuses.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+      <PageHeader
+        title="Animals"
+        subtitle={subtitle}
+        actions={
+          animals.length > 0 || hasFilters ? (
+            <Button to="/animals/new" variant="accent">
+              Add animal
+            </Button>
+          ) : undefined
+        }
+      />
+
+      <div className="filter-bar">
+        <div className="filter-bar__row">
+          <div className="filter-bar__search">
+            <MagnifyingGlass size={18} weight="bold" aria-hidden />
+            <input
+              type="search"
+              placeholder="Search by ID or name"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search animals"
+            />
+          </div>
           <input
-            placeholder="Species filter"
+            placeholder="Filter by type (dog, cat…)"
             value={species}
             onChange={(e) => setSpecies(e.target.value)}
+            aria-label="Filter by animal type"
           />
         </div>
+        <div className="filter-chips">
+          <button
+            type="button"
+            className="chip"
+            aria-pressed={statusId === ''}
+            onClick={() => setStatusId('')}
+          >
+            All
+          </button>
+          {statuses.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className="chip"
+              aria-pressed={statusId === s.id}
+              onClick={() => setStatusId(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="animal-grid" style={{ marginTop: '1rem' }}>
-        {animals.map((animal) => (
-          <AnimalCard
-            key={animal.id}
-            animal={animal}
-            photoUrl={photoUrls[animal.id]}
-          />
-        ))}
-      </div>
-      {animals.length === 0 ? (
-        <p className="muted">No animals yet. Start with intake.</p>
-      ) : null}
+
+      {loading && animals.length === 0 ? (
+        <div className="animal-grid">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="skeleton" style={{ aspectRatio: '1', height: 'auto' }} />
+          ))}
+        </div>
+      ) : animals.length === 0 ? (
+        <EmptyState
+          icon={<PawPrint size={28} weight="duotone" />}
+          title={hasFilters ? 'No matches' : 'No animals yet'}
+          body={
+            hasFilters
+              ? 'Try a different search or clear your filters.'
+              : 'Start by adding the first animal in your care.'
+          }
+          actionLabel={hasFilters ? undefined : 'Add animal'}
+          actionTo={hasFilters ? undefined : '/animals/new'}
+        />
+      ) : (
+        <div className="animal-grid">
+          {animals.map((animal) => (
+            <AnimalCard
+              key={animal.id}
+              animal={animal}
+              photoUrl={photoUrls[animal.id]}
+            />
+          ))}
+        </div>
+      )}
     </section>
   )
 }

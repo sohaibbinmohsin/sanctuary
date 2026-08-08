@@ -32,6 +32,19 @@ export async function getLocalPhoto(photoId: string): Promise<Blob | null> {
   return res.blob()
 }
 
+export async function deleteLocalPhoto(photoId: string): Promise<void> {
+  const cache = await photoStore()
+  await cache.delete(localPhotoUrl(photoId))
+}
+
+export async function deletePhoto(
+  db: SanctuaryDb,
+  photoId: string,
+): Promise<void> {
+  await deleteLocalPhoto(photoId)
+  await db.execute(`DELETE FROM photos WHERE id = ?`, [photoId])
+}
+
 export async function queuePhoto(
   db: SanctuaryDb,
   input: { orgId: string; animalId: string; blob: Blob },

@@ -6,13 +6,19 @@ import { listStatuses, type AnimalStatus } from '@/features/statuses/domain/stat
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { INTAKE_MESSAGES, pickMessage } from '@/shared/lib/morale/messages'
 import { MoraleToast } from '@/shared/ui/MoraleToast'
+import { PageHeader } from '@/shared/ui/PageHeader'
+import { Button } from '@/shared/ui/Button'
+import { SelectField, TextareaField, TextField } from '@/shared/ui/Field'
+
+const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
 
 export function AnimalIntakeScreen() {
   const db = useDb()
   const navigate = useNavigate()
   const { member } = useCurrentMember()
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
-  const [species, setSpecies] = useState('')
+  const [speciesPreset, setSpeciesPreset] = useState('Dog')
+  const [speciesOther, setSpeciesOther] = useState('')
   const [statusId, setStatusId] = useState('')
   const [name, setName] = useState('')
   const [sex, setSex] = useState('')
@@ -27,16 +33,14 @@ export function AnimalIntakeScreen() {
 
   useEffect(() => {
     if (!db || !member) return
-    let cancelled = false
     void listStatuses(db, member.orgId).then((rows) => {
-      if (cancelled) return
       setStatuses(rows)
-      if (rows[0]) setStatusId((current) => current || rows[0]!.id)
+      if (rows[0]) setStatusId(rows[0].id)
     })
-    return () => {
-      cancelled = true
-    }
   }, [db, member])
+
+  const species =
+    speciesPreset === 'Other' ? speciesOther.trim() : speciesPreset
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -44,8 +48,8 @@ export function AnimalIntakeScreen() {
     setBusy(true)
     setError(null)
     try {
-      if (!species.trim() || !statusId) {
-        throw new Error('Species and status are required')
+      if (!species || !statusId) {
+        throw new Error('Please choose an animal type and status.')
       }
       const animal = await createAnimal(db, {
         orgId: member.orgId,
@@ -61,7 +65,9 @@ export function AnimalIntakeScreen() {
       setToast(pickMessage(INTAKE_MESSAGES))
       window.setTimeout(() => navigate(`/animals/${animal.id}`), 600)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save animal')
+      setError(
+        err instanceof Error ? err.message : 'Could not save. Please try again.',
+      )
     } finally {
       setBusy(false)
     }
@@ -69,65 +75,114 @@ export function AnimalIntakeScreen() {
 
   return (
     <section className="screen">
-      <h1>New intake</h1>
-      <p className="muted">Shelter ID is assigned automatically on save.</p>
-      <form className="stack" onSubmit={onSubmit}>
-        <label>
-          Species *
-          <input value={species} onChange={(e) => setSpecies(e.target.value)} required />
-        </label>
-        <label>
-          Status *
-          <select
+      <PageHeader
+        title="Add an animal"
+        subtitle="We'll create a shelter ID when you save."
+      />
+
+      <form className="stack stack--loose" onSubmit={onSubmit}>
+        <div className="panel stack">
+          <p className="section-label">Who are they?</p>
+          <div className="field">
+            <span>Animal type</span>
+            <div className="filter-chips" role="group" aria-label="Animal type">
+              {SPECIES_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className="chip"
+                  aria-pressed={speciesPreset === preset}
+                  onClick={() => setSpeciesPreset(preset)}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+          </div>
+          {speciesPreset === 'Other' ? (
+            <TextField
+              label="Type"
+              value={speciesOther}
+              onChange={(e) => setSpeciesOther(e.target.value)}
+              required
+              placeholder="e.g. Goat"
+            />
+          ) : null}
+          <TextField
+            label="Name"
+            hint="optional"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="If they have one"
+          />
+          <div className="field">
+            <span>Sex</span>
+            <div className="segmented" role="group" aria-label="Sex">
+              {(['Female', 'Male', 'Unknown'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className="segmented__btn"
+                  aria-pressed={sex === option || (option === 'Unknown' && sex === '')}
+                  onClick={() =>
+                    setSex(option === 'Unknown' ? '' : option)
+                  }
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+          <TextField
+            label="Markings"
+            hint="optional"
+            value={markings}
+            onChange={(e) => setMarkings(e.target.value)}
+            placeholder="Colors, scars, collar tags…"
+          />
+        </div>
+
+        <div className="panel stack">
+          <p className="section-label">Arrival</p>
+          <SelectField
+            label="Status"
             value={statusId}
-            onChange={(e) => setStatusId(e.target.value)}
+            options={statuses.map((s) => ({
+              value: s.id,
+              label: s.label ?? '',
+            }))}
+            onChange={setStatusId}
             required
-          >
-            {statuses.length === 0 ? (
-              <option value="" disabled>
-                No statuses yet — check Settings or wait for sync
-              </option>
-            ) : null}
-            {statuses.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Name (optional)
-          <input value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label>
-          Sex
-          <input value={sex} onChange={(e) => setSex(e.target.value)} />
-        </label>
-        <label>
-          Markings
-          <input value={markings} onChange={(e) => setMarkings(e.target.value)} />
-        </label>
-        <label>
-          Intake date
-          <input
+          />
+          <TextField
+            label="Date arrived"
             type="date"
             value={intakeDate}
             onChange={(e) => setIntakeDate(e.target.value)}
           />
-        </label>
-        <label>
-          Notes
-          <textarea
+          <TextareaField
+            label="Notes"
+            hint="optional"
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
+            placeholder="Anything helpers should know"
           />
-        </label>
-        <p className="muted">Photo can be added on the detail screen after save.</p>
+          <p className="muted">You can add photos on the next screen after saving.</p>
+        </div>
+
         {error ? <p className="form-error">{error}</p> : null}
-        <button className="primary" type="submit" disabled={busy || !member}>
-          {busy ? 'Saving…' : 'Save intake'}
-        </button>
+
+        <div className="sticky-actions">
+          <Button
+            type="submit"
+            variant="accent"
+            block
+            disabled={busy || !member}
+          >
+            {busy ? 'Saving…' : 'Save animal'}
+          </Button>
+        </div>
       </form>
       <MoraleToast message={toast} onDone={() => setToast(null)} />
     </section>

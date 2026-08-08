@@ -140,6 +140,13 @@ export async function listLedgerEntries(
   )
 }
 
+export async function deleteLedgerEntry(
+  db: SanctuaryDb,
+  id: string,
+): Promise<void> {
+  await db.execute(`DELETE FROM ledger_entries WHERE id = ?`, [id])
+}
+
 export async function sumLedger(
   db: SanctuaryDb,
   orgId: string,

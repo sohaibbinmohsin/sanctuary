@@ -1,9 +1,84 @@
-/* src/styles/tokens.css */
+/* Sanctuary design tokens — Forest field-tool, light only */
 :root {
-  --color-primary: #87A96B;
-  --color-bg: #F5F1E8;
-  --color-text: #3E4C3E;
-  --color-danger: #A65D4E;
-  --font-sans: "Source Sans 3", "Segoe UI", sans-serif;
-  --font-display: "Fraunces", Georgia, serif;
+  /* Color */
+  --color-ink: #1a2e22;
+  --color-ink-muted: #4a5c50;
+  --color-forest: #2f5d3a;
+  --color-forest-hover: #264d30;
+  --color-forest-soft: #e3ede6;
+  --color-mist: #e8eee9;
+  --color-surface: #f7faf8;
+  --color-white: #ffffff;
+  --color-amber: #b45309;
+  --color-amber-soft: #fef3e7;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecec;
+  --color-border: #c5d0c8;
+  --color-border-strong: #9aaba0;
+  --color-ring: #2f5d3a;
+  --color-success: #2f5d3a;
+  --color-offline: #5c6b60;
+
+  /* Compat aliases used during migration */
+  --color-primary: var(--color-forest);
+  --color-bg: var(--color-mist);
+  --color-text: var(--color-ink);
+
+  /* Type */
+  --font-display: "Outfit", "Segoe UI", sans-serif;
+  --font-sans: "DM Sans", "Segoe UI", sans-serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.375rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.25rem;
+  --text-hero: clamp(2.5rem, 8vw, 3.25rem);
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+
+  /* Space */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* Radius — one system */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(26, 46, 34, 0.06);
+  --shadow-md: 0 4px 14px rgba(26, 46, 34, 0.08);
+  --shadow-lg: 0 12px 32px rgba(26, 46, 34, 0.12);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 150ms;
+  --duration: 220ms;
+  --duration-slow: 280ms;
+
+  /* Layout */
+  --nav-height: 4.25rem;
+  --sidebar-width: 15rem;
+  --content-max: 70rem;
+  --touch-min: 44px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+
+  --z-nav: 30;
+  --z-toast: 40;
+  --z-banner: 35;
 }

@@ -16,17 +16,17 @@ export function AnimalCard({ animal, photoUrl }: AnimalCardProps) {
           photoUrl
             ? {
                 backgroundImage: `url(${photoUrl})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
               }
             : undefined
         }
+        role={photoUrl ? 'img' : undefined}
+        aria-label={photoUrl ? `Photo of ${animal.name || animal.shelter_code}` : undefined}
       >
-        {photoUrl ? null : 'Photo'}
+        {photoUrl ? null : 'No photo yet'}
       </div>
       <div className="animal-card__body">
-        <div className="animal-card__code">{animal.shelter_code}</div>
-        <div>{animal.name || animal.species}</div>
+        <div className="animal-card__code shelter-code">{animal.shelter_code}</div>
+        <div className="animal-card__name">{animal.name || animal.species}</div>
         {animal.status_label ? (
           <StatusBadge label={animal.status_label} />
         ) : null}

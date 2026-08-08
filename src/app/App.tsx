@@ -39,7 +39,7 @@ export default function App() {
     return (
       <main className="login-screen">
         <h1 className="brand">Sanctuary</h1>
-        <p>Loading…</p>
+        <p className="muted">Getting things ready…</p>
       </main>
     )
   }
