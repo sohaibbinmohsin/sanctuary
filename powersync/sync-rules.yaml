@@ -1,0 +1,16 @@
+# Legacy Sync Rules format (kept for reference).
+# Prefer powersync/sync-streams.yaml — deploy that under Dashboard → Sync Streams.
+
+bucket_definitions:
+  by_user_org:
+    parameters: |
+      SELECT org_id FROM org_members WHERE user_id = request.user_id()
+    data:
+      - SELECT * FROM organizations WHERE id = bucket.org_id
+      - SELECT * FROM org_members WHERE org_id = bucket.org_id
+      - SELECT * FROM animal_statuses WHERE org_id = bucket.org_id
+      - SELECT * FROM animals WHERE org_id = bucket.org_id
+      - SELECT * FROM treatments WHERE org_id = bucket.org_id
+      - SELECT * FROM ledger_categories WHERE org_id = bucket.org_id
+      - SELECT * FROM ledger_entries WHERE org_id = bucket.org_id
+      - SELECT * FROM photos WHERE org_id = bucket.org_id
