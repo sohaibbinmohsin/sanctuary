@@ -3,6 +3,10 @@ import { usePowerSync } from '@powersync/react'
 import { supabase } from '@/shared/lib/supabase'
 import { asDb } from '@/shared/lib/db'
 import { hydrateOrgBootstrap } from '@/features/sync/hydrateOrgBootstrap'
+import {
+  isPlaygroundMode,
+  PLAYGROUND_USER_ID,
+} from '@/features/playground/mode'
 
 export type CurrentMember = {
   id: string
@@ -28,9 +32,22 @@ export function useCurrentMember(): {
     async function load() {
       setLoading(true)
       try {
-        const { data } = await supabase.auth.getSession()
-        const userId = data.session?.user?.id
-        if (!userId || !db) {
+        if (!db) {
+          if (!cancelled) setMember(null)
+          return
+        }
+
+        const playground = isPlaygroundMode()
+        let userId: string | undefined
+
+        if (playground) {
+          userId = PLAYGROUND_USER_ID
+        } else {
+          const { data } = await supabase.auth.getSession()
+          userId = data.session?.user?.id
+        }
+
+        if (!userId) {
           if (!cancelled) setMember(null)
           return
         }
@@ -53,13 +70,16 @@ export function useCurrentMember(): {
           )
 
         let row = await readMember()
-        const statusCount = await db.getOptional<{ c: number }>(
-          `SELECT COUNT(*) as c FROM animal_statuses`,
-        )
 
-        if (!row || (statusCount?.c ?? 0) === 0) {
-          await hydrateOrgBootstrap(db)
-          row = await readMember()
+        if (!playground) {
+          const statusCount = await db.getOptional<{ c: number }>(
+            `SELECT COUNT(*) as c FROM animal_statuses`,
+          )
+
+          if (!row || (statusCount?.c ?? 0) === 0) {
+            await hydrateOrgBootstrap(db)
+            row = await readMember()
+          }
         }
 
         if (!cancelled) {

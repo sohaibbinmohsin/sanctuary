@@ -555,11 +555,159 @@ a.primary {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   padding: var(--space-6);
   padding-top: calc(var(--space-6) + var(--safe-top));
+  padding-bottom: calc(var(--space-6) + var(--safe-bottom));
   max-width: 26rem;
   margin: 0 auto;
+  position: relative;
+}
+
+.login-screen__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  padding-top: var(--space-8);
+}
+
+.login-screen__back {
+  position: absolute;
+  top: calc(var(--space-4) + var(--safe-top));
+  left: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-screen__back:hover {
+  color: var(--color-ink);
+}
+
+.login-screen__logo {
+  display: block;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0 0 var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.login-screen__foot {
+  margin-top: auto;
+  padding-top: var(--space-8);
+}
+
+.mohsin-credit {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  line-height: 1.3;
+}
+
+.mohsin-credit:hover {
+  color: var(--color-ink);
+}
+
+.mohsin-credit__name {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.mohsin-credit img {
+  display: block;
+  height: 1.35rem;
+  width: auto;
+}
+
+/* ——— Landing (public entry) ——— */
+
+.landing-screen {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5);
+  padding-top: calc(var(--space-5) + var(--safe-top));
+  padding-bottom: calc(var(--space-5) + var(--safe-bottom));
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.landing-screen__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.landing-screen__brand {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  letter-spacing: -0.02em;
+}
+
+.landing-screen__signin {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.landing-screen__signin:hover {
+  color: var(--color-ink);
+}
+
+.landing-screen__hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-8) 0;
+}
+
+.landing-screen__logo {
+  display: block;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: 0 0 var(--space-5);
+  border-radius: var(--radius-md);
+}
+
+.landing-screen__hero h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: var(--leading-tight);
+  margin: 0 0 var(--space-3);
+}
+
+.landing-screen__lede {
+  margin: 0 0 var(--space-6);
+  color: var(--color-ink-muted);
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+  max-width: 24rem;
+}
+
+.landing-screen__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.landing-screen__foot {
+  padding-top: var(--space-6);
 }
 
 .login-screen .brand {
@@ -745,6 +893,40 @@ a.primary {
   text-transform: uppercase;
   color: var(--color-ink-muted);
   margin: 0 0 var(--space-3);
+}
+
+/* ——— Playground ——— */
+
+.playground-banner {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  padding-top: calc(var(--space-3) + var(--safe-top));
+  font-size: var(--text-sm);
+  background: var(--color-forest, #2f5d3a);
+  color: #f7faf8;
+  border-bottom: 1px solid rgba(26, 46, 34, 0.18);
+}
+
+.playground-banner__text {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+}
+
+.playground-banner__exit {
+  flex-shrink: 0;
+  color: #f7faf8;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  font-weight: 600;
+}
+
+.playground-banner__exit:hover {
+  opacity: 0.85;
 }
 
 /* ——— Sync ——— */

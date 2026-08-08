@@ -6,6 +6,8 @@ import {
   GearSix,
 } from '@phosphor-icons/react'
 import { SyncBanner } from '@/shared/ui/SyncBanner'
+import { PlaygroundBanner } from '@/features/playground/PlaygroundBanner'
+import { isPlaygroundMode } from '@/features/playground/mode'
 import { AnimalsListScreen } from '@/features/animals/screens/AnimalsListScreen'
 import { AnimalIntakeScreen } from '@/features/animals/screens/AnimalIntakeScreen'
 import { AnimalDetailScreen } from '@/features/animals/screens/AnimalDetailScreen'
@@ -37,10 +39,11 @@ function NavItems({ className }: { className: string }) {
 
 export function AppShell() {
   const { member } = useCurrentMember()
+  const playground = isPlaygroundMode()
 
   return (
     <div className="app-shell">
-      <SyncBanner />
+      {playground ? null : <SyncBanner />}
       <aside className="app-sidebar" aria-label="Sidebar">
         <div>
           <div className="app-sidebar__brand">Sanctuary</div>
@@ -51,6 +54,7 @@ export function AppShell() {
         <NavItems className="app-sidebar__nav" />
       </aside>
       <div className="app-shell__body">
+        {playground ? <PlaygroundBanner /> : null}
         <main className="app-content" id="main">
           <Routes>
             <Route path="/" element={<Navigate to="/animals" replace />} />

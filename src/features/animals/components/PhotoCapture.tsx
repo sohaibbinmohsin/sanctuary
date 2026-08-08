@@ -7,6 +7,7 @@ import {
   queuePhoto,
 } from '@/features/photos/domain/photos'
 import { Button } from '@/shared/ui/Button'
+import { isPlaygroundMode } from '@/features/playground/mode'
 
 type PhotoCaptureProps = {
   orgId: string
@@ -36,7 +37,7 @@ export function PhotoCapture({
   }, [db, orgId, animalId])
 
   useEffect(() => {
-    if (!db) return
+    if (!db || isPlaygroundMode()) return
     const tick = () => {
       if (navigator.onLine) {
         void processPhotoQueue(db).then(() => refreshPending())

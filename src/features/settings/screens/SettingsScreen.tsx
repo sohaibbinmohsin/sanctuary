@@ -32,6 +32,9 @@ import { Button } from '@/shared/ui/Button'
 import { SelectField } from '@/shared/ui/SelectField'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import { InstallAppCard } from '@/shared/ui/InstallAppCard'
+import { isPlaygroundMode } from '@/features/playground/mode'
+import { resetPlaygroundSeed } from '@/features/playground/seed'
+import { getPowerSyncDb } from '@/features/sync/powersync/database'
 
 export function SettingsScreen() {
   const db = useDb()
@@ -206,9 +209,24 @@ export function SettingsScreen() {
     }
   }
 
+  const playground = isPlaygroundMode()
+
   async function onLogout() {
     await disconnectPowerSync()
     await supabaseConnector.logout()
+  }
+
+  async function onResetPlayground() {
+    const ok = await confirm({
+      title: 'Reset playground?',
+      body: 'Demo animals and money entries will be restored. Your playground edits on this device will be cleared.',
+      confirmLabel: 'Reset demo data',
+      tone: 'danger',
+    })
+    if (!ok) return
+    const powerSync = getPowerSyncDb({ playground: true })
+    await resetPlaygroundSeed(powerSync)
+    window.location.assign('/playground/animals')
   }
 
   return (
@@ -398,10 +416,24 @@ export function SettingsScreen() {
       </div>
 
       <div className="panel stack" style={{ marginTop: '1.25rem' }}>
-        <p className="section-label">Account</p>
-        <Button type="button" variant="danger-outline" onClick={() => void onLogout()}>
-          Sign out
-        </Button>
+        <p className="section-label">{playground ? 'Playground' : 'Account'}</p>
+        {playground ? (
+          <>
+            <p className="muted" style={{ margin: 0 }}>
+              Demo data stays on this device. Reset anytime, or leave to sign in to your shelter.
+            </p>
+            <Button type="button" variant="secondary" onClick={() => void onResetPlayground()}>
+              Reset demo data
+            </Button>
+            <Button type="button" variant="danger-outline" onClick={() => window.location.assign('/')}>
+              Exit playground
+            </Button>
+          </>
+        ) : (
+          <Button type="button" variant="danger-outline" onClick={() => void onLogout()}>
+            Sign out
+          </Button>
+        )}
       </div>
     </section>
   )

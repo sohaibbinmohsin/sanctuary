@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Providers, hasActiveSession } from '@/app/providers'
 import { AppShell } from '@/app/router'
 import { LoginScreen } from '@/features/auth/LoginScreen'
+import { LandingScreen } from '@/features/landing/LandingScreen'
+import { isPlaygroundPath } from '@/features/playground/mode'
 import { supabase, supabaseConfigured } from '@/shared/lib/supabase'
 
+const playground = isPlaygroundPath(window.location.pathname)
+
 export default function App() {
-  const [ready, setReady] = useState(false)
+  const [ready, setReady] = useState(playground)
   const [signedIn, setSignedIn] = useState(false)
 
   useEffect(() => {
+    if (playground) return
+
     let mounted = true
     void (async () => {
       const session = await hasActiveSession()
@@ -44,13 +50,33 @@ export default function App() {
     )
   }
 
+  if (playground) {
+    return (
+      <Providers sessionReady={false} playground>
+        <BrowserRouter basename="/playground">
+          <AppShell />
+        </BrowserRouter>
+      </Providers>
+    )
+  }
+
   return (
     <Providers sessionReady={signedIn}>
       <BrowserRouter>
         {signedIn ? (
-          <AppShell />
+          <Routes>
+            <Route path="/login" element={<Navigate to="/animals" replace />} />
+            <Route path="*" element={<AppShell />} />
+          </Routes>
         ) : (
-          <LoginScreen onSuccess={() => setSignedIn(true)} />
+          <Routes>
+            <Route path="/" element={<LandingScreen />} />
+            <Route
+              path="/login"
+              element={<LoginScreen onSuccess={() => setSignedIn(true)} />}
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         )}
       </BrowserRouter>
     </Providers>

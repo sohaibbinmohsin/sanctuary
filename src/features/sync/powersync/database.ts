@@ -8,7 +8,25 @@ import { AppSchema } from './schema'
 import { supabaseConnector } from './connector'
 
 let db: PowerSyncDatabase | null = null
+let playgroundDb: PowerSyncDatabase | null = null
 let connecting: Promise<void> | null = null
+
+export type PowerSyncDbOptions = {
+  playground?: boolean
+}
+
+function openDatabase(dbFilename: string): PowerSyncDatabase {
+  const enableMultiTabs = isMultiTabEnabled()
+  return new PowerSyncDatabase({
+    schema: AppSchema,
+    database: new WASQLiteOpenFactory({
+      dbFilename,
+      vfs: pickVfs(),
+      flags: { enableMultiTabs },
+    }),
+    flags: { enableMultiTabs },
+  })
+}
 
 function isSafari(): boolean {
   if (typeof navigator === 'undefined') return false
@@ -37,18 +55,17 @@ function pickVfs(): WASQLiteVFS {
   return WASQLiteVFS.OPFSCoopSyncVFS
 }
 
-export function getPowerSyncDb(): AbstractPowerSyncDatabase {
+export function getPowerSyncDb(
+  options: PowerSyncDbOptions = {},
+): AbstractPowerSyncDatabase {
+  if (options.playground) {
+    if (!playgroundDb) {
+      playgroundDb = openDatabase('sanctuary-playground.db')
+    }
+    return playgroundDb
+  }
   if (!db) {
-    const enableMultiTabs = isMultiTabEnabled()
-    db = new PowerSyncDatabase({
-      schema: AppSchema,
-      database: new WASQLiteOpenFactory({
-        dbFilename: 'sanctuary.db',
-        vfs: pickVfs(),
-        flags: { enableMultiTabs },
-      }),
-      flags: { enableMultiTabs },
-    })
+    db = openDatabase('sanctuary.db')
   }
   return db
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { usePowerSync } from '@powersync/react'
 import { asDb } from '@/shared/lib/db'
+import { isPlaygroundMode } from '@/features/playground/mode'
 
 export type SyncStatusKind = 'synced' | 'pending' | 'offline' | 'failed'
 
@@ -28,6 +29,10 @@ export function useSyncStatus(): SyncStatus {
   })
 
   useEffect(() => {
+    if (isPlaygroundMode()) {
+      setStatus({ kind: 'synced', errorMessage: null })
+      return
+    }
     if (!powerSync) {
       setStatus({ kind: 'pending', errorMessage: null })
       return

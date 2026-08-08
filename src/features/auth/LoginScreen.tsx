@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react'
-import { Eye, EyeSlash } from '@phosphor-icons/react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, Eye, EyeSlash } from '@phosphor-icons/react'
 import { supabaseConnector } from '@/features/sync/powersync/connector'
 import { connectPowerSync } from '@/features/sync/powersync/database'
 import { supabaseConfigured } from '@/shared/lib/supabase'
@@ -47,6 +48,19 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
 
   return (
     <main className="login-screen">
+      <Link className="login-screen__back" to="/">
+        <ArrowLeft size={18} weight="bold" aria-hidden />
+        Back
+      </Link>
+
+      <div className="login-screen__body">
+      <img
+        className="login-screen__logo"
+        src="/favicon.svg"
+        alt=""
+        width={44}
+        height={44}
+      />
       <h1 className="brand">Sanctuary</h1>
       <p className="lede">
         Sign in to care for your animals and keep shelter records in one place.
@@ -90,6 +104,25 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
           {busy ? 'Signing in…' : 'Sign in'}
         </Button>
       </form>
+      </div>
+
+      <footer className="login-screen__foot">
+        <a
+          className="mohsin-credit"
+          href="https://themohsinproject.org/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span>Nonprofit software by</span>
+          <span className="mohsin-credit__name">The Mohsin Project</span>
+          <img
+            src="/mohsin-project-logo.svg"
+            alt=""
+            width={88}
+            height={50}
+          />
+        </a>
+      </footer>
     </main>
   )
 }
