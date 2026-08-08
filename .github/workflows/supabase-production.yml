@@ -1,0 +1,60 @@
+# Deploys schema + edge functions to sanctuary-prod on push to main.
+# Local development must NEVER use these secrets — use npm run db:push / functions:deploy
+# (those always target the Sanctuary DEV project).
+
+name: Deploy Supabase (production)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/supabase-production.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ secrets.PRODUCTION_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required secrets
+        run: |
+          missing=0
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing GitHub secret: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Add secrets in repo Settings → Secrets and variables → Actions"
+            echo "  SUPABASE_ACCESS_TOKEN  — https://supabase.com/dashboard/account/tokens"
+            echo "  PRODUCTION_PROJECT_ID  — azfzhbxyxnfqvjehemus (sanctuary-prod)"
+            echo "  PRODUCTION_DB_PASSWORD — Database password for sanctuary-prod"
+            exit 1
+          fi
+          if [ "$SUPABASE_PROJECT_ID" = "nsplqqaihekmmfznbkzb" ]; then
+            echo "::error::PRODUCTION_PROJECT_ID points at the DEV project. Use sanctuary-prod (azfzhbxyxnfqvjehemus)."
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link production project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Push migrations
+        run: supabase db push
+
+      - name: Deploy edge functions
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_ID"

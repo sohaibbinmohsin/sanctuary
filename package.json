@@ -7,6 +7,9 @@
     "dev": "vite",
     "dev:setup": "npm run db:setup && vite",
     "db:setup": "node scripts/db-setup.mjs",
+    "db:push": "node scripts/supabase-dev.mjs db push",
+    "functions:deploy": "node scripts/supabase-dev.mjs functions deploy",
+    "supabase:link": "node scripts/supabase-dev.mjs link",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest"
