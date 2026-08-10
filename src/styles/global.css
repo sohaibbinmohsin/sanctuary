@@ -639,6 +639,13 @@ a.primary {
 .login-screen__foot {
   margin-top: auto;
   padding-top: var(--space-8);
+  display: flex;
+  justify-content: center;
+}
+
+.login-screen__foot .mohsin-credit {
+  justify-content: center;
+  text-align: center;
 }
 
 .mohsin-credit {
@@ -1311,6 +1318,11 @@ a.primary {
 
 .sortable-row {
   align-items: center;
+}
+
+/* Keep Hide on the trailing edge when the row wraps on narrow screens. */
+.list-item.row > .btn--danger-ghost {
+  margin-left: auto;
 }
 
 .sortable-row--dragging {
