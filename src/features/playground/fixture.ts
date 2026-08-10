@@ -84,7 +84,7 @@ export const PLAYGROUND_ANIMALS: PlaygroundAnimalFixture[] = [
     sex: null,
     markings: 'Tan body with a dark brown muzzle and floppy black-tipped ears',
     intakeDate: '2026-08-08',
-    statusLabel: 'Intake',
+    statusLabel: 'Quarantine',
     notes: 'Leash trained, highly energetic, responds well to treat rewards.',
     photoUrl:
       'https://pub-013d58bfca2d4cc4a607e56ffe23aa4f.r2.dev/2dd27176-42e2-4805-b8b0-a35f2e56a9c7/abd555d6-0b57-4a71-b69f-1fa938337eef/e160ddce-8489-4c20-8a1d-cea1d7aa575f.jpg',
