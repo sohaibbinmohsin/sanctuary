@@ -8,6 +8,16 @@ import {
 
 const PHOTO_CACHE = 'sanctuary-photos-v1'
 
+// In-memory only — never synced/persisted. Capture tokens are single-use
+// secrets minted by the `capture-session` edge function for verified
+// in-app camera captures; they live only long enough to be handed to
+// `r2-sign` on next upload attempt.
+const pendingCaptureTokens = new Map<string, string>()
+
+export function rememberCaptureToken(photoId: string, token: string): void {
+  pendingCaptureTokens.set(photoId, token)
+}
+
 async function photoStore(): Promise<Cache> {
   return caches.open(PHOTO_CACHE)
 }
@@ -115,6 +125,8 @@ export async function queuePhoto(
     animalId: string
     blob: Blob
     captureSource: 'camera' | 'gallery'
+    /** Only for online, in-app camera captures — never set for offline/gallery. */
+    captureToken?: string
   },
 ): Promise<PhotoRecord> {
   const compressed = await compressImage(input.blob)
@@ -127,6 +139,10 @@ export async function queuePhoto(
      VALUES (?, ?, ?, NULL, 1, 'pending', ?, 0, ?)`,
     [id, input.orgId, input.animalId, input.captureSource, created_at],
   )
+
+  if (input.captureSource === 'camera' && input.captureToken) {
+    rememberCaptureToken(id, input.captureToken)
+  }
 
   return {
     id,
@@ -194,7 +210,14 @@ export async function processPhotoQueue(
         throw new Error(`Local photo missing for ${photo.id}`)
       }
       const key = `${photo.org_id}/${photo.animal_id}/${photo.id}.jpg`
-      const { uploadUrl, publicUrl } = await requestSignedUpload(key)
+      const captureToken = pendingCaptureTokens.get(photo.id)
+      const { uploadUrl, publicUrl } = await requestSignedUpload(
+        key,
+        captureToken ? { captureToken, photoId: photo.id } : undefined,
+      )
+      // The token is single-use server-side — drop it regardless of PUT
+      // outcome so a retry doesn't resend an already-consumed token.
+      pendingCaptureTokens.delete(photo.id)
       // Do not set Content-Type — the presigned URL signs only `host`.
       // Extra headers cause R2 SignatureDoesNotMatch / CORS preflight failures.
       const put = await fetch(uploadUrl, {

@@ -59,8 +59,16 @@ async function callR2Sign(
   })
 }
 
-export async function requestSignedUpload(key: string): Promise<SignedUpload> {
-  const res = await callR2Sign({ key, action: 'upload' })
+export async function requestSignedUpload(
+  key: string,
+  opts?: { captureToken?: string; photoId?: string },
+): Promise<SignedUpload> {
+  const res = await callR2Sign({
+    key,
+    action: 'upload',
+    ...(opts?.captureToken ? { captureToken: opts.captureToken } : {}),
+    ...(opts?.photoId ? { photoId: opts.photoId } : {}),
+  })
   if (!res.ok) {
     throw new Error(`Signed URL request failed: ${res.status}`)
   }
