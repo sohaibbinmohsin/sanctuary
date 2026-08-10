@@ -139,7 +139,7 @@ async function migrate() {
   `
   const typeDef = treatmentTypeCheck[0]?.def ?? ''
   if (!typeDef.includes('status') || !typeDef.includes('arrived')) {
-    await applyMigration('20260810183000_treatment_types_status_arrived.sql')
+    await applyMigration('20260810141449_treatment_types_status_arrived.sql')
   } else {
     console.log('✓ treatment_type check already allows status/arrived')
   }
