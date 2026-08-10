@@ -14,7 +14,8 @@ Shelters using Sanctuary should be able to show donors and the general public th
 **Success:**
 - An admin can opt in, get a shareable `https://<host>/{slug}` link, and edit the slug.
 - A visitor on that link sees animals in care (with care summaries) and filtered ledger detail — not staff UI, not a directory.
-- Animal photos taken through the in-app camera path can show a **verified** mark; gallery uploads remain allowed but never verified.
+- Animal photos taken through the in-app camera path while **online** can show a **verified** mark; gallery uploads and offline camera captures remain allowed but never verified.
+- Offline camera: warn that the photo will not be verified, then ask the user to proceed or cancel.
 - Public reads and capture-session minting are rate-limited (lighter on reads, stricter on sessions).
 
 **Primary audiences:** donors/fundraisers checking authenticity, and general public / social proof.
@@ -30,9 +31,10 @@ Shelters using Sanctuary should be able to show donors and the general public th
 - Detailed but filtered public data:
   - Animals: profile + care summary; per care log **Hide from public**
   - Ledger: entries visible by default; **Anonymous (hide attachments)** and **Hide from public** per entry
-- Camera-verified animal photos only (not ledger proofs in this design)
+- Camera-verified animal photos only (not ledger proofs in this design); **verified requires connectivity** (no offline session prefetch)
 - Gallery still allowed for staff; never labeled verified
-- Capture sessions minted server-side so clients cannot self-attest `verified`
+- Offline camera allowed after an explicit warning that the photo will not be verified
+- Capture sessions minted server-side at capture time so clients cannot self-attest `verified`
 - Public data served only via Edge Function DTO — no anon RLS on live staff tables, no public PowerSync
 - Rate limits: both public reads and capture sessions; stricter on sessions
 
@@ -42,8 +44,9 @@ Shelters using Sanctuary should be able to show donors and the general public th
 - Opening PowerSync or membership tables to anonymous users
 - Camera verification for ledger/donation proof attachments
 - Claiming cryptographic or forensic photo authenticity
+- Prefetching capture sessions for offline verified captures
 - CAPTCHA, full WAF, or bot ML in v1
-- Changing the offline-first staff app model
+- Changing the offline-first staff app model (photos still save offline; only the **verified** mark requires online)
 
 ---
 
@@ -54,8 +57,9 @@ Staff keep today’s path. Visitors never receive raw table access.
 ```text
 Staff (authenticated)
   App → PowerSync SQLite → Supabase (membership RLS)
-  Animal photo (camera) → capture-session Edge → R2 sign (session-bound) → R2
-  Animal photo (gallery) → R2 sign → R2 (unverified)
+  Animal photo (camera, online)  → capture-session Edge → R2 sign (session-bound) → R2 (verified)
+  Animal photo (camera, offline) → warn → proceed? → queue locally → R2 when online (unverified)
+  Animal photo (gallery)         → R2 sign → R2 (unverified)
 
 Public (anonymous)
   /{slug} → Public page → public-shelter Edge Function → filtered DTO only
@@ -113,13 +117,15 @@ Default: entries are public when the org page is on; attachments omitted only wh
 | Field | Values / rules |
 |--------|----------------|
 | `capture_source` | `camera` \| `gallery` |
-| `verified` | `true` only when upload is bound to a valid capture session |
+| `verified` | `true` only when upload is bound to a valid capture session minted **while online at capture time** |
 
-Gallery uploads: always `verified = false`. Public page may still show them without a trust mark.
+Gallery uploads and offline camera captures: always `verified = false`. Public page may still show them without a trust mark.
 
 ---
 
 ## 5. Camera capture & verified photos
+
+**Policy:** Verified is **online-only**. No capture-session prefetch for offline use.
 
 ### Staff UX
 
@@ -127,18 +133,26 @@ Gallery uploads: always `verified = false`. Public page may still show them with
 - Camera uses in-app `getUserMedia` → canvas/blob (not a trivially spoofable “camera” file input alone)
 - Gallery: existing file picker → unverified
 
-### Verified path
+### Online camera (verified path)
 
-1. Take photo → request **capture session** (authenticated, org member)
+1. Take photo while online → request **capture session** (authenticated, org member)
 2. Session: short-lived (about 2–5 minutes), bound to `org_id` + `animal_id` (+ user), single-use or tightly limited reuse
 3. Capture → compress/queue → R2 sign/upload includes session proof
 4. Server sets `verified = true` only if session is valid
-5. Missing/expired/reused session: photo may still store as **unverified** (do not block care); never set `verified`
+5. Missing/expired/reused session after mint: photo may still store as **unverified** (do not block care); never set `verified`
+
+### Offline camera (unverified, with consent)
+
+1. User taps Take photo while offline (or session mint fails due to connectivity)
+2. Show a clear message: this photo **will not be verified** (no trust mark on the public page)
+3. Ask to **Proceed** or **Cancel**
+4. If Proceed: open camera, save with `capture_source = camera`, `verified = false`, queue for upload when online
+5. Do not mint or attach a capture session later to “upgrade” an offline photo to verified
 
 ### Public UX
 
 - Show photos; **verified** ones get an explicit trust mark
-- Unverified photos: visible, no trust mark
+- Unverified photos (gallery or offline camera): visible, no trust mark
 
 ### Hardening posture
 
@@ -183,7 +197,7 @@ Best-effort anti-scam: raises the bar for “image from the web → verified on 
 
 - Care: Hide from public
 - Ledger: Anonymous (hide attachments) + Hide from public
-- Photos: camera vs gallery; verified only after successful session path
+- Photos: camera vs gallery; verified only after successful **online** session path; offline camera shows warning → proceed/cancel
 
 ### Public visitor (`/{slug}`)
 
@@ -199,7 +213,9 @@ Best-effort anti-scam: raises the bar for “image from the web → verified on 
 |------|----------|
 | Unknown or disabled slug | Not-found style response |
 | Rate limited | `429` + Retry-After; calm retry on public page |
-| Capture session failure | Staff can use gallery/unverified; clear message on camera path |
+| Offline / no connectivity on Take photo | Warn “won’t be verified” → Proceed (unverified camera) or Cancel |
+| Capture session failure (online) | Clear message; offer retry, proceed unverified, or gallery |
+| Offline photo later back online | Upload as unverified; **no** late upgrade to verified |
 | Slug conflict / reserved | Inline validation; cannot save invalid slug |
 | Upload failure | Existing behavior; never mark `verified` on incomplete verified path |
 
@@ -209,7 +225,7 @@ Best-effort anti-scam: raises the bar for “image from the web → verified on 
 
 - **Unit:** slug rules; DTO filtering (hidden care, anonymous attachments omitted, hide entry, verified rules)
 - **API:** opted-in vs off; reserved slug rejection; session mint/expire/reuse; rate-limit trip
-- **UI:** admin enable/edit/copy; care/ledger toggles; camera vs gallery badge on public page
+- **UI:** admin enable/edit/copy; care/ledger toggles; camera vs gallery badge; offline warning → proceed/cancel; no verified upgrade after offline capture
 - **Not required:** E2E proof that camera is cryptographically unbypassable — assert session gate + UI paths
 
 ---
