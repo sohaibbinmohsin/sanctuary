@@ -21,10 +21,23 @@ import { TextField } from '@/shared/ui/Field'
 
 const GREETING_KEY = 'sanctuary.dashboardGreetingShown'
 
-type OverviewPeriod = 'all' | 'month' | 'custom'
+type OverviewPeriod = 'all' | 'today' | 'yesterday' | 'month' | 'custom'
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+function dayIso(offsetDays = 0, now = new Date()): string {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function dayRange(offsetDays = 0): { from: string; to: string } {
+  const iso = dayIso(offsetDays)
+  return { from: iso, to: iso }
 }
 
 function monthRange(now = new Date()): { from: string; to: string } {
@@ -78,6 +91,8 @@ export function DashboardScreen() {
   const [toast, setToast] = useState<string | null>(null)
 
   const activeRange = useMemo(() => {
+    if (period === 'today') return dayRange(0)
+    if (period === 'yesterday') return dayRange(-1)
     if (period === 'month') return monthRange()
     if (period === 'custom') {
       const from = customFrom || undefined
@@ -114,11 +129,15 @@ export function DashboardScreen() {
   const periodHint =
     period === 'all'
       ? 'All time'
-      : period === 'month'
-        ? monthLabel()
-        : customFrom && customTo
-          ? `${formatDay(customFrom)} to ${formatDay(customTo)}`
-          : 'Custom range'
+      : period === 'today'
+        ? 'Today'
+        : period === 'yesterday'
+          ? 'Yesterday'
+          : period === 'month'
+            ? monthLabel()
+            : customFrom && customTo
+              ? `${formatDay(customFrom)} to ${formatDay(customTo)}`
+              : 'Custom range'
 
   const summaryText = [
     member?.orgName ?? 'Sanctuary',
@@ -182,6 +201,22 @@ export function DashboardScreen() {
           onClick={() => setPeriod('all')}
         >
           All time
+        </button>
+        <button
+          type="button"
+          className="chip"
+          aria-pressed={period === 'today'}
+          onClick={() => setPeriod('today')}
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          className="chip"
+          aria-pressed={period === 'yesterday'}
+          onClick={() => setPeriod('yesterday')}
+        >
+          Yesterday
         </button>
         <button
           type="button"
