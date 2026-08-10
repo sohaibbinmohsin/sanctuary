@@ -95,13 +95,17 @@ export function PhotoCapture({
     }
   }, [menuOpen])
 
-  async function onFiles(files: FileList | null, input: HTMLInputElement | null) {
+  async function onFiles(
+    files: FileList | null,
+    input: HTMLInputElement | null,
+    captureSource: 'camera' | 'gallery',
+  ) {
     if (!files?.length || !db) return
     setBusy(true)
     setMenuOpen(false)
     try {
       for (const file of Array.from(files)) {
-        await queuePhoto(db, { orgId, animalId, blob: file })
+        await queuePhoto(db, { orgId, animalId, blob: file, captureSource })
       }
       await refreshPending()
       onQueued?.()
@@ -134,7 +138,9 @@ export function PhotoCapture({
             accept="image/*"
             capture="environment"
             hidden
-            onChange={(e) => void onFiles(e.target.files, cameraRef.current)}
+            onChange={(e) =>
+              void onFiles(e.target.files, cameraRef.current, 'camera')
+            }
           />
         ) : null}
         <input
@@ -143,7 +149,9 @@ export function PhotoCapture({
           accept="image/*"
           multiple
           hidden
-          onChange={(e) => void onFiles(e.target.files, galleryRef.current)}
+          onChange={(e) =>
+            void onFiles(e.target.files, galleryRef.current, 'gallery')
+          }
         />
         <button
           ref={buttonRef}

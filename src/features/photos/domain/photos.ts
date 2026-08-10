@@ -110,7 +110,12 @@ export async function purgeOrphanedPendingPhotos(
 
 export async function queuePhoto(
   db: SanctuaryDb,
-  input: { orgId: string; animalId: string; blob: Blob },
+  input: {
+    orgId: string
+    animalId: string
+    blob: Blob
+    captureSource: 'camera' | 'gallery'
+  },
 ): Promise<PhotoRecord> {
   const compressed = await compressImage(input.blob)
   const id = crypto.randomUUID()
@@ -118,9 +123,9 @@ export async function queuePhoto(
 
   await storeLocalPhoto(id, compressed)
   await db.execute(
-    `INSERT INTO photos (id, org_id, animal_id, r2_key, local_only, upload_state, created_at)
-     VALUES (?, ?, ?, NULL, 1, 'pending', ?)`,
-    [id, input.orgId, input.animalId, created_at],
+    `INSERT INTO photos (id, org_id, animal_id, r2_key, local_only, upload_state, capture_source, verified, created_at)
+     VALUES (?, ?, ?, NULL, 1, 'pending', ?, 0, ?)`,
+    [id, input.orgId, input.animalId, input.captureSource, created_at],
   )
 
   return {
@@ -130,6 +135,8 @@ export async function queuePhoto(
     r2_key: null,
     local_only: 1,
     upload_state: 'pending',
+    capture_source: input.captureSource,
+    verified: 0,
     created_at,
   }
 }

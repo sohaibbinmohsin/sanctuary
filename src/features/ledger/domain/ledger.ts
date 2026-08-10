@@ -16,6 +16,8 @@ export type AddLedgerEntryInput = {
   animalId?: string
   /** Donations only — hide donor identity on the public page. */
   isAnonymous?: boolean
+  /** Hide this entry from the public shelter page. Defaults to 0. */
+  hideFromPublic?: boolean
 }
 
 export type UpdateLedgerEntryInput = {
@@ -26,6 +28,7 @@ export type UpdateLedgerEntryInput = {
   notes?: string
   animalId?: string | null
   isAnonymous?: boolean
+  hideFromPublic?: boolean
 }
 
 export function pkrToCents(amount: number): number {
@@ -128,11 +131,12 @@ export async function addLedgerEntry(
   const entry_date = input.entryDate ?? created_at.slice(0, 10)
   const isAnonymous =
     input.direction === 'in' && input.isAnonymous ? 1 : 0
+  const hideFromPublic = input.hideFromPublic ? 1 : 0
 
   await db.execute(
     `INSERT INTO ledger_entries (
-      id, org_id, category_id, direction, amount_cents, entry_date, notes, animal_id, is_anonymous, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, org_id, category_id, direction, amount_cents, entry_date, notes, animal_id, is_anonymous, hide_from_public, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.orgId,
@@ -143,6 +147,7 @@ export async function addLedgerEntry(
       input.notes?.trim() || null,
       input.animalId ?? null,
       isAnonymous,
+      hideFromPublic,
       created_at,
     ],
   )
@@ -157,6 +162,7 @@ export async function addLedgerEntry(
     notes: input.notes?.trim() || null,
     animal_id: input.animalId ?? null,
     is_anonymous: isAnonymous,
+    hide_from_public: hideFromPublic,
     created_at,
   }
 }
@@ -184,6 +190,12 @@ export async function updateLedgerEntry(
   }
   const isAnonymous =
     input.direction === 'in' && input.isAnonymous ? 1 : 0
+  const hideFromPublic =
+    input.hideFromPublic === undefined
+      ? ((await getLedgerEntry(db, id))?.hide_from_public ?? 0)
+      : input.hideFromPublic
+        ? 1
+        : 0
   await db.execute(
     `UPDATE ledger_entries SET
       category_id = ?,
@@ -192,7 +204,8 @@ export async function updateLedgerEntry(
       entry_date = ?,
       notes = ?,
       animal_id = ?,
-      is_anonymous = ?
+      is_anonymous = ?,
+      hide_from_public = ?
      WHERE id = ?`,
     [
       input.categoryId,
@@ -202,6 +215,7 @@ export async function updateLedgerEntry(
       input.notes?.trim() || null,
       input.animalId ?? null,
       isAnonymous,
+      hideFromPublic,
       id,
     ],
   )
