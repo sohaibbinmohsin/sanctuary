@@ -125,7 +125,7 @@ async function migrate() {
     limit 1
   `
   if (logoCol.length === 0) {
-    await applyMigration('20260810125800_org_partner_logo.sql')
+    await applyMigration('004_org_partner_logo.sql')
   } else {
     console.log('✓ logo_r2_key already present — skipping partner logo migration')
   }
