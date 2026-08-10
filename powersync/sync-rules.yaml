@@ -14,3 +14,4 @@ bucket_definitions:
       - SELECT * FROM ledger_categories WHERE org_id = bucket.org_id
       - SELECT * FROM ledger_entries WHERE org_id = bucket.org_id
       - SELECT * FROM photos WHERE org_id = bucket.org_id
+      - SELECT * FROM ledger_attachments WHERE org_id = bucket.org_id

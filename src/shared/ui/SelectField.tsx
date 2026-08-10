@@ -70,7 +70,9 @@ export function SelectField({
 
   return (
     <div
-      className={['field', 'select-field', className].filter(Boolean).join(' ')}
+      className={['select-field', hideLabel ? undefined : 'field', className]
+        .filter(Boolean)
+        .join(' ')}
       ref={rootRef}
     >
       <span

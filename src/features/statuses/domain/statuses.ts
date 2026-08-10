@@ -37,7 +37,14 @@ export async function createStatus(
   db: SanctuaryDb,
   input: CreateStatusInput,
 ): Promise<AnimalStatus> {
+  const label = input.label.trim()
   const existing = await listStatuses(db, input.orgId, true)
+  const duplicate = existing.some(
+    (s) => s.label.trim().toLowerCase() === label.toLowerCase(),
+  )
+  if (duplicate) {
+    throw new Error('That status already exists.')
+  }
   const maxOrder = existing.reduce((m, s) => Math.max(m, s.sort_order), 0)
   const id = crypto.randomUUID()
   const created_at = new Date().toISOString()
@@ -47,13 +54,13 @@ export async function createStatus(
   await db.execute(
     `INSERT INTO animal_statuses (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
      VALUES (?, ?, ?, ?, ?, 0, ?)`,
-    [id, input.orgId, input.label.trim(), sort_order, counts_as_in_care, created_at],
+    [id, input.orgId, label, sort_order, counts_as_in_care, created_at],
   )
 
   return {
     id,
     org_id: input.orgId,
-    label: input.label.trim(),
+    label,
     sort_order,
     counts_as_in_care,
     archived: 0,
@@ -70,6 +77,17 @@ export async function renameStatus(
     label.trim(),
     id,
   ])
+}
+
+export async function setStatusInCare(
+  db: SanctuaryDb,
+  id: string,
+  countsAsInCare: boolean,
+): Promise<void> {
+  await db.execute(
+    `UPDATE animal_statuses SET counts_as_in_care = ? WHERE id = ?`,
+    [countsAsInCare ? 1 : 0, id],
+  )
 }
 
 export async function reorderStatuses(

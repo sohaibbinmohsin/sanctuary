@@ -46,7 +46,7 @@ export async function hydrateOrgBootstrap(db: SanctuaryDb): Promise<boolean> {
 
   const { data: orgs, error: orgError } = await supabase
     .from('organizations')
-    .select('id, name, initials, created_at')
+    .select('id, name, initials, logo_r2_key, created_at')
     .in('id', orgIds)
 
   if (orgError) {
@@ -78,12 +78,13 @@ export async function hydrateOrgBootstrap(db: SanctuaryDb): Promise<boolean> {
   await db.writeTransaction(async (tx) => {
     for (const org of orgs ?? []) {
       await tx.execute(
-        `INSERT OR REPLACE INTO organizations (id, name, initials, created_at)
-         VALUES (?, ?, ?, ?)`,
+        `INSERT OR REPLACE INTO organizations (id, name, initials, logo_r2_key, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
         [
           org.id,
           org.name,
           org.initials,
+          org.logo_r2_key ?? null,
           org.created_at ?? new Date().toISOString(),
         ],
       )

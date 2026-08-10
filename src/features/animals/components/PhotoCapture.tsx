@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Camera, ImageSquare } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
+import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
 import {
   countPendingPhotos,
   processPhotoQueue,
@@ -21,6 +22,7 @@ export function PhotoCapture({
   onQueued,
 }: PhotoCaptureProps) {
   const db = useDb()
+  const canTakePhoto = useCanTakePhoto()
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState(0)
@@ -74,16 +76,16 @@ export function PhotoCapture({
 
   return (
     <div className="stack">
-      {/* Camera: capture hint opens rear camera on phones */}
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        hidden
-        onChange={(e) => void onFiles(e.target.files, cameraRef.current)}
-      />
-      {/* Gallery: no capture attribute so the photo library is offered */}
+      {canTakePhoto ? (
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={(e) => void onFiles(e.target.files, cameraRef.current)}
+        />
+      ) : null}
       <input
         ref={galleryRef}
         type="file"
@@ -93,23 +95,25 @@ export function PhotoCapture({
         onChange={(e) => void onFiles(e.target.files, galleryRef.current)}
       />
       <div className="row">
+        {canTakePhoto ? (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => cameraRef.current?.click()}
+          >
+            <Camera size={18} weight="bold" aria-hidden />
+            {busy ? 'Saving…' : 'Take photo'}
+          </Button>
+        ) : null}
         <Button
           type="button"
-          variant="secondary"
-          disabled={busy}
-          onClick={() => cameraRef.current?.click()}
-        >
-          <Camera size={18} weight="bold" aria-hidden />
-          {busy ? 'Saving…' : 'Take photo'}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
+          variant={canTakePhoto ? 'ghost' : 'secondary'}
           disabled={busy}
           onClick={() => galleryRef.current?.click()}
         >
           <ImageSquare size={18} weight="bold" aria-hidden />
-          From gallery
+          {busy ? 'Saving…' : canTakePhoto ? 'From gallery' : 'Add photo'}
         </Button>
         {pending > 0 ? (
           <span className="muted">

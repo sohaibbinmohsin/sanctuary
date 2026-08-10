@@ -3,6 +3,7 @@ import { column, Schema, Table } from '@powersync/web'
 const organizations = new Table({
   name: column.text,
   initials: column.text,
+  logo_r2_key: column.text,
   created_at: column.text,
 })
 
@@ -79,6 +80,7 @@ const ledger_entries = new Table(
     entry_date: column.text,
     notes: column.text,
     animal_id: column.text,
+    is_anonymous: column.integer,
     created_at: column.text,
   },
   { indexes: { by_org: ['org_id'], by_animal: ['animal_id'] } },
@@ -96,6 +98,23 @@ const photos = new Table(
   { indexes: { by_animal: ['animal_id'], by_state: ['upload_state'] } },
 )
 
+const ledger_attachments = new Table(
+  {
+    org_id: column.text,
+    ledger_entry_id: column.text,
+    r2_key: column.text,
+    local_only: column.integer,
+    upload_state: column.text,
+    created_at: column.text,
+  },
+  {
+    indexes: {
+      by_entry: ['ledger_entry_id'],
+      by_state: ['upload_state'],
+    },
+  },
+)
+
 export const AppSchema = new Schema({
   organizations,
   org_members,
@@ -105,6 +124,7 @@ export const AppSchema = new Schema({
   ledger_categories,
   ledger_entries,
   photos,
+  ledger_attachments,
 })
 
 export type Database = (typeof AppSchema)['types']
@@ -116,3 +136,4 @@ export type TreatmentRecord = Database['treatments']
 export type LedgerCategoryRecord = Database['ledger_categories']
 export type LedgerEntryRecord = Database['ledger_entries']
 export type PhotoRecord = Database['photos']
+export type LedgerAttachmentRecord = Database['ledger_attachments']

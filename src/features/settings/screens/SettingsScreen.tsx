@@ -1,4 +1,5 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { useQuery } from '@powersync/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   archiveStatus,
@@ -6,6 +7,7 @@ import {
   listStatuses,
   renameStatus,
   reorderStatuses,
+  setStatusInCare,
   type AnimalStatus,
 } from '@/features/statuses/domain/statuses'
 import {
@@ -13,6 +15,7 @@ import {
   createLedgerCategory,
   listLedgerCategories,
   renameLedgerCategory,
+  setLedgerCategoryDirection,
   type LedgerDirection,
 } from '@/features/ledger/domain/ledger'
 import type { LedgerCategoryRecord } from '@/features/sync/powersync/schema'
@@ -27,6 +30,12 @@ import {
   listPhotosForAnimal,
 } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
+import {
+  clearPartnerLogo,
+  ensurePartnerLogoCached,
+  getLocalPartnerLogo,
+  setPartnerLogo,
+} from '@/features/settings/domain/partnerLogo'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { SelectField } from '@/shared/ui/SelectField'
@@ -35,6 +44,7 @@ import { InstallAppCard } from '@/shared/ui/InstallAppCard'
 import { isPlaygroundMode } from '@/features/playground/mode'
 import { resetPlaygroundSeed } from '@/features/playground/seed'
 import { getPowerSyncDb } from '@/features/sync/powersync/database'
+import { SortableStatusList } from '@/features/settings/components/SortableStatusList'
 
 export function SettingsScreen() {
   const db = useDb()
@@ -44,11 +54,26 @@ export function SettingsScreen() {
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
   const [categories, setCategories] = useState<LedgerCategoryRecord[]>([])
   const [newStatus, setNewStatus] = useState('')
+  const [newStatusInCare, setNewStatusInCare] = useState<'1' | '0'>('1')
   const [newCategory, setNewCategory] = useState('')
   const [newCategoryDirection, setNewCategoryDirection] =
     useState<LedgerDirection>('out')
   const [exportBusy, setExportBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [categoryError, setCategoryError] = useState<string | null>(null)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoBusy, setLogoBusy] = useState(false)
+  const [logoError, setLogoError] = useState<string | null>(null)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+
+  const { data: orgRows } = useQuery<{ logo_r2_key: string | null }>(
+    member?.orgId
+      ? `SELECT logo_r2_key FROM organizations WHERE id = ?`
+      : `SELECT logo_r2_key FROM organizations WHERE 0`,
+    member?.orgId ? [member.orgId] : [],
+  )
+  const logoR2Key = orgRows?.[0]?.logo_r2_key ?? null
 
   async function reload() {
     if (!db || !member) return
@@ -60,36 +85,147 @@ export function SettingsScreen() {
     void reload()
   }, [db, member])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadLogo() {
+      if (!member) {
+        setLogoUrl(null)
+        return
+      }
+      const blob = await ensurePartnerLogoCached(member.orgId, logoR2Key)
+      if (cancelled) return
+      if (!blob) {
+        setLogoUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev)
+          return null
+        })
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      if (cancelled) {
+        URL.revokeObjectURL(url)
+        return
+      }
+      setLogoUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return url
+      })
+    }
+
+    void loadLogo()
+    return () => {
+      cancelled = true
+      setLogoUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return null
+      })
+    }
+  }, [member?.orgId, logoR2Key])
+
+  async function onPickLogo(file: File | undefined) {
+    if (!db || !member || !file) return
+    if (!file.type.startsWith('image/')) {
+      setLogoError('Choose an image file for the partner logo.')
+      return
+    }
+    setLogoBusy(true)
+    setLogoError(null)
+    try {
+      await setPartnerLogo(db, member.orgId, file)
+      const blob = await getLocalPartnerLogo(member.orgId)
+      if (blob) {
+        setLogoUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev)
+          return URL.createObjectURL(blob)
+        })
+      }
+    } catch (err) {
+      setLogoError(
+        err instanceof Error ? err.message : 'Could not save partner logo.',
+      )
+    } finally {
+      setLogoBusy(false)
+      if (logoInputRef.current) logoInputRef.current.value = ''
+    }
+  }
+
+  async function onRemoveLogo() {
+    if (!db || !member) return
+    const ok = await confirm({
+      title: 'Remove partner logo?',
+      body: 'It will be removed from Overview share images for your shelter.',
+      confirmLabel: 'Remove logo',
+      tone: 'danger',
+    })
+    if (!ok) return
+    setLogoBusy(true)
+    setLogoError(null)
+    try {
+      await clearPartnerLogo(db, member.orgId, logoR2Key)
+      setLogoUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return null
+      })
+    } catch (err) {
+      setLogoError(
+        err instanceof Error ? err.message : 'Could not remove partner logo.',
+      )
+    } finally {
+      setLogoBusy(false)
+    }
+  }
+
   async function onAddStatus(e: FormEvent) {
     e.preventDefault()
     if (!db || !member || !newStatus.trim()) return
-    await createStatus(db, { orgId: member.orgId, label: newStatus })
-    setNewStatus('')
-    await reload()
+    setStatusError(null)
+    try {
+      await createStatus(db, {
+        orgId: member.orgId,
+        label: newStatus,
+        countsAsInCare: newStatusInCare === '1',
+      })
+      setNewStatus('')
+      setNewStatusInCare('1')
+      await reload()
+    } catch (err) {
+      setStatusError(
+        err instanceof Error ? err.message : 'Could not add status.',
+      )
+    }
   }
 
-  async function moveStatus(id: string, direction: -1 | 1) {
+  async function onReorderStatuses(orderedIds: string[]) {
     if (!db) return
-    const active = statuses.filter((s) => !s.archived)
-    const idx = active.findIndex((s) => s.id === id)
-    const swap = idx + direction
-    if (idx < 0 || swap < 0 || swap >= active.length) return
-    const ordered = active.map((s) => s.id)
-    ;[ordered[idx], ordered[swap]] = [ordered[swap]!, ordered[idx]!]
-    await reorderStatuses(db, ordered)
-    await reload()
+    setStatuses((prev) => {
+      const byId = new Map(prev.map((s) => [s.id, s]))
+      const reordered = orderedIds
+        .map((id) => byId.get(id))
+        .filter((s): s is AnimalStatus => Boolean(s))
+      const archived = prev.filter((s) => s.archived)
+      return [...reordered, ...archived]
+    })
+    await reorderStatuses(db, orderedIds)
   }
 
   async function onAddCategory(e: FormEvent) {
     e.preventDefault()
     if (!db || !member || !newCategory.trim()) return
-    await createLedgerCategory(db, {
-      orgId: member.orgId,
-      label: newCategory,
-      direction: newCategoryDirection,
-    })
-    setNewCategory('')
-    await reload()
+    setCategoryError(null)
+    try {
+      await createLedgerCategory(db, {
+        orgId: member.orgId,
+        label: newCategory,
+        direction: newCategoryDirection,
+      })
+      setNewCategory('')
+      await reload()
+    } catch (err) {
+      setCategoryError(
+        err instanceof Error ? err.message : 'Could not add category.',
+      )
+    }
   }
 
   async function exportData() {
@@ -243,81 +379,98 @@ export function SettingsScreen() {
 
       <div className="settings-grid">
         <div className="panel stack">
-          <p className="section-label">Animal statuses</p>
-          <p className="muted" style={{ margin: 0 }}>
-            Labels like Quarantine or In care. Drag order with Up and Down.
-          </p>
-          <form className="row" onSubmit={onAddStatus}>
-            <input
-              placeholder="New status name"
-              value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value)}
-              aria-label="New status name"
-              style={{ flex: 1, minWidth: '8rem' }}
-            />
-            <Button type="submit" variant="secondary">
-              Add
-            </Button>
-          </form>
-          <div>
-            {statuses
-              .filter((s) => !s.archived)
-              .map((s) => (
-                <div className="list-item row" key={s.id}>
-                  <input
-                    value={s.label ?? ''}
-                    onChange={(e) => {
-                      const label = e.target.value
-                      setStatuses((prev) =>
-                        prev.map((x) => (x.id === s.id ? { ...x, label } : x)),
-                      )
-                    }}
-                    onBlur={(e) => {
-                      if (!db) return
-                      void renameStatus(db, s.id, e.target.value)
-                    }}
-                    aria-label="Status name"
-                    style={{ flex: 1, minWidth: '6rem' }}
-                  />
-                  <Button type="button" variant="ghost" onClick={() => void moveStatus(s.id, -1)}>
-                    Up
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={() => void moveStatus(s.id, 1)}>
-                    Down
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="danger-ghost"
-                    onClick={() => {
-                      if (!db) return
-                      void (async () => {
-                        const ok = await confirm({
-                          title: `Hide “${s.label}”?`,
-                          body: 'It will no longer show when adding or updating animals.',
-                          confirmLabel: 'Hide status',
-                          tone: 'danger',
-                        })
-                        if (!ok) return
-                        await archiveStatus(db, s.id)
-                        await reload()
-                      })()
-                    }}
-                  >
-                    Hide
-                  </Button>
-                </div>
-              ))}
+          <div className="section-copy">
+            <p className="section-label">Animal statuses</p>
+            <p className="muted" style={{ margin: 0 }}>
+              Labels like Quarantine or Adopted. Drag to reorder; mark in care or not.
+            </p>
           </div>
+          <form className="stack" onSubmit={onAddStatus}>
+            <div className="row">
+              <input
+                placeholder="New status name"
+                value={newStatus}
+                onChange={(e) => {
+                  setNewStatus(e.target.value)
+                  if (statusError) setStatusError(null)
+                }}
+                aria-label="New status name"
+                style={{ flex: 1, minWidth: '8rem' }}
+              />
+              <div style={{ minWidth: '8.5rem', flex: '0 0 auto' }}>
+                <SelectField
+                  label="In care"
+                  hideLabel
+                  value={newStatusInCare}
+                  options={[
+                    { value: '1', label: 'In care' },
+                    { value: '0', label: 'Not in care' },
+                  ]}
+                  onChange={(value) => setNewStatusInCare(value as '1' | '0')}
+                />
+              </div>
+              <Button type="submit" variant="secondary">
+                Add
+              </Button>
+            </div>
+            {statusError ? <p className="form-error">{statusError}</p> : null}
+          </form>
+          <SortableStatusList
+            statuses={statuses}
+            onReorder={(orderedIds) => void onReorderStatuses(orderedIds)}
+            onLabelChange={(id, label) => {
+              setStatuses((prev) =>
+                prev.map((x) => (x.id === id ? { ...x, label } : x)),
+              )
+            }}
+            onRename={(id, label) => {
+              if (!db) return
+              void renameStatus(db, id, label)
+            }}
+            onInCareChange={(id, countsAsInCare) => {
+              setStatuses((prev) =>
+                prev.map((x) =>
+                  x.id === id
+                    ? { ...x, counts_as_in_care: countsAsInCare ? 1 : 0 }
+                    : x,
+                ),
+              )
+              if (!db) return
+              void setStatusInCare(db, id, countsAsInCare)
+            }}
+            onHide={(s) => {
+              if (!db) return
+              void (async () => {
+                const ok = await confirm({
+                  title: `Hide “${s.label}”?`,
+                  body: 'It will no longer show when adding or updating animals.',
+                  confirmLabel: 'Hide status',
+                  tone: 'danger',
+                })
+                if (!ok) return
+                await archiveStatus(db, s.id)
+                await reload()
+              })()
+            }}
+          />
         </div>
 
         <div className="panel stack">
-          <p className="section-label">Money categories</p>
+          <div className="section-copy">
+            <p className="section-label">Money categories</p>
+            <p className="muted" style={{ margin: 0 }}>
+              Labels like Donation or Food. Mark each as money in or out.
+            </p>
+          </div>
           <form className="stack" onSubmit={onAddCategory}>
-            <div className="row" style={{ alignItems: 'flex-end' }}>
+            <div className="row">
               <input
                 placeholder="New category"
                 value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
+                onChange={(e) => {
+                  setNewCategory(e.target.value)
+                  if (categoryError) setCategoryError(null)
+                }}
                 aria-label="New money category"
                 style={{ flex: 1, minWidth: '8rem' }}
               />
@@ -339,6 +492,9 @@ export function SettingsScreen() {
                 Add
               </Button>
             </div>
+            {categoryError ? (
+              <p className="form-error">{categoryError}</p>
+            ) : null}
           </form>
           <div>
             {categories
@@ -360,9 +516,27 @@ export function SettingsScreen() {
                     aria-label="Category name"
                     style={{ flex: 1, minWidth: '6rem' }}
                   />
-                  <span className="muted">
-                    {c.direction === 'in' ? 'in' : 'out'}
-                  </span>
+                  <div style={{ minWidth: '8.5rem', flex: '0 0 auto' }}>
+                    <SelectField
+                      label="Direction"
+                      hideLabel
+                      value={(c.direction as LedgerDirection) ?? 'out'}
+                      options={[
+                        { value: 'in', label: 'Money in' },
+                        { value: 'out', label: 'Money out' },
+                      ]}
+                      onChange={(value) => {
+                        const direction = value as LedgerDirection
+                        setCategories((prev) =>
+                          prev.map((x) =>
+                            x.id === c.id ? { ...x, direction } : x,
+                          ),
+                        )
+                        if (!db) return
+                        void setLedgerCategoryDirection(db, c.id, direction)
+                      }}
+                    />
+                  </div>
                   <Button
                     type="button"
                     variant="danger-ghost"
@@ -391,6 +565,54 @@ export function SettingsScreen() {
 
       <div style={{ marginTop: '1.25rem' }}>
         <InstallAppCard />
+      </div>
+
+      <div className="panel stack" style={{ marginTop: '1.25rem' }}>
+        <div className="section-copy">
+          <p className="section-label">Partner logo</p>
+          <p className="muted" style={{ margin: 0 }}>
+            Optional. Shows on Overview share images for your shelter.
+          </p>
+        </div>
+        {logoUrl ? (
+          <img
+            className="partner-logo-preview"
+            src={logoUrl}
+            alt="Partner logo"
+          />
+        ) : (
+          <p className="muted" style={{ margin: 0 }}>
+            No logo yet.
+          </p>
+        )}
+        <input
+          ref={logoInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => void onPickLogo(e.target.files?.[0])}
+        />
+        <div className="row">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!member || logoBusy}
+            onClick={() => logoInputRef.current?.click()}
+          >
+            {logoBusy ? 'Saving…' : logoUrl ? 'Replace logo' : 'Add logo'}
+          </Button>
+          {logoUrl ? (
+            <Button
+              type="button"
+              variant="danger-ghost"
+              disabled={logoBusy}
+              onClick={() => void onRemoveLogo()}
+            >
+              Remove
+            </Button>
+          ) : null}
+        </div>
+        {logoError ? <p className="form-error">{logoError}</p> : null}
       </div>
 
       <div className="panel stack" style={{ marginTop: '1.25rem' }}>

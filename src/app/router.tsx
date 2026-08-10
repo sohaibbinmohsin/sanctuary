@@ -63,6 +63,7 @@ export function AppShell() {
             <Route path="/animals/:id" element={<AnimalDetailScreen />} />
             <Route path="/ledger" element={<LedgerScreen />} />
             <Route path="/ledger/new" element={<LedgerEntryScreen />} />
+            <Route path="/ledger/:id" element={<LedgerEntryScreen />} />
             <Route path="/dashboard" element={<DashboardScreen />} />
             <Route path="/settings" element={<SettingsScreen />} />
           </Routes>

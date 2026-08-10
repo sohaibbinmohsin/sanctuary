@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery } from '@powersync/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   countAnimalsByStatus,
@@ -11,6 +12,7 @@ import {
   sumLedgerByMonth,
   type MonthlyLedgerPoint,
 } from '@/features/ledger/domain/ledger'
+import { ensurePartnerLogoCached } from '@/features/settings/domain/partnerLogo'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { DASHBOARD_GREETINGS, pickMessage } from '@/shared/lib/morale/messages'
 import { renderDashboardImage } from '@/shared/lib/share/dashboardImage'
@@ -89,6 +91,15 @@ export function DashboardScreen() {
   const [customTo, setCustomTo] = useState(() => defaultCustomRange().to)
   const [greeting, setGreeting] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+
+  const { data: orgRows } = useQuery<{ logo_r2_key: string | null }>(
+    member?.orgId
+      ? `SELECT logo_r2_key FROM organizations WHERE id = ?`
+      : `SELECT logo_r2_key FROM organizations WHERE 0`,
+    member?.orgId ? [member.orgId] : [],
+  )
+  const logoR2Key = orgRows?.[0]?.logo_r2_key ?? member?.orgLogoR2Key ?? null
 
   const activeRange = useMemo(() => {
     if (period === 'today') return dayRange(0)
@@ -114,6 +125,44 @@ export function DashboardScreen() {
       setGreeting(pickMessage(DASHBOARD_GREETINGS))
     }
   }, [db, member])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadLogo() {
+      if (!member) {
+        setLogoUrl(null)
+        return
+      }
+      const blob = await ensurePartnerLogoCached(member.orgId, logoR2Key)
+      if (cancelled) return
+      if (!blob) {
+        setLogoUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev)
+          return null
+        })
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      if (cancelled) {
+        URL.revokeObjectURL(url)
+        return
+      }
+      setLogoUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return url
+      })
+    }
+
+    void loadLogo()
+    return () => {
+      cancelled = true
+      setLogoUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return null
+      })
+    }
+  }, [member?.orgId, logoR2Key])
 
   useEffect(() => {
     if (!db || !member) return
@@ -154,31 +203,18 @@ export function DashboardScreen() {
 
   async function downloadPng() {
     if (!cardRef.current) return
-    const blob = await renderDashboardImage(cardRef.current)
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `sanctuary-overview-${new Date().toISOString().slice(0, 10)}.png`
-    a.click()
-    URL.revokeObjectURL(url)
-    setToast('Image saved')
-  }
-
-  async function shareImage() {
-    if (!cardRef.current) return
-    const blob = await renderDashboardImage(cardRef.current)
-    const file = new File([blob], 'sanctuary-overview.png', {
-      type: 'image/png',
-    })
-    if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({
-        files: [file],
-        title: member?.orgName ?? 'Sanctuary',
-        text: summaryText,
-      })
-      setToast('Shared')
-    } else {
-      await downloadPng()
+    try {
+      const blob = await renderDashboardImage(cardRef.current)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `sanctuary-overview-${new Date().toISOString().slice(0, 10)}.png`
+      a.click()
+      URL.revokeObjectURL(url)
+      setToast('Image saved')
+    } catch (err) {
+      console.error('Save image failed', err)
+      setToast('Could not save image. Try again.')
     }
   }
 
@@ -256,40 +292,53 @@ export function DashboardScreen() {
       ) : null}
 
       <div className="dashboard-card" ref={cardRef}>
-        <h2 style={{ marginTop: 0, fontFamily: 'var(--font-display)' }}>
-          {member?.orgName ?? 'Your shelter'}
-        </h2>
-        <p className="dashboard-card__count">{headcount}</p>
-        <p className="muted" style={{ margin: 0 }}>
-          animals in care
-        </p>
-        <div className="row" style={{ marginTop: '1.25rem', gap: '2rem' }}>
-          <div>
-            <div className="muted">Money in · {periodHint}</div>
+        <div className="dashboard-card__header">
+          <h2 className="dashboard-card__title">
+            {member?.orgName ?? 'Your shelter'}
+          </h2>
+          {logoUrl ? (
+            <img className="dashboard-card__logo" src={logoUrl} alt="" />
+          ) : null}
+        </div>
+
+        <div className="dashboard-card__hero">
+          <p className="dashboard-card__count">{headcount}</p>
+          <p className="dashboard-card__count-label">animals in care</p>
+        </div>
+
+        <div className="dashboard-card__metrics" aria-label={`Money · ${periodHint}`}>
+          <div className="dashboard-card__metric">
+            <span className="dashboard-card__metric-label">
+              Money in
+              <span className="dashboard-card__metric-period"> · {periodHint}</span>
+            </span>
             <strong className="money-in">{formatPkr(money.inCents)}</strong>
           </div>
-          <div>
-            <div className="muted">Money out · {periodHint}</div>
+          <div className="dashboard-card__metric">
+            <span className="dashboard-card__metric-label">
+              Money out
+              <span className="dashboard-card__metric-period"> · {periodHint}</span>
+            </span>
             <strong className="money-out">{formatPkr(money.outCents)}</strong>
           </div>
-        </div>
-        <div style={{ marginTop: '0.75rem' }}>
-          <div className="muted">Net · {periodHint}</div>
-          <strong className={net >= 0 ? 'money-in' : 'money-out'}>
-            {formatPkr(net)}
-          </strong>
+          <div className="dashboard-card__metric dashboard-card__metric--net">
+            <span className="dashboard-card__metric-label">
+              Net
+              <span className="dashboard-card__metric-period"> · {periodHint}</span>
+            </span>
+            <strong className={net >= 0 ? 'money-in' : 'money-out'}>
+              {formatPkr(net)}
+            </strong>
+          </div>
         </div>
       </div>
 
       <div className="row" style={{ marginTop: '1.25rem' }}>
-        <Button type="button" variant="primary" onClick={() => void shareImage()}>
-          Share
+        <Button type="button" variant="primary" onClick={() => void downloadPng()}>
+          Save image
         </Button>
         <Button type="button" variant="secondary" onClick={() => void copySummary()}>
           Copy text
-        </Button>
-        <Button type="button" variant="ghost" onClick={() => void downloadPng()}>
-          Save image
         </Button>
       </div>
 

@@ -15,6 +15,7 @@ export type CurrentMember = {
   role: 'admin' | 'staff' | 'volunteer'
   orgName: string
   orgInitials: string
+  orgLogoR2Key: string | null
 }
 
 export function useCurrentMember(): {
@@ -60,8 +61,10 @@ export function useCurrentMember(): {
             role: string
             org_name: string
             org_initials: string
+            org_logo_r2_key: string | null
           }>(
-            `SELECT m.id, m.org_id, m.user_id, m.role, o.name as org_name, o.initials as org_initials
+            `SELECT m.id, m.org_id, m.user_id, m.role, o.name as org_name,
+                    o.initials as org_initials, o.logo_r2_key as org_logo_r2_key
              FROM org_members m
              JOIN organizations o ON o.id = m.org_id
              WHERE m.user_id = ?
@@ -92,6 +95,7 @@ export function useCurrentMember(): {
                   role: row.role as CurrentMember['role'],
                   orgName: row.org_name,
                   orgInitials: row.org_initials,
+                  orgLogoR2Key: row.org_logo_r2_key ?? null,
                 }
               : null,
           )

@@ -14,6 +14,18 @@ export type AddLedgerEntryInput = {
   entryDate?: string
   notes?: string
   animalId?: string
+  /** Donations only — hide donor identity on the public page. */
+  isAnonymous?: boolean
+}
+
+export type UpdateLedgerEntryInput = {
+  categoryId: string
+  direction: LedgerDirection
+  amountCents: number
+  entryDate: string
+  notes?: string
+  animalId?: string | null
+  isAnonymous?: boolean
 }
 
 export function pkrToCents(amount: number): number {
@@ -48,17 +60,25 @@ export async function createLedgerCategory(
   db: SanctuaryDb,
   input: { orgId: string; label: string; direction: LedgerDirection },
 ): Promise<LedgerCategoryRecord> {
+  const label = input.label.trim()
+  const existing = await listLedgerCategories(db, input.orgId, true)
+  const duplicate = existing.some(
+    (c) => (c.label ?? '').trim().toLowerCase() === label.toLowerCase(),
+  )
+  if (duplicate) {
+    throw new Error('That category already exists.')
+  }
   const id = crypto.randomUUID()
   const created_at = new Date().toISOString()
   await db.execute(
     `INSERT INTO ledger_categories (id, org_id, label, direction, archived, created_at)
      VALUES (?, ?, ?, ?, 0, ?)`,
-    [id, input.orgId, input.label.trim(), input.direction, created_at],
+    [id, input.orgId, label, input.direction, created_at],
   )
   return {
     id,
     org_id: input.orgId,
-    label: input.label.trim(),
+    label,
     direction: input.direction,
     archived: 0,
     created_at,
@@ -72,6 +92,17 @@ export async function renameLedgerCategory(
 ): Promise<void> {
   await db.execute(`UPDATE ledger_categories SET label = ? WHERE id = ?`, [
     label.trim(),
+    id,
+  ])
+}
+
+export async function setLedgerCategoryDirection(
+  db: SanctuaryDb,
+  id: string,
+  direction: LedgerDirection,
+): Promise<void> {
+  await db.execute(`UPDATE ledger_categories SET direction = ? WHERE id = ?`, [
+    direction,
     id,
   ])
 }
@@ -95,11 +126,13 @@ export async function addLedgerEntry(
   const id = crypto.randomUUID()
   const created_at = new Date().toISOString()
   const entry_date = input.entryDate ?? created_at.slice(0, 10)
+  const isAnonymous =
+    input.direction === 'in' && input.isAnonymous ? 1 : 0
 
   await db.execute(
     `INSERT INTO ledger_entries (
-      id, org_id, category_id, direction, amount_cents, entry_date, notes, animal_id, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, org_id, category_id, direction, amount_cents, entry_date, notes, animal_id, is_anonymous, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.orgId,
@@ -109,6 +142,7 @@ export async function addLedgerEntry(
       entry_date,
       input.notes?.trim() || null,
       input.animalId ?? null,
+      isAnonymous,
       created_at,
     ],
   )
@@ -122,8 +156,55 @@ export async function addLedgerEntry(
     entry_date,
     notes: input.notes?.trim() || null,
     animal_id: input.animalId ?? null,
+    is_anonymous: isAnonymous,
     created_at,
   }
+}
+
+export async function getLedgerEntry(
+  db: SanctuaryDb,
+  id: string,
+): Promise<(LedgerEntryRecord & { category_label?: string | null }) | null> {
+  return db.getOptional(
+    `SELECT e.*, c.label as category_label
+     FROM ledger_entries e
+     LEFT JOIN ledger_categories c ON c.id = e.category_id
+     WHERE e.id = ?`,
+    [id],
+  )
+}
+
+export async function updateLedgerEntry(
+  db: SanctuaryDb,
+  id: string,
+  input: UpdateLedgerEntryInput,
+): Promise<void> {
+  if (input.amountCents <= 0) {
+    throw new Error('Amount must be greater than zero')
+  }
+  const isAnonymous =
+    input.direction === 'in' && input.isAnonymous ? 1 : 0
+  await db.execute(
+    `UPDATE ledger_entries SET
+      category_id = ?,
+      direction = ?,
+      amount_cents = ?,
+      entry_date = ?,
+      notes = ?,
+      animal_id = ?,
+      is_anonymous = ?
+     WHERE id = ?`,
+    [
+      input.categoryId,
+      input.direction,
+      input.amountCents,
+      input.entryDate,
+      input.notes?.trim() || null,
+      input.animalId ?? null,
+      isAnonymous,
+      id,
+    ],
+  )
 }
 
 export async function listLedgerEntries(
@@ -144,6 +225,10 @@ export async function deleteLedgerEntry(
   db: SanctuaryDb,
   id: string,
 ): Promise<void> {
+  const { deleteAttachmentsForEntry } = await import(
+    '@/features/ledger/domain/attachments'
+  )
+  await deleteAttachmentsForEntry(db, id)
   await db.execute(`DELETE FROM ledger_entries WHERE id = ?`, [id])
 }
 

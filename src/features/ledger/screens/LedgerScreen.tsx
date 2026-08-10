@@ -1,27 +1,44 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CurrencyCircleDollar, Trash } from '@phosphor-icons/react'
+import { CurrencyCircleDollar, PencilSimple } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
-  deleteLedgerEntry,
   formatPkr,
   listLedgerEntries,
   sumLedger,
 } from '@/features/ledger/domain/ledger'
-import { EntryProof } from '@/features/ledger/components/EntryProof'
 import { processLedgerAttachmentQueue } from '@/features/ledger/domain/attachments'
+import {
+  EntryProofThumbs,
+  useOrgAttachments,
+} from '@/features/ledger/components/EntryProofThumbs'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
-import { MoraleToast } from '@/shared/ui/MoraleToast'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
-import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import { TextField } from '@/shared/ui/Field'
 import { isPlaygroundMode } from '@/features/playground/mode'
 
-type MoneyPeriod = 'all' | 'month' | 'custom'
+type MoneyPeriod = 'all' | 'today' | 'yesterday' | 'month' | 'custom'
+
+function isAnonymousEntry(value: unknown): boolean {
+  return value === true || value === 1 || value === '1'
+}
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+function dayIso(offsetDays = 0, now = new Date()): string {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function dayRange(offsetDays = 0): { from: string; to: string } {
+  const iso = dayIso(offsetDays)
+  return { from: iso, to: iso }
 }
 
 function monthRange(now = new Date()): { from: string; to: string } {
@@ -57,7 +74,7 @@ function defaultCustomRange(): { from: string; to: string } {
 export function LedgerScreen() {
   const db = useDb()
   const { member } = useCurrentMember()
-  const confirm = useConfirm()
+  const attachments = useOrgAttachments(member?.orgId)
   const [entries, setEntries] = useState<
     Awaited<ReturnType<typeof listLedgerEntries>>
   >([])
@@ -65,8 +82,6 @@ export function LedgerScreen() {
   const [customFrom, setCustomFrom] = useState(() => defaultCustomRange().from)
   const [customTo, setCustomTo] = useState(() => defaultCustomRange().to)
   const [totals, setTotals] = useState({ inCents: 0, outCents: 0 })
-  const [toast, setToast] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
   const activeRange = useMemo(() => {
     if (period === 'today') return dayRange(0)
@@ -106,28 +121,6 @@ export function LedgerScreen() {
       window.removeEventListener('online', tick)
     }
   }, [db])
-
-  async function onDeleteEntry(entryId: string) {
-    if (!db) return
-    const ok = await confirm({
-      title: 'Delete this money entry?',
-      body: 'Attached proof will be deleted too. This cannot be undone.',
-      confirmLabel: 'Delete entry',
-      tone: 'danger',
-    })
-    if (!ok) return
-    try {
-      await deleteLedgerEntry(db, entryId)
-      setToast('Money entry deleted')
-      await reload()
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not delete entry. Try again.',
-      )
-    }
-  }
 
   const visibleEntries = useMemo(() => {
     if (period === 'all') return entries
@@ -279,8 +272,6 @@ export function LedgerScreen() {
         </div>
       </div>
 
-      {error ? <p className="form-error">{error}</p> : null}
-
       {!hasEntries ? (
         <EmptyState
           icon={<CurrencyCircleDollar size={28} weight="duotone" />}
@@ -317,27 +308,32 @@ export function LedgerScreen() {
                     <span className="muted">
                       {e.category_label} · {e.entry_date}
                     </span>
-                    {e.notes ? <div>{e.notes}</div> : null}
-                    {member ? (
-                      <EntryProof orgId={member.orgId} entryId={e.id} />
+                    {e.direction === 'in' && isAnonymousEntry(e.is_anonymous) ? (
+                      <span className="muted"> · Anonymous</span>
                     ) : null}
+                    {e.notes ? <div>{e.notes}</div> : null}
+                    <EntryProofThumbs
+                      entryId={e.id}
+                      attachments={attachments}
+                    />
                   </div>
-                  <Button
-                    type="button"
-                    variant="danger-ghost"
-                    className="btn--icon"
-                    aria-label="Delete money entry"
-                    onClick={() => void onDeleteEntry(e.id)}
-                  >
-                    <Trash size={18} weight="bold" aria-hidden />
-                  </Button>
+                  <div className="list-item__actions">
+                    <Button
+                      to={`/ledger/${e.id}`}
+                      variant="ghost"
+                      className="btn--icon"
+                      aria-label="Edit money entry"
+                      title="Edit"
+                    >
+                      <PencilSimple size={18} weight="bold" aria-hidden />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
       )}
-      <MoraleToast message={toast} onDone={() => setToast(null)} />
     </section>
   )
 }

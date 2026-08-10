@@ -81,20 +81,54 @@ async function tableExists(name) {
   return rows.length > 0
 }
 
+async function applyMigration(filename) {
+  const migrationPath = resolve(root, 'supabase/migrations', filename)
+  const migrationSql = readFileSync(migrationPath, 'utf8')
+  console.log(`→ Applying supabase/migrations/${filename} …`)
+  await sql.unsafe(migrationSql)
+  console.log(`✓ ${filename} applied`)
+}
+
 async function migrate() {
-  if (await tableExists('organizations')) {
-    console.log('✓ Schema already present — skipping migrate')
-    return
+  if (!(await tableExists('organizations'))) {
+    await applyMigration('001_initial_schema.sql')
+  } else {
+    console.log('✓ Schema already present — skipping 001_initial_schema.sql')
   }
 
-  const migrationPath = resolve(
-    root,
-    'supabase/migrations/001_initial_schema.sql',
-  )
-  const migrationSql = readFileSync(migrationPath, 'utf8')
-  console.log('→ Applying supabase/migrations/001_initial_schema.sql …')
-  await sql.unsafe(migrationSql)
-  console.log('✓ Migration applied')
+  if (!(await tableExists('ledger_attachments'))) {
+    await applyMigration('002_ledger_attachments.sql')
+  } else {
+    console.log('✓ ledger_attachments already present — skipping 002')
+  }
+
+  const anonCol = await sql`
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'ledger_entries'
+      and column_name = 'is_anonymous'
+    limit 1
+  `
+  if (anonCol.length === 0) {
+    await applyMigration('003_ledger_entry_anonymous.sql')
+  } else {
+    console.log('✓ is_anonymous already present — skipping 003')
+  }
+
+  const logoCol = await sql`
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'organizations'
+      and column_name = 'logo_r2_key'
+    limit 1
+  `
+  if (logoCol.length === 0) {
+    await applyMigration('004_org_partner_logo.sql')
+  } else {
+    console.log('✓ logo_r2_key already present — skipping 004')
+  }
 }
 
 async function seed() {
