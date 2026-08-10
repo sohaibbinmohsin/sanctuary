@@ -478,21 +478,40 @@ export function AnimalDetailScreen() {
       ) : null}
 
       <div style={{ marginTop: '0.5rem' }}>
-        {treatments.map((t) => (
+        {treatments.map((t) => {
+          const type = t.treatment_type as TreatmentType
+          const isStatus = type === 'status'
+          const title = isStatus
+            ? t.notes?.trim() || TREATMENT_LABELS.status
+            : TREATMENT_LABELS[type] ?? t.treatment_type
+          return (
           <div className="list-item list-item--row" key={t.id}>
             <div className="list-item__body timeline-item" style={{ border: 'none', padding: 0 }}>
               <span className="timeline-dot" aria-hidden />
               <div>
-                <strong>
-                  {TREATMENT_LABELS[t.treatment_type as TreatmentType] ??
-                    t.treatment_type}
-                </strong>{' '}
-                <span className="muted">
-                  {t.treated_at
-                    ? new Date(t.treated_at).toLocaleString()
-                    : 'Unknown date'}
-                </span>
-                {t.notes ? <div>{t.notes}</div> : null}
+                {isStatus ? (
+                  <>
+                    <div>
+                      <strong>Status</strong>
+                    </div>
+                    <div>{title}</div>
+                    <span className="muted">
+                      {t.treated_at
+                        ? new Date(t.treated_at).toLocaleString()
+                        : 'Unknown date'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <strong>{title}</strong>{' '}
+                    <span className="muted">
+                      {t.treated_at
+                        ? new Date(t.treated_at).toLocaleString()
+                        : 'Unknown date'}
+                    </span>
+                    {t.notes ? <div>{t.notes}</div> : null}
+                  </>
+                )}
               </div>
             </div>
             <div className="list-item__actions">
@@ -517,7 +536,8 @@ export function AnimalDetailScreen() {
               </Button>
             </div>
           </div>
-        ))}
+          )
+        })}
         {showLegacyArrival ? (
           <div className="list-item list-item--row">
             <div

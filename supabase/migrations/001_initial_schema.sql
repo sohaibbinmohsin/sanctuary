@@ -49,7 +49,7 @@ create table treatments (
   org_id uuid not null references organizations(id) on delete cascade,
   animal_id uuid not null references animals(id) on delete cascade,
   treated_at timestamptz not null default now(),
-  treatment_type text not null check (treatment_type in ('meds', 'vet', 'procedure', 'other')),
+  treatment_type text not null check (treatment_type in ('meds', 'vet', 'procedure', 'other', 'intake', 'arrived', 'status')),
   notes text,
   ledger_entry_id uuid,
   created_at timestamptz not null default now()

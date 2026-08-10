@@ -129,6 +129,20 @@ async function migrate() {
   } else {
     console.log('✓ logo_r2_key already present — skipping partner logo migration')
   }
+
+  const treatmentTypeCheck = await sql`
+    select pg_get_constraintdef(oid) as def
+    from pg_constraint
+    where conrelid = 'public.treatments'::regclass
+      and conname = 'treatments_treatment_type_check'
+    limit 1
+  `
+  const typeDef = treatmentTypeCheck[0]?.def ?? ''
+  if (!typeDef.includes('status') || !typeDef.includes('arrived')) {
+    await applyMigration('20260810183000_treatment_types_status_arrived.sql')
+  } else {
+    console.log('✓ treatment_type check already allows status/arrived')
+  }
 }
 
 async function seed() {

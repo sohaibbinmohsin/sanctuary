@@ -167,12 +167,11 @@ export async function updateAnimalStatus(
 
   if (existing.org_id) {
     const label = status?.label?.trim() || 'Unknown status'
-    const from = existing.status_label?.trim()
     await addTreatment(db, {
       orgId: existing.org_id,
       animalId: id,
       treatmentType: 'status',
-      notes: from ? `${from} → ${label}` : label,
+      notes: label,
       treatedAt: now,
     })
   }
@@ -256,12 +255,11 @@ export async function updateAnimal(
       [input.statusId],
     )
     const label = status?.label?.trim() || 'Unknown status'
-    const from = existing.status_label?.trim()
     await addTreatment(db, {
       orgId: existing.org_id,
       animalId: id,
       treatmentType: 'status',
-      notes: from ? `${from} → ${label}` : label,
+      notes: label,
       treatedAt: now,
     })
   }
