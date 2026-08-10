@@ -187,10 +187,26 @@ export function PublicShelterScreen() {
               </div>
               {data.ledger.map((entry) => (
                 <div className="public-shelter__ledger-row" key={entry.id}>
-                  <span>
-                    {formatDate(entry.entryDate)} · {entry.categoryLabel}
-                    {entry.isAnonymous ? ' · Anonymous' : ''}
-                  </span>
+                  <div className="public-shelter__ledger-info">
+                    <span>
+                      {formatDate(entry.entryDate)} · {entry.categoryLabel}
+                      {entry.isAnonymous ? ' · Anonymous' : ''}
+                    </span>
+                    {entry.attachmentUrls.length > 0 ? (
+                      <div className="public-shelter__ledger-attachments">
+                        {entry.attachmentUrls.map((url, index) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Attachment {index + 1}
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                   <span
                     className={
                       entry.direction === 'in'
