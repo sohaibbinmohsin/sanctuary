@@ -1,5 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Camera, ImageSquare, Plus } from '@phosphor-icons/react'
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+import { Camera, ImageSquare, Plus, WarningCircle } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
@@ -8,7 +15,10 @@ import {
   processPhotoQueue,
   queuePhoto,
 } from '@/features/photos/domain/photos'
+import { requestCaptureSession } from '@/shared/lib/r2/captureSession'
 import { isPlaygroundMode } from '@/features/playground/mode'
+import { InAppCamera } from '@/features/animals/components/InAppCamera'
+import { Button } from '@/shared/ui/Button'
 
 type PhotoCaptureProps = {
   orgId: string
@@ -18,6 +28,19 @@ type PhotoCaptureProps = {
 }
 
 type MenuPos = { top: number; left: number }
+
+/**
+ * Verified-camera flow state. `captureToken` is only ever set on the
+ * `active` stage after a successful online session mint — offline and
+ * gallery captures always go through with no token (never verified, and
+ * never upgraded later).
+ */
+type CameraStage =
+  | { kind: 'idle' }
+  | { kind: 'minting' }
+  | { kind: 'offline-warn' }
+  | { kind: 'retry-warn' }
+  | { kind: 'active'; captureToken: string | null }
 
 export function PhotoCapture({
   orgId,
@@ -29,12 +52,12 @@ export function PhotoCapture({
   const canTakePhoto = useCanTakePhoto()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState(0)
   const [busy, setBusy] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null)
+  const [cameraStage, setCameraStage] = useState<CameraStage>({ kind: 'idle' })
 
   async function refreshPending() {
     if (!db) return
@@ -95,17 +118,43 @@ export function PhotoCapture({
     }
   }, [menuOpen])
 
+  async function saveCameraPhoto(blob: Blob, captureToken?: string) {
+    if (!db) return
+    setBusy(true)
+    try {
+      await queuePhoto(db, {
+        orgId,
+        animalId,
+        blob,
+        captureSource: 'camera',
+        captureToken,
+      })
+      await refreshPending()
+      onQueued?.()
+    } catch (err) {
+      onError?.(
+        err instanceof Error ? err.message : 'Could not save photo. Try again.',
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function onFiles(
     files: FileList | null,
     input: HTMLInputElement | null,
-    captureSource: 'camera' | 'gallery',
   ) {
     if (!files?.length || !db) return
     setBusy(true)
     setMenuOpen(false)
     try {
       for (const file of Array.from(files)) {
-        await queuePhoto(db, { orgId, animalId, blob: file, captureSource })
+        await queuePhoto(db, {
+          orgId,
+          animalId,
+          blob: file,
+          captureSource: 'gallery',
+        })
       }
       await refreshPending()
       onQueued?.()
@@ -119,6 +168,26 @@ export function PhotoCapture({
     }
   }
 
+  async function mintSessionAndOpenCamera() {
+    setCameraStage({ kind: 'minting' })
+    try {
+      const session = await requestCaptureSession({ animalId })
+      setCameraStage({ kind: 'active', captureToken: session.token })
+    } catch {
+      setCameraStage({ kind: 'retry-warn' })
+    }
+  }
+
+  function onTakePhotoClick() {
+    if (busy) return
+    setMenuOpen(false)
+    if (!navigator.onLine) {
+      setCameraStage({ kind: 'offline-warn' })
+      return
+    }
+    void mintSessionAndOpenCamera()
+  }
+
   function onPlusClick() {
     if (busy) return
     if (canTakePhoto) {
@@ -128,30 +197,29 @@ export function PhotoCapture({
     galleryRef.current?.click()
   }
 
+  function onCameraCapture(blob: Blob) {
+    const stage = cameraStage
+    setCameraStage({ kind: 'idle' })
+    void saveCameraPhoto(
+      blob,
+      stage.kind === 'active' ? (stage.captureToken ?? undefined) : undefined,
+    )
+  }
+
+  function onCameraCancel() {
+    setCameraStage({ kind: 'idle' })
+  }
+
   return (
     <>
       <div className="photo-strip__add-wrap" role="listitem">
-        {canTakePhoto ? (
-          <input
-            ref={cameraRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            hidden
-            onChange={(e) =>
-              void onFiles(e.target.files, cameraRef.current, 'camera')
-            }
-          />
-        ) : null}
         <input
           ref={galleryRef}
           type="file"
           accept="image/*"
           multiple
           hidden
-          onChange={(e) =>
-            void onFiles(e.target.files, galleryRef.current, 'gallery')
-          }
+          onChange={(e) => void onFiles(e.target.files, galleryRef.current)}
         />
         <button
           ref={buttonRef}
@@ -194,10 +262,7 @@ export function PhotoCapture({
                 type="button"
                 role="menuitem"
                 disabled={busy}
-                onClick={() => {
-                  setMenuOpen(false)
-                  cameraRef.current?.click()
-                }}
+                onClick={onTakePhotoClick}
               >
                 <Camera size={16} weight="bold" aria-hidden />
                 Take photo
@@ -218,6 +283,141 @@ export function PhotoCapture({
             document.body,
           )
         : null}
+      {cameraStage.kind === 'active'
+        ? createPortal(
+            <InAppCamera onCapture={onCameraCapture} onCancel={onCameraCancel} />,
+            document.body,
+          )
+        : null}
+      {cameraStage.kind === 'offline-warn'
+        ? createPortal(
+            <CameraWarningDialog
+              title="This photo won't be verified on the public page."
+              body="You're offline right now, so this photo can't be checked. It will still be saved and shown, just without the verified mark."
+              onCancel={() => setCameraStage({ kind: 'idle' })}
+            >
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setCameraStage({ kind: 'idle' })}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => setCameraStage({ kind: 'active', captureToken: null })}
+              >
+                Proceed
+              </Button>
+            </CameraWarningDialog>,
+            document.body,
+          )
+        : null}
+      {cameraStage.kind === 'retry-warn'
+        ? createPortal(
+            <CameraWarningDialog
+              title="This photo won't be verified on the public page."
+              body="We couldn't confirm a verified session for this photo. You can try again, take an unverified photo instead, or cancel."
+              onCancel={() => setCameraStage({ kind: 'idle' })}
+              stacked
+            >
+              <Button
+                type="button"
+                variant="primary"
+                block
+                onClick={() => void mintSessionAndOpenCamera()}
+              >
+                Retry
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                block
+                onClick={() => setCameraStage({ kind: 'active', captureToken: null })}
+              >
+                Proceed unverified
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                block
+                onClick={() => setCameraStage({ kind: 'idle' })}
+              >
+                Cancel
+              </Button>
+            </CameraWarningDialog>,
+            document.body,
+          )
+        : null}
     </>
+  )
+}
+
+type CameraWarningDialogProps = {
+  title: string
+  body: string
+  onCancel: () => void
+  stacked?: boolean
+  children: ReactNode
+}
+
+/** Matches the app's shared `.confirm-*` dialog styling (see `ConfirmDialog`). */
+function CameraWarningDialog({
+  title,
+  body,
+  onCancel,
+  stacked,
+  children,
+}: CameraWarningDialogProps) {
+  const titleId = useId()
+  const bodyId = useId()
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [onCancel])
+
+  return (
+    <div className="confirm-root" role="presentation">
+      <button
+        type="button"
+        className="confirm-backdrop"
+        aria-label="Dismiss"
+        onClick={onCancel}
+      />
+      <div
+        className="confirm-card"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={bodyId}
+      >
+        <div className="confirm-card__icon confirm-card__icon--danger">
+          <WarningCircle size={28} weight="duotone" aria-hidden />
+        </div>
+        <h2 id={titleId} className="confirm-card__title">
+          {title}
+        </h2>
+        <p id={bodyId} className="confirm-card__body">
+          {body}
+        </p>
+        <div
+          className={
+            stacked ? 'confirm-card__actions confirm-card__actions--stack' : 'confirm-card__actions'
+          }
+        >
+          {children}
+        </div>
+      </div>
+    </div>
   )
 }
