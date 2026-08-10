@@ -58,6 +58,7 @@ export function PhotoCapture({
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null)
   const [cameraStage, setCameraStage] = useState<CameraStage>({ kind: 'idle' })
+  const cameraFlowActive = cameraStage.kind !== 'idle'
 
   async function refreshPending() {
     if (!db) return
@@ -179,7 +180,7 @@ export function PhotoCapture({
   }
 
   function onTakePhotoClick() {
-    if (busy) return
+    if (busy || cameraFlowActive) return
     setMenuOpen(false)
     if (!navigator.onLine) {
       setCameraStage({ kind: 'offline-warn' })
@@ -189,7 +190,7 @@ export function PhotoCapture({
   }
 
   function onPlusClick() {
-    if (busy) return
+    if (busy || cameraFlowActive) return
     if (canTakePhoto) {
       setMenuOpen((open) => !open)
       return
@@ -225,9 +226,9 @@ export function PhotoCapture({
           ref={buttonRef}
           type="button"
           className="photo-strip__thumb photo-strip__add"
-          disabled={busy}
+          disabled={busy || cameraFlowActive}
           aria-label={
-            busy
+            busy || cameraFlowActive
               ? 'Saving photo'
               : pending > 0
                 ? `Add photo, ${pending} waiting to upload`
