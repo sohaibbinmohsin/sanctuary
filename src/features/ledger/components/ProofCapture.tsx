@@ -59,15 +59,6 @@ export function ProofCapture({
       ? `SELECT * FROM ledger_attachments WHERE ledger_entry_id = ? ORDER BY created_at ASC`
       : `SELECT * FROM ledger_attachments WHERE 0`,
     entryId ? [entryId] : [],
-    entryId
-      ? {
-          rowComparator: {
-            keyBy: (item) => item.id,
-            compareBy: (item) =>
-              `${item.id}:${item.r2_key ?? ''}:${item.upload_state ?? ''}`,
-          },
-        }
-      : { runQueryOnce: true },
   )
   const rows = data ?? EMPTY_ATTACHMENTS
 

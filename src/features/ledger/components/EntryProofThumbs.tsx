@@ -107,15 +107,6 @@ export function useOrgAttachments(orgId: string | undefined) {
       ? `SELECT * FROM ledger_attachments WHERE org_id = ? ORDER BY created_at ASC`
       : `SELECT * FROM ledger_attachments WHERE 0`,
     orgId ? [orgId] : [],
-    orgId
-      ? {
-          rowComparator: {
-            keyBy: (item) => item.id,
-            compareBy: (item) =>
-              `${item.id}:${item.r2_key ?? ''}:${item.upload_state ?? ''}`,
-          },
-        }
-      : { runQueryOnce: true },
   )
   return data ?? EMPTY
 }

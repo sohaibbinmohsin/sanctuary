@@ -97,9 +97,9 @@ async function migrate() {
   }
 
   if (!(await tableExists('ledger_attachments'))) {
-    await applyMigration('002_ledger_attachments.sql')
+    await applyMigration('20260810110956_ledger_attachments.sql')
   } else {
-    console.log('✓ ledger_attachments already present — skipping 002')
+    console.log('✓ ledger_attachments already present — skipping attachments migration')
   }
 
   const anonCol = await sql`
@@ -111,9 +111,9 @@ async function migrate() {
     limit 1
   `
   if (anonCol.length === 0) {
-    await applyMigration('003_ledger_entry_anonymous.sql')
+    await applyMigration('20260810120311_ledger_entry_anonymous.sql')
   } else {
-    console.log('✓ is_anonymous already present — skipping 003')
+    console.log('✓ is_anonymous already present — skipping anonymous migration')
   }
 
   const logoCol = await sql`
@@ -127,7 +127,7 @@ async function migrate() {
   if (logoCol.length === 0) {
     await applyMigration('004_org_partner_logo.sql')
   } else {
-    console.log('✓ logo_r2_key already present — skipping 004')
+    console.log('✓ logo_r2_key already present — skipping partner logo migration')
   }
 }
 
