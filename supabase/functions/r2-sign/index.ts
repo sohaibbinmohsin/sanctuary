@@ -173,13 +173,19 @@ async function tryBindCaptureSession(opts: {
       .from('photo_capture_sessions')
       .update({ used_at: nowIso, photo_id: opts.photoId })
       .eq('id', session.id)
+      .eq('org_id', opts.orgId)
+      .eq('animal_id', opts.animalId)
       .is('used_at', null)
     if (updateSessionError) return
 
+    // Scope by org/animal too — a client-supplied photoId must never flip
+    // `verified` on a photo outside the caller's org or the key's animal.
     await admin
       .from('photos')
       .update({ verified: true })
       .eq('id', opts.photoId)
+      .eq('org_id', opts.orgId)
+      .eq('animal_id', opts.animalId)
   } catch (err) {
     console.error('Capture-session binding failed (non-fatal):', err)
   }

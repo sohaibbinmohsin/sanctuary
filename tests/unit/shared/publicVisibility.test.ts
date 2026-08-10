@@ -104,4 +104,11 @@ describe('buildPublicShelterDto', () => {
     expect(dto.ledger[0]!.attachmentUrls).toEqual([])
     expect(dto.ledger[1]!.attachmentUrls).toEqual(['https://cdn/bill.jpg'])
   })
+
+  it('drops notes on anonymous ledger rows so donor names cannot leak', () => {
+    const dto = buildPublicShelterDto(base)
+    expect(dto.ledger[0]!.isAnonymous).toBe(true)
+    expect(dto.ledger[0]!.notes).toBeNull()
+    expect(dto.ledger[1]!.notes).toBe('Clinic')
+  })
 })

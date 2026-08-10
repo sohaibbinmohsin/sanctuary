@@ -24,8 +24,14 @@ function formatDate(iso: string): string {
   })
 }
 
-export function PublicShelterScreen() {
-  const { slug = '' } = useParams<{ slug: string }>()
+type PublicShelterScreenProps = {
+  /** Overrides the `:slug` route param — used where the route isn't `/:slug`. */
+  slug?: string
+}
+
+export function PublicShelterScreen({ slug: slugProp }: PublicShelterScreenProps = {}) {
+  const { slug: slugParam = '' } = useParams<{ slug: string }>()
+  const slug = slugProp ?? slugParam
   const [state, setState] = useState<LoadState>({ status: 'loading' })
 
   useEffect(() => {

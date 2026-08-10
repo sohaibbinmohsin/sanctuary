@@ -41,10 +41,26 @@ function jsonResponse(body: unknown, status: number, extraHeaders?: Record<strin
 
 const notFound = () => jsonResponse({ error: 'not_found' }, 404)
 
+/**
+ * Rate-limit bucket key. Uses the rightmost X-Forwarded-For entry — the one
+ * appended by the closest proxy — because the leftmost entries are
+ * client-supplied and trivially spoofed to dodge the IP bucket.
+ */
 function clientIp(req: Request): string {
+  const cfIp = req.headers.get('cf-connecting-ip')?.trim()
+  if (cfIp) return cfIp
+
   const forwarded = req.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0]!.trim()
-  return req.headers.get('cf-connecting-ip') ?? 'unknown'
+  if (forwarded) {
+    const entries = forwarded
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+    const rightmost = entries[entries.length - 1]
+    if (rightmost) return rightmost
+  }
+
+  return 'unknown'
 }
 
 function publicPhotoUrl(base: string, r2Key: string | null): string | null {
@@ -245,7 +261,9 @@ Deno.serve(async (req) => {
       amountCents: row.amount_cents,
       entryDate: row.entry_date,
       categoryLabel: row.category?.label ?? '',
-      notes: row.notes,
+      // Free-text notes on anonymous entries often carry the donor's name —
+      // drop them entirely rather than leak them in the JSON payload.
+      notes: row.is_anonymous ? null : row.notes,
       animalId: row.animal_id,
       isAnonymous: row.is_anonymous,
       attachmentUrls: row.is_anonymous ? [] : attachmentsByEntry.get(row.id) ?? [],

@@ -29,6 +29,7 @@ export type PublicLedgerDto = {
   amountCents: number
   entryDate: string
   categoryLabel: string
+  /** Always null when isAnonymous — notes can name the donor. */
   notes: string | null
   animalId: string | null
   isAnonymous: boolean
@@ -88,6 +89,7 @@ export function buildPublicShelterDto(input: PublicShelterInput): PublicShelterD
       .filter((entry) => !entry.hideFromPublic)
       .map(({ hideFromPublic: _hideFromPublic, attachmentUrls, ...entry }) => ({
         ...entry,
+        notes: entry.isAnonymous ? null : entry.notes,
         attachmentUrls: entry.isAnonymous ? [] : attachmentUrls,
       })),
   }

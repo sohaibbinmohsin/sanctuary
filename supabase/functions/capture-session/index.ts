@@ -49,10 +49,26 @@ const rateLimited = (retryAfterSeconds: number) =>
     { 'Retry-After': String(retryAfterSeconds) },
   )
 
+/**
+ * Rate-limit bucket key. Uses the rightmost X-Forwarded-For entry — the one
+ * appended by the closest proxy — because the leftmost entries are
+ * client-supplied and trivially spoofed to dodge the IP bucket.
+ */
 function clientIp(req: Request): string {
+  const cfIp = req.headers.get('cf-connecting-ip')?.trim()
+  if (cfIp) return cfIp
+
   const forwarded = req.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0]!.trim()
-  return req.headers.get('cf-connecting-ip') ?? 'unknown'
+  if (forwarded) {
+    const entries = forwarded
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+    const rightmost = entries[entries.length - 1]
+    if (rightmost) return rightmost
+  }
+
+  return 'unknown'
 }
 
 function toHex(buffer: ArrayBuffer): string {
@@ -80,6 +96,23 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    )
+
+    // Spec §6: failed auth counts toward the IP limit, so consume the bucket
+    // before any 401 — otherwise unauthenticated probes are unlimited.
+    const ip = clientIp(req)
+    const ipCheck = await consumeRateLimit(admin, {
+      bucketKey: `capture-session:ip:${ip}`,
+      limit: IP_LIMIT,
+      windowSeconds: WINDOW_SECONDS,
+    })
+    if (!ipCheck.allowed) {
+      return rateLimited(ipCheck.retryAfterSeconds)
+    }
+
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return unauthorized()
@@ -97,21 +130,6 @@ Deno.serve(async (req) => {
     } = await supabase.auth.getUser()
     if (userError || !user) {
       return unauthorized()
-    }
-
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    )
-
-    const ip = clientIp(req)
-    const ipCheck = await consumeRateLimit(admin, {
-      bucketKey: `capture-session:ip:${ip}`,
-      limit: IP_LIMIT,
-      windowSeconds: WINDOW_SECONDS,
-    })
-    if (!ipCheck.allowed) {
-      return rateLimited(ipCheck.retryAfterSeconds)
     }
 
     const userCheck = await consumeRateLimit(admin, {

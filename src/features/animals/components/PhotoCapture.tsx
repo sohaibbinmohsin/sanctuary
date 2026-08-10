@@ -182,6 +182,12 @@ export function PhotoCapture({
   function onTakePhotoClick() {
     if (busy || cameraFlowActive) return
     setMenuOpen(false)
+    // Playground has no auth to mint a session with — open the camera straight
+    // away instead of failing into the "not verified" warning.
+    if (isPlaygroundMode()) {
+      setCameraStage({ kind: 'active', captureToken: null })
+      return
+    }
     if (!navigator.onLine) {
       setCameraStage({ kind: 'offline-warn' })
       return

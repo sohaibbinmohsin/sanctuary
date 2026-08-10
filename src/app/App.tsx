@@ -26,7 +26,8 @@ function PublicSlugOrApp() {
     return <AppShell />
   }
 
-  return <PublicShelterScreen />
+  // The signed-in route is `/*`, so there is no `:slug` param to read.
+  return <PublicShelterScreen slug={firstSegment} />
 }
 
 export default function App() {
