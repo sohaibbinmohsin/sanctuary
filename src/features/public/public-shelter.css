@@ -1,0 +1,200 @@
+/* Public donor-facing shelter page — scoped under .public-shelter, own brand palette */
+
+.public-shelter {
+  --ps-sage: #87a96b;
+  --ps-sage-hover: #75965a;
+  --ps-cream: #f5f1e8;
+  --ps-ink: #3e4c3e;
+  --ps-ink-muted: #6b7a68;
+  --ps-white: #ffffff;
+  --ps-border: #ded6c2;
+
+  min-height: 100dvh;
+  background: var(--ps-cream);
+  color: var(--ps-ink);
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+.public-shelter *,
+.public-shelter *::before,
+.public-shelter *::after {
+  box-sizing: border-box;
+}
+
+.public-shelter img {
+  max-width: 100%;
+  display: block;
+}
+
+.public-shelter__wrap {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.public-shelter__hero {
+  background: var(--ps-sage);
+  color: var(--ps-white);
+  padding: 3rem 1.25rem 2.5rem;
+  text-align: center;
+}
+
+.public-shelter__hero h1 {
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+}
+
+.public-shelter__hero p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1rem;
+  max-width: 32rem;
+  margin-inline: auto;
+}
+
+.public-shelter__section {
+  margin-top: 2.5rem;
+}
+
+.public-shelter__section h2 {
+  font-size: 1.25rem;
+  margin: 0 0 1rem;
+  color: var(--ps-ink);
+}
+
+.public-shelter__animals {
+  display: grid;
+  gap: 1rem;
+}
+
+.public-shelter__animal {
+  background: var(--ps-white);
+  border: 1px solid var(--ps-border);
+  border-radius: 14px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.public-shelter__animal-photos {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+
+.public-shelter__animal-photos img {
+  width: 6.5rem;
+  height: 6.5rem;
+  object-fit: cover;
+  border-radius: 10px;
+  flex: none;
+}
+
+.public-shelter__photo {
+  position: relative;
+}
+
+.verified-badge {
+  position: absolute;
+  bottom: 0.25rem;
+  left: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: rgba(62, 76, 62, 0.85);
+  color: var(--ps-white);
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  line-height: 1;
+}
+
+.public-shelter__animal-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.public-shelter__animal-meta {
+  color: var(--ps-ink-muted);
+  font-size: 0.875rem;
+}
+
+.public-shelter__care-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.875rem;
+  color: var(--ps-ink-muted);
+}
+
+.public-shelter__ledger {
+  background: var(--ps-white);
+  border: 1px solid var(--ps-border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.public-shelter__ledger-totals {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1rem;
+  background: var(--ps-cream);
+  border-bottom: 1px solid var(--ps-border);
+  flex-wrap: wrap;
+}
+
+.public-shelter__ledger-totals div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.public-shelter__ledger-totals span:first-child {
+  font-size: 0.75rem;
+  color: var(--ps-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.public-shelter__ledger-totals span:last-child {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.public-shelter__ledger-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--ps-border);
+  font-size: 0.875rem;
+}
+
+.public-shelter__ledger-row:last-child {
+  border-bottom: none;
+}
+
+.public-shelter__ledger-amount--in {
+  color: var(--ps-sage-hover);
+  font-weight: 700;
+}
+
+.public-shelter__ledger-amount--out {
+  color: var(--ps-ink);
+  font-weight: 700;
+}
+
+.public-shelter__state {
+  text-align: center;
+  padding: 4rem 1.25rem;
+  color: var(--ps-ink-muted);
+}
+
+.public-shelter__footer {
+  text-align: center;
+  margin-top: 3rem;
+  color: var(--ps-ink-muted);
+  font-size: 0.8rem;
+}
