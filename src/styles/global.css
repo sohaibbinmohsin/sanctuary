@@ -682,6 +682,24 @@ a.primary {
   line-height: var(--leading-snug);
 }
 
+.login-screen__access {
+  margin: var(--space-6) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  text-align: center;
+}
+
+.login-screen__access a {
+  color: var(--color-forest);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.login-screen__access a:hover {
+  color: var(--color-forest-hover);
+}
+
 .login-form {
   display: grid;
   gap: var(--space-4);
@@ -883,8 +901,19 @@ a.primary {
   flex: 1;
   min-width: 0;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+.playground-banner__actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.playground-banner__access,
 .playground-banner__exit {
   flex-shrink: 0;
   color: #f7faf8;
@@ -893,6 +922,7 @@ a.primary {
   font-weight: 600;
 }
 
+.playground-banner__access:hover,
 .playground-banner__exit:hover {
   opacity: 0.85;
 }

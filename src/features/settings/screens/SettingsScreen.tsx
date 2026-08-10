@@ -357,7 +357,7 @@ export function SettingsScreen() {
     const ok = await confirm({
       title: 'Reset playground?',
       body: 'Demo animals and money entries will be restored. Your playground edits on this device will be cleared.',
-      confirmLabel: 'Reset demo data',
+      confirmLabel: 'Reset',
       tone: 'danger',
     })
     if (!ok) return
@@ -645,8 +645,16 @@ export function SettingsScreen() {
             <p className="muted" style={{ margin: 0 }}>
               Demo data stays on this device. Reset anytime, or leave to sign in to your shelter.
             </p>
+            <a
+              className="btn btn--primary"
+              href="https://www.themohsinproject.org/#apply?type=partner"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Request access
+            </a>
             <Button type="button" variant="secondary" onClick={() => void onResetPlayground()}>
-              Reset demo data
+              Reset
             </Button>
             <Button type="button" variant="danger-outline" onClick={() => window.location.assign('/')}>
               Exit playground

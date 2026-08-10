@@ -105,6 +105,16 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               {busy ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
+          <p className="login-screen__access">
+            New shelter?{' '}
+            <a
+              href="https://www.themohsinproject.org/#apply?type=partner"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Request access
+            </a>
+          </p>
         </div>
 
         <footer className="login-screen__foot">
