@@ -284,12 +284,9 @@ export function PhotoCapture({
             document.body,
           )
         : null}
-      {cameraStage.kind === 'active'
-        ? createPortal(
-            <InAppCamera onCapture={onCameraCapture} onCancel={onCameraCancel} />,
-            document.body,
-          )
-        : null}
+      {cameraStage.kind === 'active' ? (
+        <InAppCamera onCapture={onCameraCapture} onCancel={onCameraCancel} />
+      ) : null}
       {cameraStage.kind === 'offline-warn'
         ? createPortal(
             <CameraWarningDialog

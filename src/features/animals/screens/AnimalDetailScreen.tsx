@@ -19,6 +19,7 @@ import {
 } from '@/features/treatments/domain/treatments'
 import type { PhotoRecord, TreatmentRecord } from '@/features/sync/powersync/schema'
 import { PhotoCapture } from '@/features/animals/components/PhotoCapture'
+import { VerifiedPhotoBadge } from '@/features/public/components/VerifiedPhotoBadge'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { MoraleToast } from '@/shared/ui/MoraleToast'
@@ -310,6 +311,7 @@ export function AnimalDetailScreen() {
                   src={activePhoto.url}
                   alt={animal.name ?? animal.shelter_code ?? 'Animal'}
                 />
+                <VerifiedPhotoBadge verified={Boolean(activePhoto.photo.verified)} />
                 <button
                   type="button"
                   className="detail-hero__photo-delete"
