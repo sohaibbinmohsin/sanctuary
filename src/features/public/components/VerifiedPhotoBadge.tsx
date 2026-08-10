@@ -1,5 +1,7 @@
 import { SealCheck } from '@phosphor-icons/react'
 
+import './VerifiedPhotoBadge.css'
+
 /**
  * Marks a photo as taken with the in-app camera under an online, server-gated
  * capture session — not a claim of authenticity or guaranteed realness.
