@@ -30,8 +30,8 @@ loadEnvFiles(root)
 const databaseUrl = process.env.DATABASE_URL
 const seedUserId = process.env.SEED_USER_ID
 
-const ORG_NAME = 'Tales of Second Chances'
-const ORG_INITIALS = 'TOSC'
+const ORG_NAME = 'Test Shelter'
+const ORG_INITIALS = 'TS'
 
 if (!databaseUrl) {
   console.error(`
@@ -160,6 +160,13 @@ async function seed() {
   const orgId = orgRows[0].id
   console.log(`  org id: ${orgId}`)
 
+  // Seed user should only belong to this org (e.g. switch from a prior org).
+  await sql`
+    delete from org_members
+    where user_id = ${seedUserId}::uuid
+      and org_id <> ${orgId}::uuid
+  `
+
   await sql`
     insert into org_members (org_id, user_id, role)
     values (${orgId}::uuid, ${seedUserId}::uuid, 'admin')
@@ -211,7 +218,7 @@ async function seed() {
     }
   }
 
-  console.log('✓ Seed complete (org TOSC, admin membership, statuses, categories)')
+  console.log(`✓ Seed complete (org ${ORG_INITIALS}, admin membership, statuses, categories)`)
 }
 
 try {

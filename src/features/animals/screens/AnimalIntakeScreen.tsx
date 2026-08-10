@@ -1,7 +1,11 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useDb } from '@/shared/hooks/useDb'
-import { createAnimal } from '@/features/animals/domain/animals'
+import {
+  createAnimal,
+  getAnimal,
+  updateAnimal,
+} from '@/features/animals/domain/animals'
 import { listStatuses, type AnimalStatus } from '@/features/statuses/domain/statuses'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { INTAKE_MESSAGES, pickMessage } from '@/shared/lib/morale/messages'
@@ -9,10 +13,25 @@ import { MoraleToast } from '@/shared/ui/MoraleToast'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { SelectField, TextareaField, TextField } from '@/shared/ui/Field'
+import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
 
+function splitSpecies(species: string | null | undefined): {
+  preset: string
+  other: string
+} {
+  const value = species?.trim() ?? ''
+  if (!value) return { preset: 'Dog', other: '' }
+  if (SPECIES_PRESETS.includes(value) && value !== 'Other') {
+    return { preset: value, other: '' }
+  }
+  return { preset: 'Other', other: value }
+}
+
 export function AnimalIntakeScreen() {
+  const { id: animalId } = useParams<{ id: string }>()
+  const isEdit = Boolean(animalId)
   const db = useDb()
   const navigate = useNavigate()
   const { member } = useCurrentMember()
@@ -27,17 +46,59 @@ export function AnimalIntakeScreen() {
   const [intakeDate, setIntakeDate] = useState(
     () => new Date().toISOString().slice(0, 10),
   )
+  const [shelterCode, setShelterCode] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(isEdit)
+  const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
     if (!db || !member) return
     void listStatuses(db, member.orgId).then((rows) => {
       setStatuses(rows)
-      if (rows[0]) setStatusId(rows[0].id)
+      if (!isEdit && rows[0]) setStatusId((current) => current || rows[0].id)
     })
-  }, [db, member])
+  }, [db, member, isEdit])
+
+  useEffect(() => {
+    if (!db || !member || !isEdit || !animalId) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    void (async () => {
+      try {
+        const animal = await getAnimal(db, animalId)
+        if (cancelled) return
+        if (!animal || animal.org_id !== member.orgId || animal.archived) {
+          setNotFound(true)
+          return
+        }
+        const { preset, other } = splitSpecies(animal.species)
+        setSpeciesPreset(preset)
+        setSpeciesOther(other)
+        setStatusId(animal.status_id ?? '')
+        setName(animal.name ?? '')
+        setSex(animal.sex ?? '')
+        setMarkings(animal.markings ?? '')
+        setNotes(animal.notes ?? '')
+        setIntakeDate(
+          animal.intake_date ?? new Date().toISOString().slice(0, 10),
+        )
+        setShelterCode(animal.shelter_code)
+      } catch (err) {
+        console.warn('Failed to load animal for edit', err)
+        if (!cancelled) setNotFound(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [db, member, isEdit, animalId])
 
   const species =
     speciesPreset === 'Other' ? speciesOther.trim() : speciesPreset
@@ -50,6 +111,19 @@ export function AnimalIntakeScreen() {
     try {
       if (!species || !statusId) {
         throw new Error('Please choose an animal type and status.')
+      }
+      if (isEdit && animalId) {
+        await updateAnimal(db, animalId, {
+          species,
+          statusId,
+          name,
+          sex,
+          markings,
+          notes,
+          intakeDate,
+        })
+        navigate(`/animals/${animalId}`, { replace: true })
+        return
       }
       const animal = await createAnimal(db, {
         orgId: member.orgId,
@@ -73,13 +147,40 @@ export function AnimalIntakeScreen() {
     }
   }
 
+  if (loading) {
+    return (
+      <section className="screen">
+        <AnimalLoader label="Loading animal…" />
+      </section>
+    )
+  }
+
+  if (notFound) {
+    return (
+      <section className="screen">
+        <PageHeader
+          title="Animal not found"
+          subtitle="It may have been removed."
+          backTo="/animals"
+          backLabel="Animals"
+        />
+      </section>
+    )
+  }
+
   return (
     <section className="screen">
       <PageHeader
-        title="Add an animal"
-        subtitle="We'll create a shelter ID when you save."
-        backTo="/animals"
-        backLabel="Animals"
+        title={isEdit ? 'Edit animal' : 'Add an animal'}
+        subtitle={
+          isEdit
+            ? shelterCode
+              ? `Shelter ID ${shelterCode} stays the same.`
+              : 'Update their details.'
+            : "We'll create a shelter ID when you save."
+        }
+        backTo={isEdit && animalId ? `/animals/${animalId}` : '/animals'}
+        backLabel={isEdit ? 'Animal' : 'Animals'}
       />
 
       <form className="stack stack--loose" onSubmit={onSubmit}>
@@ -170,7 +271,9 @@ export function AnimalIntakeScreen() {
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Anything helpers should know"
           />
-          <p className="muted">You can add photos on the next screen after saving.</p>
+          {isEdit ? null : (
+            <p className="muted">You can add photos on the next screen after saving.</p>
+          )}
         </div>
 
         {error ? <p className="form-error">{error}</p> : null}
@@ -182,7 +285,7 @@ export function AnimalIntakeScreen() {
             block
             disabled={busy || !member}
           >
-            {busy ? 'Saving…' : 'Save animal'}
+            {busy ? 'Saving…' : isEdit ? 'Save changes' : 'Save animal'}
           </Button>
         </div>
       </form>

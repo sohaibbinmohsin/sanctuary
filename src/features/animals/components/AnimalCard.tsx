@@ -25,8 +25,15 @@ export function AnimalCard({ animal, photoUrl }: AnimalCardProps) {
         {photoUrl ? null : 'No photo yet'}
       </div>
       <div className="animal-card__body">
-        <div className="animal-card__code shelter-code">{animal.shelter_code}</div>
-        <div className="animal-card__name">{animal.name || animal.species}</div>
+        <div
+          className={
+            animal.name?.trim()
+              ? 'animal-card__name'
+              : 'animal-card__code shelter-code'
+          }
+        >
+          {animal.name?.trim() || animal.shelter_code}
+        </div>
         {animal.status_label ? (
           <StatusBadge label={animal.status_label} />
         ) : null}

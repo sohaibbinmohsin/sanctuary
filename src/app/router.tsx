@@ -60,6 +60,7 @@ export function AppShell() {
             <Route path="/" element={<Navigate to="/animals" replace />} />
             <Route path="/animals" element={<AnimalsListScreen />} />
             <Route path="/animals/new" element={<AnimalIntakeScreen />} />
+            <Route path="/animals/:id/edit" element={<AnimalIntakeScreen />} />
             <Route path="/animals/:id" element={<AnimalDetailScreen />} />
             <Route path="/ledger" element={<LedgerScreen />} />
             <Route path="/ledger/new" element={<LedgerEntryScreen />} />
