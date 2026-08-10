@@ -83,6 +83,7 @@ export function AnimalDetailScreen() {
   const [activePhotoId, setActivePhotoId] = useState<string | null>(null)
   const [treatmentType, setTreatmentType] = useState<TreatmentType>('meds')
   const [notes, setNotes] = useState('')
+  const [hideFromPublic, setHideFromPublic] = useState(false)
   const [treatedAt, setTreatedAt] = useState(
     () => toDatetimeLocalValue(new Date().toISOString()),
   )
@@ -127,6 +128,7 @@ export function AnimalDetailScreen() {
     setTreatmentType('meds')
     setNotes('')
     setTreatedAt(toDatetimeLocalValue(new Date().toISOString()))
+    setHideFromPublic(false)
     setError(null)
   }
 
@@ -135,6 +137,7 @@ export function AnimalDetailScreen() {
     setTreatmentType('meds')
     setNotes('')
     setTreatedAt(toDatetimeLocalValue(new Date().toISOString()))
+    setHideFromPublic(false)
     setError(null)
     setShowCareForm(true)
   }
@@ -149,6 +152,7 @@ export function AnimalDetailScreen() {
     )
     setNotes(treatment.notes ?? '')
     setTreatedAt(toDatetimeLocalValue(treatment.treated_at))
+    setHideFromPublic(Boolean(treatment.hide_from_public))
     setError(null)
     setShowCareForm(true)
   }
@@ -240,6 +244,7 @@ export function AnimalDetailScreen() {
           treatmentType,
           notes,
           treatedAt: new Date(treatedAt).toISOString(),
+          hideFromPublic,
         })
         setToast('Care note updated')
       } else {
@@ -249,6 +254,7 @@ export function AnimalDetailScreen() {
           treatmentType,
           notes,
           treatedAt: new Date(treatedAt).toISOString(),
+          hideFromPublic,
         })
         setToast(pickMessage(TREATMENT_MESSAGES))
       }
@@ -465,6 +471,14 @@ export function AnimalDetailScreen() {
             onChange={(e) => setNotes(e.target.value)}
             placeholder="What was done, medicine given, next steps…"
           />
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={hideFromPublic}
+              onChange={(e) => setHideFromPublic(e.target.checked)}
+            />
+            <span>Hide from public</span>
+          </label>
           {error ? <p className="form-error">{error}</p> : null}
           <div className="row">
             <Button type="submit" variant="primary">

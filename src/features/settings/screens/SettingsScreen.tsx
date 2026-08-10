@@ -36,6 +36,12 @@ import {
   getLocalPartnerLogo,
   setPartnerLogo,
 } from '@/features/settings/domain/partnerLogo'
+import {
+  disablePublicPage,
+  enablePublicPage,
+  updatePublicSlug,
+} from '@/features/settings/domain/publicPage'
+import { publicShelterPath } from '@/shared/lib/public/slug'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { SelectField } from '@/shared/ui/SelectField'
@@ -66,14 +72,30 @@ export function SettingsScreen() {
   const [logoBusy, setLogoBusy] = useState(false)
   const [logoError, setLogoError] = useState<string | null>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
+  const [publicBusy, setPublicBusy] = useState(false)
+  const [publicError, setPublicError] = useState<string | null>(null)
+  const [slugDraft, setSlugDraft] = useState('')
+  const [slugSaving, setSlugSaving] = useState(false)
+  const [slugError, setSlugError] = useState<string | null>(null)
+  const [copyMessage, setCopyMessage] = useState<string | null>(null)
 
-  const { data: orgRows } = useQuery<{ logo_r2_key: string | null }>(
+  const { data: orgRows } = useQuery<{
+    logo_r2_key: string | null
+    public_enabled: number | null
+    public_slug: string | null
+  }>(
     member?.orgId
-      ? `SELECT logo_r2_key FROM organizations WHERE id = ?`
-      : `SELECT logo_r2_key FROM organizations WHERE 0`,
+      ? `SELECT logo_r2_key, public_enabled, public_slug FROM organizations WHERE id = ?`
+      : `SELECT logo_r2_key, public_enabled, public_slug FROM organizations WHERE 0`,
     member?.orgId ? [member.orgId] : [],
   )
   const logoR2Key = orgRows?.[0]?.logo_r2_key ?? null
+  const publicEnabled = orgRows?.[0]?.public_enabled === 1
+  const publicSlug = orgRows?.[0]?.public_slug ?? null
+  const publicUrl =
+    typeof window !== 'undefined' && publicSlug
+      ? `${window.location.origin}${publicShelterPath(publicSlug)}`
+      : ''
 
   async function reload() {
     if (!db || !member) return
@@ -173,6 +195,62 @@ export function SettingsScreen() {
       )
     } finally {
       setLogoBusy(false)
+    }
+  }
+
+  useEffect(() => {
+    setSlugDraft(publicSlug ?? '')
+    setSlugError(null)
+  }, [publicSlug])
+
+  async function onTogglePublicPage(next: boolean) {
+    if (!db || !member) return
+    setPublicBusy(true)
+    setPublicError(null)
+    try {
+      if (next) {
+        await enablePublicPage(db, {
+          orgId: member.orgId,
+          orgName: member.orgName,
+          initials: member.orgInitials,
+        })
+      } else {
+        await disablePublicPage(db, member.orgId)
+      }
+    } catch (err) {
+      setPublicError(
+        err instanceof Error ? err.message : 'Could not update the public page.',
+      )
+    } finally {
+      setPublicBusy(false)
+    }
+  }
+
+  async function onSaveSlug(e: FormEvent) {
+    e.preventDefault()
+    if (!db || !member) return
+    setSlugSaving(true)
+    setSlugError(null)
+    try {
+      await updatePublicSlug(db, member.orgId, slugDraft)
+    } catch (err) {
+      setSlugError(
+        err instanceof Error ? err.message : 'Could not save that link.',
+      )
+    } finally {
+      setSlugSaving(false)
+    }
+  }
+
+  async function onCopyPublicLink() {
+    if (!publicUrl) return
+    try {
+      await navigator.clipboard.writeText(publicUrl)
+      setCopyMessage('Link copied')
+    } catch {
+      setCopyMessage('Could not copy link')
+    } finally {
+      window.setTimeout(() => setCopyMessage(null), 2000)
     }
   }
 
@@ -613,6 +691,60 @@ export function SettingsScreen() {
           ) : null}
         </div>
         {logoError ? <p className="form-error">{logoError}</p> : null}
+      </div>
+
+      <div className="panel stack" style={{ marginTop: '1.25rem' }}>
+        <div className="section-copy">
+          <p className="section-label">Public transparency</p>
+          <p className="muted" style={{ margin: 0 }}>
+            Donors can open this link. Private care notes and anonymous
+            proofs stay hidden when you mark them.
+          </p>
+        </div>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={publicEnabled}
+            disabled={!member || publicBusy}
+            onChange={(e) => void onTogglePublicPage(e.target.checked)}
+          />
+          <span>Enable public page</span>
+        </label>
+        {publicEnabled ? (
+          <>
+            <div className="row" style={{ alignItems: 'center' }}>
+              <code style={{ flex: 1, wordBreak: 'break-all' }}>
+                {publicUrl || 'Choosing a link…'}
+              </code>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!publicUrl}
+                onClick={() => void onCopyPublicLink()}
+              >
+                Copy link
+              </Button>
+            </div>
+            {copyMessage ? <p className="muted" style={{ margin: 0 }}>{copyMessage}</p> : null}
+            <form className="row" onSubmit={onSaveSlug}>
+              <input
+                value={slugDraft}
+                onChange={(e) => {
+                  setSlugDraft(e.target.value)
+                  if (slugError) setSlugError(null)
+                }}
+                aria-label="Public page link"
+                placeholder="your-shelter-name"
+                style={{ flex: 1, minWidth: '8rem' }}
+              />
+              <Button type="submit" variant="secondary" disabled={slugSaving}>
+                {slugSaving ? 'Saving…' : 'Save'}
+              </Button>
+            </form>
+            {slugError ? <p className="form-error">{slugError}</p> : null}
+          </>
+        ) : null}
+        {publicError ? <p className="form-error">{publicError}</p> : null}
       </div>
 
       <div className="panel stack" style={{ marginTop: '1.25rem' }}>

@@ -55,6 +55,7 @@ export function LedgerEntryScreen() {
   >([])
   const [animalSearchBusy, setAnimalSearchBusy] = useState(false)
   const [isAnonymous, setIsAnonymous] = useState(false)
+  const [hideFromPublic, setHideFromPublic] = useState(false)
   const [proofFiles, setProofFiles] = useState<File[]>([])
   const [toast, setToast] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -96,6 +97,7 @@ export function LedgerEntryScreen() {
         setEntryDate(entry.entry_date ?? new Date().toISOString().slice(0, 10))
         setNotes(entry.notes ?? '')
         setIsAnonymous(isTruthyFlag(entry.is_anonymous))
+        setHideFromPublic(isTruthyFlag(entry.hide_from_public))
         if (entry.animal_id) {
           setAnimalId(entry.animal_id)
           const animal = await getAnimal(db, entry.animal_id)
@@ -190,6 +192,7 @@ export function LedgerEntryScreen() {
           notes,
           animalId: animalId || null,
           isAnonymous: direction === 'in' ? isAnonymous : false,
+          hideFromPublic,
         })
         setToast('Entry updated')
       } else {
@@ -202,6 +205,7 @@ export function LedgerEntryScreen() {
           notes,
           animalId: animalId || undefined,
           isAnonymous: direction === 'in' ? isAnonymous : false,
+          hideFromPublic,
         })
         for (const file of proofFiles) {
           await queueLedgerAttachment(db, {
@@ -385,9 +389,24 @@ export function LedgerEntryScreen() {
                 checked={isAnonymous}
                 onChange={(e) => setIsAnonymous(e.target.checked)}
               />
-              <span>Anonymous donation</span>
+              <span>
+                Anonymous donation
+                <span className="field__hint">
+                  {' '}
+                  · Hides proof attachments on the public page.
+                </span>
+              </span>
             </label>
           ) : null}
+
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={hideFromPublic}
+              onChange={(e) => setHideFromPublic(e.target.checked)}
+            />
+            <span>Hide from public</span>
+          </label>
 
           {member ? (
             <ProofCapture
