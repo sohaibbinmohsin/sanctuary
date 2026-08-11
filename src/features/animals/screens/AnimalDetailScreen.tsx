@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useQuery } from '@powersync/react'
 import { ArrowLeft, Camera, PencilSimple, Trash } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
@@ -31,8 +32,6 @@ import {
   deletePhoto,
   deletePhotosForAnimal,
   getLocalPhoto,
-  listPhotosForAnimal,
-  localPhotoUrl,
 } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
@@ -52,7 +51,8 @@ const SYSTEM_CARE_TYPES: TreatmentType[] = ['arrived', 'intake', 'status']
 
 type PhotoItem = {
   photo: PhotoRecord
-  url: string
+  /** Null while waiting for R2 URL / local cache on this device. */
+  url: string | null
 }
 
 function toDatetimeLocalValue(iso: string | null | undefined): string {
@@ -68,7 +68,7 @@ async function resolvePhotoUrl(photo: PhotoRecord): Promise<string | null> {
   if (remote) return remote
   const local = await getLocalPhoto(photo.id)
   if (local) return URL.createObjectURL(local)
-  return localPhotoUrl(photo.id)
+  return null
 }
 
 export function AnimalDetailScreen() {
@@ -82,6 +82,10 @@ export function AnimalDetailScreen() {
   const [treatments, setTreatments] = useState<TreatmentRecord[]>([])
   const [photos, setPhotos] = useState<PhotoItem[]>([])
   const [activePhotoId, setActivePhotoId] = useState<string | null>(null)
+  const { data: photoRows = [] } = useQuery<PhotoRecord>(
+    `SELECT * FROM photos WHERE animal_id = ? ORDER BY created_at DESC`,
+    id ? [id] : [],
+  )
   const [treatmentType, setTreatmentType] = useState<TreatmentType>('meds')
   const [notes, setNotes] = useState('')
   const [hideFromPublic, setHideFromPublic] = useState(false)
@@ -101,22 +105,38 @@ export function AnimalDetailScreen() {
     if (!db || !id) return
     setAnimal(await getAnimal(db, id))
     setTreatments(await listTreatmentsForAnimal(db, id))
-    const rows = await listPhotosForAnimal(db, id)
-    const items: PhotoItem[] = []
-    for (const photo of rows) {
-      const url = await resolvePhotoUrl(photo)
-      if (url) items.push({ photo, url })
-    }
-    setPhotos(items)
-    setActivePhotoId((current) => {
-      if (current && items.some((p) => p.photo.id === current)) return current
-      return items[0]?.photo.id ?? null
-    })
   }
 
   useEffect(() => {
     void reload()
   }, [db, id])
+
+  // Resolve display URLs whenever PowerSync brings new photo rows / r2 keys.
+  useEffect(() => {
+    let cancelled = false
+    const objectUrls: string[] = []
+    void (async () => {
+      const items: PhotoItem[] = []
+      for (const photo of photoRows) {
+        const url = await resolvePhotoUrl(photo)
+        if (url?.startsWith('blob:')) objectUrls.push(url)
+        items.push({ photo, url })
+      }
+      if (cancelled) {
+        for (const u of objectUrls) URL.revokeObjectURL(u)
+        return
+      }
+      setPhotos(items)
+      setActivePhotoId((current) => {
+        if (current && items.some((p) => p.photo.id === current)) return current
+        return items[0]?.photo.id ?? null
+      })
+    })()
+    return () => {
+      cancelled = true
+      for (const u of objectUrls) URL.revokeObjectURL(u)
+    }
+  }, [photoRows])
 
   useEffect(() => {
     if (!db || !member) return
@@ -307,11 +327,33 @@ export function AnimalDetailScreen() {
           >
             {activePhoto ? (
               <>
-                <img
-                  src={activePhoto.url}
-                  alt={animal.name ?? animal.shelter_code ?? 'Animal'}
+                {activePhoto.url ? (
+                  <img
+                    src={activePhoto.url}
+                    alt={animal.name ?? animal.shelter_code ?? 'Animal'}
+                  />
+                ) : (
+                  <span className="detail-hero__photo-empty">
+                    <AnimalLoader
+                      label={
+                        activePhoto.photo.upload_state === 'failed'
+                          ? 'Upload failed. Keep the phone that took this photo online…'
+                          : 'Photo uploading…'
+                      }
+                      fill={false}
+                    />
+                  </span>
+                )}
+                <VerifiedPhotoBadge
+                  verified={Boolean(activePhoto.photo.verified)}
+                  pending={
+                    !activePhoto.photo.verified &&
+                    activePhoto.photo.capture_source === 'camera' &&
+                    (activePhoto.photo.upload_state === 'pending' ||
+                      activePhoto.photo.upload_state === 'uploading' ||
+                      activePhoto.photo.upload_state === 'failed')
+                  }
                 />
-                <VerifiedPhotoBadge verified={Boolean(activePhoto.photo.verified)} />
                 <button
                   type="button"
                   className="detail-hero__photo-delete"
@@ -352,7 +394,12 @@ export function AnimalDetailScreen() {
                     }
                     onClick={() => setActivePhotoId(item.photo.id)}
                     aria-label="Show this photo"
-                    style={{ backgroundImage: `url(${item.url})` }}
+                    aria-busy={!item.url || undefined}
+                    style={
+                      item.url
+                        ? { backgroundImage: `url(${item.url})` }
+                        : undefined
+                    }
                   />
                 ))}
               </div>
@@ -374,7 +421,12 @@ export function AnimalDetailScreen() {
                   }
                   onClick={() => setActivePhotoId(item.photo.id)}
                   aria-label="Show this photo"
-                  style={{ backgroundImage: `url(${item.url})` }}
+                  aria-busy={!item.url || undefined}
+                  style={
+                    item.url
+                      ? { backgroundImage: `url(${item.url})` }
+                      : undefined
+                  }
                 />
               ))}
             </div>

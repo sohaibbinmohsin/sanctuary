@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
 
     const { data: org, error: orgError } = await admin
       .from('organizations')
-      .select('id, name, public_slug')
+      .select('id, name, public_slug, logo_r2_key')
       .eq('public_enabled', true)
       .eq('public_slug', slug)
       .maybeSingle()
@@ -269,9 +269,17 @@ Deno.serve(async (req) => {
       attachmentUrls: row.is_anonymous ? [] : attachmentsByEntry.get(row.id) ?? [],
     }))
 
+    const orgRow = org as {
+      id: string
+      name: string
+      public_slug: string
+      logo_r2_key: string | null
+    }
+
     const dto = {
-      orgName: org.name,
-      slug: org.public_slug as string,
+      orgName: orgRow.name,
+      logoUrl: publicPhotoUrl(r2PublicBase, orgRow.logo_r2_key),
+      slug: orgRow.public_slug,
       animals,
       ledger,
     }

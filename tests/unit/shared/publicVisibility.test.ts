@@ -4,6 +4,7 @@ import { buildPublicShelterDto } from '@/shared/lib/public/visibility'
 describe('buildPublicShelterDto', () => {
   const base = {
     orgName: 'Tales of Second Chances',
+    logoUrl: 'https://cdn/logo.png',
     slug: 'tosc',
     animals: [
       {
@@ -93,6 +94,7 @@ describe('buildPublicShelterDto', () => {
 
   it('keeps in-care animals, strips hidden care, keeps verified flags', () => {
     const dto = buildPublicShelterDto(base)
+    expect(dto.logoUrl).toBe('https://cdn/logo.png')
     expect(dto.animals).toHaveLength(1)
     expect(dto.animals[0]!.care.map((c) => c.id)).toEqual(['c1'])
     expect(dto.animals[0]!.photos[0]!.verified).toBe(true)

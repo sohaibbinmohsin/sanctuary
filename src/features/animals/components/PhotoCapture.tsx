@@ -6,7 +6,13 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { Camera, ImageSquare, Plus, WarningCircle } from '@phosphor-icons/react'
+import {
+  Camera,
+  CircleNotch,
+  ImageSquare,
+  Plus,
+  WarningCircle,
+} from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
@@ -54,7 +60,6 @@ export function PhotoCapture({
   const menuRef = useRef<HTMLDivElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState(0)
-  const [busy, setBusy] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null)
   const [cameraStage, setCameraStage] = useState<CameraStage>({ kind: 'idle' })
@@ -77,7 +82,9 @@ export function PhotoCapture({
       }
     }
     tick()
-    const id = window.setInterval(tick, 30_000)
+    // Failed browser→R2 uploads (e.g. tunnel CORS) need a quicker retry once
+    // the edge proxy path is available.
+    const id = window.setInterval(tick, 10_000)
     window.addEventListener('online', tick)
     return () => {
       window.clearInterval(id)
@@ -121,7 +128,6 @@ export function PhotoCapture({
 
   async function saveCameraPhoto(blob: Blob, captureToken?: string) {
     if (!db) return
-    setBusy(true)
     try {
       await queuePhoto(db, {
         orgId,
@@ -136,8 +142,13 @@ export function PhotoCapture({
       onError?.(
         err instanceof Error ? err.message : 'Could not save photo. Try again.',
       )
-    } finally {
-      setBusy(false)
+      return
+    }
+    // Upload / verify in the background so staff can keep capturing.
+    if (navigator.onLine && !isPlaygroundMode()) {
+      void processPhotoQueue(db)
+        .then(() => refreshPending())
+        .then(() => onQueued?.())
     }
   }
 
@@ -146,7 +157,6 @@ export function PhotoCapture({
     input: HTMLInputElement | null,
   ) {
     if (!files?.length || !db) return
-    setBusy(true)
     setMenuOpen(false)
     try {
       for (const file of Array.from(files)) {
@@ -163,9 +173,14 @@ export function PhotoCapture({
       onError?.(
         err instanceof Error ? err.message : 'Could not save photo. Try again.',
       )
-    } finally {
-      setBusy(false)
       if (input) input.value = ''
+      return
+    }
+    if (input) input.value = ''
+    if (navigator.onLine && !isPlaygroundMode()) {
+      void processPhotoQueue(db)
+        .then(() => refreshPending())
+        .then(() => onQueued?.())
     }
   }
 
@@ -180,7 +195,7 @@ export function PhotoCapture({
   }
 
   function onTakePhotoClick() {
-    if (busy || cameraFlowActive) return
+    if (cameraFlowActive) return
     setMenuOpen(false)
     // Playground has no auth to mint a session with — open the camera straight
     // away instead of failing into the "not verified" warning.
@@ -196,7 +211,7 @@ export function PhotoCapture({
   }
 
   function onPlusClick() {
-    if (busy || cameraFlowActive) return
+    if (cameraFlowActive) return
     if (canTakePhoto) {
       setMenuOpen((open) => !open)
       return
@@ -232,10 +247,10 @@ export function PhotoCapture({
           ref={buttonRef}
           type="button"
           className="photo-strip__thumb photo-strip__add"
-          disabled={busy || cameraFlowActive}
+          disabled={cameraFlowActive}
           aria-label={
-            busy || cameraFlowActive
-              ? 'Saving photo'
+            cameraFlowActive
+              ? 'Camera in use'
               : pending > 0
                 ? `Add photo, ${pending} waiting to upload`
                 : 'Add photo'
@@ -251,12 +266,40 @@ export function PhotoCapture({
         >
           <Plus size={22} weight="bold" aria-hidden />
           {pending > 0 ? (
-            <span className="photo-strip__badge" aria-hidden>
+            <span className="photo-strip__badge" title={`${pending} waiting to upload`}>
               {pending}
             </span>
           ) : null}
         </button>
       </div>
+      {cameraStage.kind === 'minting'
+        ? createPortal(
+            <div className="confirm-root" role="presentation">
+              <div className="confirm-backdrop" aria-hidden />
+              <div
+                className="confirm-card"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <div className="confirm-card__icon">
+                  <CircleNotch
+                    size={28}
+                    weight="bold"
+                    aria-hidden
+                    className="photo-capture__spin"
+                  />
+                </div>
+                <h2 className="confirm-card__title">Preparing camera…</h2>
+                <p className="confirm-card__body">
+                  Confirming a verified session. This can take a moment on a slow
+                  connection.
+                </p>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
       {menuOpen && menuPos
         ? createPortal(
             <div
@@ -268,7 +311,6 @@ export function PhotoCapture({
               <button
                 type="button"
                 role="menuitem"
-                disabled={busy}
                 onClick={onTakePhotoClick}
               >
                 <Camera size={16} weight="bold" aria-hidden />
@@ -277,7 +319,6 @@ export function PhotoCapture({
               <button
                 type="button"
                 role="menuitem"
-                disabled={busy}
                 onClick={() => {
                   setMenuOpen(false)
                   galleryRef.current?.click()

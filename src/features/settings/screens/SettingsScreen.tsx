@@ -1,4 +1,5 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery } from '@powersync/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
@@ -41,7 +42,7 @@ import {
   enablePublicPage,
   updatePublicSlug,
 } from '@/features/settings/domain/publicPage'
-import { publicShelterPath } from '@/shared/lib/public/slug'
+import { publicShelterUrl } from '@/shared/lib/public/slug'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { SelectField } from '@/shared/ui/SelectField'
@@ -77,6 +78,7 @@ export function SettingsScreen() {
   const [slugDraft, setSlugDraft] = useState('')
   const [slugSaving, setSlugSaving] = useState(false)
   const [slugError, setSlugError] = useState<string | null>(null)
+  const [slugEditorOpen, setSlugEditorOpen] = useState(false)
   const [copyMessage, setCopyMessage] = useState<string | null>(null)
 
   const { data: orgRows } = useQuery<{
@@ -92,10 +94,6 @@ export function SettingsScreen() {
   const logoR2Key = orgRows?.[0]?.logo_r2_key ?? null
   const publicEnabled = orgRows?.[0]?.public_enabled === 1
   const publicSlug = orgRows?.[0]?.public_slug ?? null
-  const publicUrl =
-    typeof window !== 'undefined' && publicSlug
-      ? `${window.location.origin}${publicShelterPath(publicSlug)}`
-      : ''
 
   async function reload() {
     if (!db || !member) return
@@ -226,26 +224,48 @@ export function SettingsScreen() {
     }
   }
 
-  async function onSaveSlug(e: FormEvent) {
-    e.preventDefault()
-    if (!db || !member) return
+  async function onCommitSlug(): Promise<boolean> {
+    if (!db || !member) return false
+    const next = slugDraft.trim()
+    if (!next || next === (publicSlug ?? '')) return true
     setSlugSaving(true)
     setSlugError(null)
     try {
-      await updatePublicSlug(db, member.orgId, slugDraft)
+      await updatePublicSlug(db, member.orgId, next)
+      return true
     } catch (err) {
       setSlugError(
         err instanceof Error ? err.message : 'Could not save that link.',
       )
+      return false
     } finally {
       setSlugSaving(false)
     }
   }
 
+  function openSlugEditor() {
+    setSlugDraft(publicSlug ?? '')
+    setSlugError(null)
+    setSlugEditorOpen(true)
+  }
+
+  function closeSlugEditor() {
+    setSlugEditorOpen(false)
+    setSlugDraft(publicSlug ?? '')
+    setSlugError(null)
+  }
+
+  async function onSaveSlugFromEditor() {
+    const saved = await onCommitSlug()
+    if (saved) setSlugEditorOpen(false)
+  }
+
   async function onCopyPublicLink() {
-    if (!publicUrl) return
+    const slug = publicSlug?.trim()
+    if (!slug) return
+    const url = publicShelterUrl(slug)
     try {
-      await navigator.clipboard.writeText(publicUrl)
+      await navigator.clipboard.writeText(url)
       setCopyMessage('Link copied')
     } catch {
       setCopyMessage('Could not copy link')
@@ -434,7 +454,7 @@ export function SettingsScreen() {
   async function onResetPlayground() {
     const ok = await confirm({
       title: 'Reset playground?',
-      body: 'Demo animals and money entries will be restored. Your playground edits on this device will be cleared.',
+      body: 'Demo animals and ledger entries will be restored. Your playground edits on this device will be cleared.',
       confirmLabel: 'Reset',
       tone: 'danger',
     })
@@ -535,7 +555,7 @@ export function SettingsScreen() {
 
         <div className="panel stack">
           <div className="section-copy">
-            <p className="section-label">Money categories</p>
+            <p className="section-label">Ledger categories</p>
             <p className="muted" style={{ margin: 0 }}>
               Labels like Donation or Food. Mark each as money in or out.
             </p>
@@ -549,7 +569,7 @@ export function SettingsScreen() {
                   setNewCategory(e.target.value)
                   if (categoryError) setCategoryError(null)
                 }}
-                aria-label="New money category"
+                aria-label="New ledger category"
                 style={{ flex: 1, minWidth: '8rem' }}
               />
               <div style={{ minWidth: '8.5rem', flex: '0 0 auto' }}>
@@ -623,7 +643,7 @@ export function SettingsScreen() {
                       void (async () => {
                         const ok = await confirm({
                           title: `Hide “${c.label}”?`,
-                          body: 'It will no longer show when adding money entries.',
+                          body: 'It will no longer show when adding ledger entries.',
                           confirmLabel: 'Hide category',
                           tone: 'danger',
                         })
@@ -711,46 +731,54 @@ export function SettingsScreen() {
           <span>Enable public page</span>
         </label>
         {publicEnabled ? (
-          <>
-            <div className="row" style={{ alignItems: 'center' }}>
-              <code style={{ flex: 1, wordBreak: 'break-all' }}>
-                {publicUrl || 'Choosing a link…'}
-              </code>
+          <div className="public-link">
+            <div className="row public-link__actions">
               <Button
                 type="button"
                 variant="secondary"
-                disabled={!publicUrl}
+                disabled={!publicSlug}
                 onClick={() => void onCopyPublicLink()}
               >
-                Copy link
+                {copyMessage === 'Link copied' ? 'Copied' : 'Copy link'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!member}
+                onClick={openSlugEditor}
+              >
+                Edit link
               </Button>
             </div>
-            {copyMessage ? <p className="muted" style={{ margin: 0 }}>{copyMessage}</p> : null}
-            <form className="row" onSubmit={onSaveSlug}>
-              <input
-                value={slugDraft}
-                onChange={(e) => {
-                  setSlugDraft(e.target.value)
-                  if (slugError) setSlugError(null)
-                }}
-                aria-label="Public page link"
-                placeholder="your-shelter-name"
-                style={{ flex: 1, minWidth: '8rem' }}
-              />
-              <Button type="submit" variant="secondary" disabled={slugSaving}>
-                {slugSaving ? 'Saving…' : 'Save'}
-              </Button>
-            </form>
-            {slugError ? <p className="form-error">{slugError}</p> : null}
-          </>
+            {copyMessage && copyMessage !== 'Link copied' ? (
+              <p className="muted public-link__status">{copyMessage}</p>
+            ) : null}
+          </div>
         ) : null}
         {publicError ? <p className="form-error">{publicError}</p> : null}
       </div>
 
+      {slugEditorOpen
+        ? createPortal(
+            <PublicSlugEditorDialog
+              slug={slugDraft}
+              saving={slugSaving}
+              error={slugError}
+              onSlugChange={(value) => {
+                setSlugDraft(value)
+                if (slugError) setSlugError(null)
+              }}
+              onSave={() => void onSaveSlugFromEditor()}
+              onCancel={closeSlugEditor}
+            />,
+            document.body,
+          )
+        : null}
+
       <div className="panel stack" style={{ marginTop: '1.25rem' }}>
         <p className="section-label">Your data</p>
         <p className="muted" style={{ margin: 0 }}>
-          Download a zip of animal records, care notes, money entries, and photos.
+          Download a zip of animal records, care notes, ledger entries, and photos.
         </p>
         <Button
           type="button"
@@ -799,5 +827,108 @@ export function SettingsScreen() {
         )}
       </div>
     </section>
+  )
+}
+
+type PublicSlugEditorDialogProps = {
+  slug: string
+  saving: boolean
+  error: string | null
+  onSlugChange: (value: string) => void
+  onSave: () => void
+  onCancel: () => void
+}
+
+function PublicSlugEditorDialog({
+  slug,
+  saving,
+  error,
+  onSlugChange,
+  onSave,
+  onCancel,
+}: PublicSlugEditorDialogProps) {
+  const titleId = useId()
+  const bodyId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !saving) onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [onCancel, saving])
+
+  return (
+    <div className="confirm-root" role="presentation">
+      <button
+        type="button"
+        className="confirm-backdrop"
+        aria-label="Dismiss"
+        disabled={saving}
+        onClick={onCancel}
+      />
+      <div
+        className="confirm-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={bodyId}
+      >
+        <h2 id={titleId} className="confirm-card__title">
+          Edit public link
+        </h2>
+        <p id={bodyId} className="confirm-card__body">
+          Change the ending of your public page URL. Donors use this link to
+          open your shelter page.
+        </p>
+        <div className="public-link-editor">
+          <input
+            ref={inputRef}
+            className="public-link-editor__slug"
+            value={slug}
+            onChange={(e) => onSlugChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                onSave()
+              }
+            }}
+            aria-label="Public page path"
+            placeholder="your-shelter"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            disabled={saving}
+          />
+        </div>
+        {error ? <p className="form-error">{error}</p> : null}
+        <div className="confirm-card__actions">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={saving}
+            onClick={onCancel}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={saving || !slug.trim()}
+            onClick={onSave}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState, useDeferredValue } from 'react'
 import { MagnifyingGlass, PawPrint } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
+import { useSyncStatus } from '@/shared/hooks/useSyncStatus'
 import { AnimalCard } from '@/features/animals/components/AnimalCard'
 import {
   searchAnimals,
@@ -36,7 +37,8 @@ const SEX_OPTIONS = [
 
 export function AnimalsListScreen() {
   const db = useDb()
-  const { member } = useCurrentMember()
+  const { member, loading: memberLoading } = useCurrentMember()
+  const sync = useSyncStatus()
   const [animals, setAnimals] = useState<AnimalWithStatus[]>([])
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
   const [query, setQuery] = useState('')
@@ -95,14 +97,24 @@ export function AnimalsListScreen() {
     return () => {
       cancelled = true
     }
-  }, [db, member, deferredQuery, statusId, species, sex])
+    // Re-run after the first PowerSync download fills an empty local DB
+    // (common on a fresh tunnel origin / new browser profile).
+  }, [db, member, deferredQuery, statusId, species, sex, sync.hasSynced])
 
   const hasFilters = Boolean(query || statusId || species || sex)
+  const awaitingFirstSync =
+    !hasFilters && animals.length === 0 && !sync.hasSynced && sync.kind !== 'failed'
+  const showLoading = memberLoading || loading || awaitingFirstSync
+
   const subtitle = !member?.orgName
-    ? 'Everyone currently in your care'
+    ? awaitingFirstSync
+      ? 'Loading animals…'
+      : 'Everyone currently in your care'
     : hasFilters
       ? `${animals.length} match${animals.length === 1 ? '' : 'es'}`
-      : `${animals.length} in care at ${member.orgName}`
+      : awaitingFirstSync
+        ? `Loading animals at ${member.orgName}…`
+        : `${animals.length} in care at ${member.orgName}`
 
   const statusOptions = statuses.map((s) => ({
     value: s.id,
@@ -156,7 +168,7 @@ export function AnimalsListScreen() {
         </div>
       </div>
 
-      {loading && animals.length === 0 ? (
+      {showLoading ? (
         <div className="animal-grid">
           {Array.from({ length: 6 }).map((_, i) => (
             <div

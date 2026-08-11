@@ -4,7 +4,7 @@
 // Deploy with: supabase functions deploy r2-sign
 //
 // Body: { key: string, action?: 'upload' | 'delete', captureToken?: string, photoId?: string }
-// - upload (default): returns { uploadUrl, publicUrl } for browser PUT
+// - upload (default): returns { uploadUrl, publicUrl } for browser PUT (requires R2 CORS)
 //   - When captureToken + photoId are present and match an unused, unexpired
 //     `photo_capture_sessions` row scoped to the key's org/animal, the session is
 //     marked used and `photos.verified` is set true via the service role. An

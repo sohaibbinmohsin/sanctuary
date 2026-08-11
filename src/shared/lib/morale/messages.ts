@@ -12,7 +12,7 @@ export const TREATMENT_MESSAGES = [
 ]
 
 export const LEDGER_MESSAGES = [
-  'Money record updated.',
+  'Ledger record updated.',
   'Entry saved. Clearer numbers for you and your donors.',
   'Books balanced a little more.',
 ]

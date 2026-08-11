@@ -58,6 +58,7 @@ Copy `.env.example` to `.env.local`. Do not commit `.env.local`.
 | `VITE_SUPABASE_ANON_KEY` | Legacy alias — optional if publishable key is set |
 | `VITE_POWERSYNC_URL` | PowerSync instance URL |
 | `VITE_R2_PUBLIC_BASE_URL` | Public base URL for uploaded photos |
+| `VITE_DOMAIN` | Fixed public site origin for donor “copy link” (optional; falls back to current origin) |
 | `VITE_SUPPORT_EMAIL` | Support contact (default `support@themohsinproject.org`) |
 | `DATABASE_URL` | Postgres URI for `npm run db:setup` only (not used by the Vite app) |
 | `SEED_USER_ID` | Auth user UUID to attach as TOSC admin during seed |
@@ -138,12 +139,16 @@ For ongoing schema work after the first setup, prefer `npm run db:push` (tracks 
 ## Cloudflare R2 setup
 
 1. Create a bucket for animal photos.
-2. Configure CORS on the bucket (required for browser uploads). In Cloudflare R2 → bucket → Settings → CORS policy:
+2. Configure CORS on the bucket (required for browser photo uploads). In Cloudflare R2 → bucket → Settings → CORS policy:
 
 ```json
 [
   {
-    "AllowedOrigins": ["http://localhost:5173", "http://127.0.0.1:5173"],
+    "AllowedOrigins": [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "https://sanctuary.themohsinproject.org"
+    ],
     "AllowedMethods": ["GET", "PUT", "HEAD"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],
@@ -152,7 +157,7 @@ For ongoing schema work after the first setup, prefer `npm run db:push` (tracks 
 ]
 ```
 
-Add your production origin to `AllowedOrigins` when you deploy the PWA.
+Add every origin you open the PWA from (preview URLs, Cloudflare tunnels) to `AllowedOrigins`, or use `"*"` while testing.
 
 3. Create an R2 API token with Object Read & Write.
 4. Set Edge Function secrets (not Vite env):
@@ -167,7 +172,7 @@ Add your production origin to `AllowedOrigins` when you deploy the PWA.
 
 5. Set `VITE_R2_PUBLIC_BASE_URL` to the same **public** base (r2.dev / custom domain). Do **not** use `*.r2.cloudflarestorage.com/...` — that is the private S3 API host.
 
-Photo deletes (single photo or remove animal) call the `r2-sign` edge function with `action: "delete"`, which removes the object in R2 on the server. No extra CORS methods are required for deletes.
+Photo deletes call the `r2-sign` edge function with `action: "delete"` (server-side). Uploads use a short-lived signed URL and a browser PUT, so R2 CORS must allow your app origins.
 
 6. Redeploy after secret or function changes:
 

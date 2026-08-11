@@ -162,19 +162,32 @@ export async function countPendingPhotos(
   orgId: string,
   animalId?: string,
 ): Promise<number> {
-  if (animalId) {
-    const row = await db.getOptional<{ n: number }>(
-      `SELECT COUNT(*) as n FROM photos
-       WHERE org_id = ? AND animal_id = ? AND upload_state IN ('pending', 'failed')`,
-      [orgId, animalId],
-    )
-    return row?.n ?? 0
+  // Only count uploads this device can finish (local Cache blob present).
+  // Rows synced from another device without a blob must not keep a stuck badge.
+  const rows = animalId
+    ? await db.getAll<{ id: string; r2_key: string | null }>(
+        `SELECT id, r2_key FROM photos
+         WHERE org_id = ? AND animal_id = ? AND upload_state IN ('pending', 'failed')`,
+        [orgId, animalId],
+      )
+    : await db.getAll<{ id: string; r2_key: string | null }>(
+        `SELECT id, r2_key FROM photos
+         WHERE org_id = ? AND upload_state IN ('pending', 'failed')`,
+        [orgId],
+      )
+
+  let n = 0
+  for (const row of rows) {
+    if (row.r2_key) {
+      await db.execute(
+        `UPDATE photos SET upload_state = 'uploaded', local_only = 0 WHERE id = ?`,
+        [row.id],
+      )
+      continue
+    }
+    if (await getLocalPhoto(row.id)) n += 1
   }
-  const row = await db.getOptional<{ n: number }>(
-    `SELECT COUNT(*) as n FROM photos WHERE org_id = ? AND upload_state IN ('pending', 'failed')`,
-    [orgId],
-  )
-  return row?.n ?? 0
+  return n
 }
 
 export async function listPhotosForAnimal(
@@ -187,63 +200,120 @@ export async function listPhotosForAnimal(
   )
 }
 
+/** Reset rows left mid-upload (tab close / race) so they can retry. */
+export async function recoverStaleUploadingPhotos(
+  db: SanctuaryDb,
+): Promise<number> {
+  const stale = await db.getAll<{ id: string; r2_key: string | null }>(
+    `SELECT id, r2_key FROM photos WHERE upload_state = 'uploading'`,
+  )
+  let recovered = 0
+  for (const row of stale) {
+    if (row.r2_key) {
+      await db.execute(
+        `UPDATE photos SET upload_state = 'uploaded', local_only = 0 WHERE id = ?`,
+        [row.id],
+      )
+    } else {
+      await db.execute(`UPDATE photos SET upload_state = 'pending' WHERE id = ?`, [
+        row.id,
+      ])
+    }
+    recovered += 1
+  }
+  return recovered
+}
+
+let photoQueueRunning: Promise<{ uploaded: number; failed: number }> | null =
+  null
+
 export async function processPhotoQueue(
   db: SanctuaryDb,
 ): Promise<{ uploaded: number; failed: number }> {
-  await purgeOrphanedPendingPhotos(db)
-  const { requestSignedUpload } = await import('@/shared/lib/r2/upload')
-  const pending = await db.getAll<PhotoRecord>(
-    `SELECT * FROM photos WHERE upload_state IN ('pending', 'failed') ORDER BY created_at ASC LIMIT 10`,
-  )
+  if (photoQueueRunning) return photoQueueRunning
 
-  let uploaded = 0
-  let failed = 0
+  photoQueueRunning = (async () => {
+    await recoverStaleUploadingPhotos(db)
+    await purgeOrphanedPendingPhotos(db)
+    const { requestSignedUpload } = await import('@/shared/lib/r2/upload')
+    const pending = await db.getAll<PhotoRecord>(
+      `SELECT * FROM photos WHERE upload_state IN ('pending', 'failed') ORDER BY created_at ASC LIMIT 10`,
+    )
 
-  for (const photo of pending) {
-    try {
-      await db.execute(
-        `UPDATE photos SET upload_state = 'uploading' WHERE id = ?`,
-        [photo.id],
-      )
-      const blob = await getLocalPhoto(photo.id)
-      if (!blob) {
-        throw new Error(`Local photo missing for ${photo.id}`)
-      }
-      const key = `${photo.org_id}/${photo.animal_id}/${photo.id}.jpg`
-      const captureToken = pendingCaptureTokens.get(photo.id)
-      const { uploadUrl, publicUrl } = await requestSignedUpload(
-        key,
-        captureToken ? { captureToken, photoId: photo.id } : undefined,
-      )
-      // The token is single-use server-side — drop it regardless of PUT
-      // outcome so a retry doesn't resend an already-consumed token.
-      pendingCaptureTokens.delete(photo.id)
-      // Do not set Content-Type — the presigned URL signs only `host`.
-      // Extra headers cause R2 SignatureDoesNotMatch / CORS preflight failures.
-      const put = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: blob,
-      })
-      if (!put.ok) {
-        const detail = (await put.text().catch(() => '')).slice(0, 200)
-        throw new Error(
-          `R2 upload failed: ${put.status}${detail ? ` ${detail}` : ''}`,
+    let uploaded = 0
+    let failed = 0
+
+    for (const photo of pending) {
+      try {
+        const blob = await getLocalPhoto(photo.id)
+        if (!blob) {
+          // Captured on another device (or local cache cleared). Never mark
+          // failed here — that device owns the upload. If sync already brought
+          // an R2 key, reconcile to uploaded so the UI can show the remote URL.
+          if (photo.r2_key) {
+            await db.execute(
+              `UPDATE photos SET upload_state = 'uploaded', local_only = 0 WHERE id = ?`,
+              [photo.id],
+            )
+            uploaded += 1
+          }
+          continue
+        }
+        await db.execute(
+          `UPDATE photos SET upload_state = 'uploading' WHERE id = ?`,
+          [photo.id],
         )
+        const key = `${photo.org_id}/${photo.animal_id}/${photo.id}.jpg`
+        const captureToken = pendingCaptureTokens.get(photo.id)
+        const { uploadUrl, publicUrl } = await requestSignedUpload(
+          key,
+          captureToken ? { captureToken, photoId: photo.id } : undefined,
+        )
+        // Token is single-use server-side once signed — drop so retries don't
+        // resend an already-consumed token.
+        pendingCaptureTokens.delete(photo.id)
+        // Do not set Content-Type — the presigned URL signs only `host`.
+        // Extra headers cause R2 SignatureDoesNotMatch / CORS preflight failures.
+        const put = await fetch(uploadUrl, {
+          method: 'PUT',
+          body: blob,
+        })
+        if (!put.ok) {
+          const detail = (await put.text().catch(() => '')).slice(0, 200)
+          throw new Error(
+            `R2 upload failed: ${put.status}${detail ? ` ${detail}` : ''}`,
+          )
+        }
+        // Server may already have set verified via capture-session; mirror that
+        // locally so the capturing device shows the badge without waiting on sync.
+        if (captureToken) {
+          await db.execute(
+            `UPDATE photos SET r2_key = ?, local_only = 0, upload_state = 'uploaded', verified = 1 WHERE id = ?`,
+            [publicUrl || key, photo.id],
+          )
+        } else {
+          await db.execute(
+            `UPDATE photos SET r2_key = ?, local_only = 0, upload_state = 'uploaded' WHERE id = ?`,
+            [publicUrl || key, photo.id],
+          )
+        }
+        uploaded += 1
+      } catch (err) {
+        console.warn('Photo upload failed:', err)
+        await db.execute(
+          `UPDATE photos SET upload_state = 'failed' WHERE id = ?`,
+          [photo.id],
+        )
+        failed += 1
       }
-      await db.execute(
-        `UPDATE photos SET r2_key = ?, local_only = 0, upload_state = 'uploaded' WHERE id = ?`,
-        [publicUrl || key, photo.id],
-      )
-      uploaded += 1
-    } catch (err) {
-      console.warn('Photo upload failed:', err)
-      await db.execute(
-        `UPDATE photos SET upload_state = 'failed' WHERE id = ?`,
-        [photo.id],
-      )
-      failed += 1
     }
-  }
 
-  return { uploaded, failed }
+    return { uploaded, failed }
+  })()
+
+  try {
+    return await photoQueueRunning
+  } finally {
+    photoQueueRunning = null
+  }
 }

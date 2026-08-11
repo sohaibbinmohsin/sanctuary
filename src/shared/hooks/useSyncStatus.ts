@@ -8,6 +8,8 @@ export type SyncStatusKind = 'synced' | 'pending' | 'offline' | 'failed'
 export type SyncStatus = {
   kind: SyncStatusKind
   errorMessage: string | null
+  /** False until PowerSync has completed at least one download into local DB. */
+  hasSynced: boolean
 }
 
 function errorText(err: unknown): string | null {
@@ -26,22 +28,25 @@ export function useSyncStatus(): SyncStatus {
   const [status, setStatus] = useState<SyncStatus>({
     kind: 'pending',
     errorMessage: null,
+    hasSynced: false,
   })
 
   useEffect(() => {
     if (isPlaygroundMode()) {
-      setStatus({ kind: 'synced', errorMessage: null })
+      setStatus({ kind: 'synced', errorMessage: null, hasSynced: true })
       return
     }
     if (!powerSync) {
-      setStatus({ kind: 'pending', errorMessage: null })
+      setStatus({ kind: 'pending', errorMessage: null, hasSynced: false })
       return
     }
     const db = asDb(powerSync)
 
     const compute = (): SyncStatus => {
+      const hasSynced = Boolean(db.currentStatus?.hasSynced)
+
       if (!navigator.onLine) {
-        return { kind: 'offline', errorMessage: null }
+        return { kind: 'offline', errorMessage: null, hasSynced }
       }
 
       const s = db.currentStatus
@@ -53,18 +58,19 @@ export function useSyncStatus(): SyncStatus {
         return {
           kind: 'failed',
           errorMessage: downloadErr || uploadErr,
+          hasSynced,
         }
       }
 
       if (s?.connecting || flow?.uploading || flow?.downloading) {
-        return { kind: 'pending', errorMessage: null }
+        return { kind: 'pending', errorMessage: null, hasSynced }
       }
 
       if (s?.connected) {
-        return { kind: 'synced', errorMessage: null }
+        return { kind: 'synced', errorMessage: null, hasSynced }
       }
 
-      return { kind: 'pending', errorMessage: null }
+      return { kind: 'pending', errorMessage: null, hasSynced }
     }
 
     setStatus(compute())
@@ -74,7 +80,11 @@ export function useSyncStatus(): SyncStatus {
 
     const onOnline = () => setStatus(compute())
     const onOffline = () =>
-      setStatus({ kind: 'offline', errorMessage: null })
+      setStatus((prev) => ({
+        kind: 'offline',
+        errorMessage: null,
+        hasSynced: prev.hasSynced,
+      }))
     window.addEventListener('online', onOnline)
     window.addEventListener('offline', onOffline)
 

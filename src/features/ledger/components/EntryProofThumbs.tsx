@@ -85,7 +85,7 @@ export function EntryProofThumbs({
           </button>
           <img
             src={viewer.url}
-            alt="Money entry proof"
+            alt="Ledger entry proof"
             className="proof-viewer__img"
             onClick={(e) => e.stopPropagation()}
           />

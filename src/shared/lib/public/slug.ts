@@ -55,6 +55,28 @@ export function publicShelterPath(slug: string): string {
   return `/${slug}`
 }
 
+/**
+ * Canonical public origin for donor-facing links.
+ * Prefer `VITE_DOMAIN` (fixed production domain) so Settings shows/copies the
+ * real URL even when staff are on localhost or a tunnel.
+ */
+export function publicAppOrigin(): string {
+  const configured = import.meta.env.VITE_DOMAIN?.trim()
+  if (configured) {
+    try {
+      return new URL(configured).origin
+    } catch {
+      // fall through
+    }
+  }
+  if (typeof window !== 'undefined') return window.location.origin
+  return ''
+}
+
+export function publicShelterUrl(slug: string): string {
+  return `${publicAppOrigin()}${publicShelterPath(slug)}`
+}
+
 export function canUsePublicSlug(slug: string): boolean {
   return isValidPublicSlugFormat(slug) && !isReservedPublicSlug(slug)
 }

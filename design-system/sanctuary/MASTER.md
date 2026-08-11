@@ -43,7 +43,7 @@ Monospace shelter-code stamp on animal cards and detail headers.
 
 ## Copy voice
 
-Plain verbs, sentence case, no jargon. Name things by what caregivers do: Add animal, Log care, Money, Overview. Errors explain what to try next. No em-dashes in UI copy.
+Plain verbs, sentence case, no jargon. Name things by what caregivers do: Add animal, Log care, Ledger, Overview. Errors explain what to try next. No em-dashes in UI copy.
 
 ## Out of scope
 

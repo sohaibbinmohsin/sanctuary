@@ -110,7 +110,7 @@ export function LedgerEntryScreen() {
           }
         }
       } catch (err) {
-        console.warn('Failed to load money entry', err)
+        console.warn('Failed to load ledger entry', err)
         if (!cancelled) setNotFound(true)
       } finally {
         if (!cancelled) setLoadingEntry(false)
@@ -232,7 +232,7 @@ export function LedgerEntryScreen() {
   async function onDelete() {
     if (!db || !entryId) return
     const ok = await confirm({
-      title: 'Delete this money entry?',
+      title: 'Delete this ledger entry?',
       body: 'Attached proof will be deleted too. This cannot be undone.',
       confirmLabel: 'Delete entry',
       tone: 'danger',
@@ -268,7 +268,7 @@ export function LedgerEntryScreen() {
           title="Entry not found"
           subtitle="It may have been deleted."
           backTo="/ledger"
-          backLabel="Money"
+          backLabel="Ledger"
         />
       </section>
     )
@@ -277,14 +277,14 @@ export function LedgerEntryScreen() {
   return (
     <section className="screen">
       <PageHeader
-        title={isEdit ? 'Edit money entry' : 'Add money entry'}
+        title={isEdit ? 'Edit ledger entry' : 'Add ledger entry'}
         subtitle={
           isEdit
             ? 'Update details, proof, or delete this entry.'
             : 'Record a donation or expense.'
         }
         backTo="/ledger"
-        backLabel="Money"
+        backLabel="Ledger"
       />
 
       <form className="stack stack--loose" onSubmit={onSubmit}>

@@ -298,7 +298,7 @@ export function ProofCapture({
           </button>
           <img
             src={viewerUrl}
-            alt="Money entry proof"
+            alt="Ledger entry proof"
             className="proof-viewer__img"
             onClick={(e) => e.stopPropagation()}
           />

@@ -27,6 +27,7 @@
     "@powersync/react": "^1.10.0",
     "@powersync/web": "^1.39.1",
     "@supabase/supabase-js": "^2.112.0",
+    "@tanstack/react-virtual": "^3.14.9",
     "html-to-image": "^1.11.13",
     "jszip": "^3.10.1",
     "react": "^19.1.0",

@@ -39,6 +39,8 @@ export type PublicLedgerDto = {
 
 export type PublicShelterDto = {
   orgName: string
+  /** Partner org logo public URL, when set. */
+  logoUrl: string | null
   slug: string
   animals: PublicAnimalDto[]
   ledger: PublicLedgerDto[]
@@ -70,6 +72,7 @@ export type PublicShelterInput = Omit<PublicShelterDto, 'animals' | 'ledger'> & 
 export function buildPublicShelterDto(input: PublicShelterInput): PublicShelterDto {
   return {
     orgName: input.orgName,
+    logoUrl: input.logoUrl ?? null,
     slug: input.slug,
     animals: input.animals
       .filter((animal) => !animal.archived && animal.countsAsInCare)
