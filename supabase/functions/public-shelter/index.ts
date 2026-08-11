@@ -13,7 +13,8 @@
 // keep both in sync if visibility rules change:
 // - Org: public_enabled = true AND public_slug = $slug
 // - Animals: archived = false AND joined status.counts_as_in_care = true
-// - Treatments (care): hide_from_public = false
+// - Treatments (care): hide_from_public = false; if none are arrived/intake,
+//   synthesize Arrived from animals.intake_date (notes stay private)
 // - Ledger: hide_from_public = false; is_anonymous rows never select attachments
 // - Photos: verified flag passed through; URL built from R2_PUBLIC_BASE_URL + r2_key
 // - animals.notes is never selected — private field, excluded from the DTO entirely
@@ -148,7 +149,7 @@ Deno.serve(async (req) => {
           .from('animals')
           .select(
             `
-              id, shelter_code, name, species, sex, markings, archived,
+              id, shelter_code, name, species, sex, markings, archived, intake_date,
               status:animal_statuses!animals_status_id_fkey ( label, counts_as_in_care ),
               photos ( id, r2_key, verified ),
               treatments ( id, treated_at, treatment_type, notes, hide_from_public )
@@ -176,6 +177,7 @@ Deno.serve(async (req) => {
       sex: string | null
       markings: string | null
       archived: boolean
+      intake_date: string | null
       status: { label: string; counts_as_in_care: boolean } | null
       photos: { id: string; r2_key: string | null; verified: boolean }[] | null
       treatments:
@@ -191,32 +193,53 @@ Deno.serve(async (req) => {
 
     const animals = ((animalsRaw ?? []) as unknown as AnimalRow[])
       .filter((row) => !row.archived && row.status?.counts_as_in_care === true)
-      .map((row) => ({
-        id: row.id,
-        shelterCode: row.shelter_code,
-        name: row.name,
-        species: row.species,
-        sex: row.sex,
-        markings: row.markings,
-        statusLabel: row.status?.label ?? '',
-        photos: (row.photos ?? [])
-          .map((photo) => ({
-            id: photo.id,
-            url: publicPhotoUrl(r2PublicBase, photo.r2_key),
-            verified: photo.verified,
-          }))
-          .filter((photo): photo is { id: string; url: string; verified: boolean } =>
-            Boolean(photo.url),
-          ),
-        care: (row.treatments ?? [])
-          .filter((treatment) => !treatment.hide_from_public)
+      .map((row) => {
+        const care = (row.treatments ?? [])
+          .filter((treatment) => treatment.hide_from_public !== true)
           .map((treatment) => ({
             id: treatment.id,
             treatedAt: treatment.treated_at,
             treatmentType: treatment.treatment_type,
             notes: treatment.notes,
-          })),
-      }))
+          }))
+
+        const hasArrival = care.some(
+          (entry) =>
+            entry.treatmentType === 'arrived' || entry.treatmentType === 'intake',
+        )
+        if (!hasArrival && row.intake_date) {
+          care.push({
+            id: `${row.id}-arrived`,
+            treatedAt: row.intake_date.includes('T')
+              ? row.intake_date
+              : `${row.intake_date}T12:00:00.000Z`,
+            treatmentType: 'arrived',
+            notes: null,
+          })
+        }
+
+        care.sort((a, b) => b.treatedAt.localeCompare(a.treatedAt))
+
+        return {
+          id: row.id,
+          shelterCode: row.shelter_code,
+          name: row.name,
+          species: row.species,
+          sex: row.sex,
+          markings: row.markings,
+          statusLabel: row.status?.label ?? '',
+          photos: (row.photos ?? [])
+            .map((photo) => ({
+              id: photo.id,
+              url: publicPhotoUrl(r2PublicBase, photo.r2_key),
+              verified: photo.verified,
+            }))
+            .filter((photo): photo is { id: string; url: string; verified: boolean } =>
+              Boolean(photo.url),
+            ),
+          care,
+        }
+      })
 
     type LedgerRow = {
       id: string

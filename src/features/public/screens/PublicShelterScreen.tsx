@@ -22,6 +22,9 @@ import {
 } from '@/features/public/components/MediaHighlight'
 import { VerifiedExplainDialog } from '@/features/public/components/VerifiedExplainDialog'
 import { isReservedPublicSlug } from '@/shared/lib/public/slug'
+import {
+  formatPublicWhen,
+} from '@/shared/lib/public/format'
 import { formatPkr } from '@/features/ledger/domain/ledger'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import type {
@@ -38,22 +41,12 @@ type LoadState =
   | { status: 'rate-limited' }
   | { status: 'error' }
 
-type SectionTab = 'animals' | 'ledger'
-
 type HighlightState = {
   items: HighlightItem[]
   index: number
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(`${iso}T12:00:00`)
-  if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
+type SectionTab = 'animals' | 'ledger'
 
 function animalSearchText(animal: PublicAnimalDto): string {
   return [
@@ -576,7 +569,7 @@ function LedgerPanel({
                 entry.attachmentUrls.map((url, i) => ({
                   url,
                   alt: `Attachment ${i + 1} for ${entry.categoryLabel}`,
-                  caption: `${formatDate(entry.entryDate)} · ${entry.categoryLabel}`,
+                  caption: `${formatPublicWhen(entry.entryDate)} · ${entry.categoryLabel}`,
                 }))
 
               return (
@@ -591,7 +584,7 @@ function LedgerPanel({
                 >
                   <div className="public-shelter__ledger-info">
                     <span className="public-shelter__ledger-primary">
-                      {formatDate(entry.entryDate)} · {entry.categoryLabel}
+                      {formatPublicWhen(entry.entryDate)} · {entry.categoryLabel}
                       {entry.isAnonymous ? ' · Anonymous' : ''}
                     </span>
                     {entry.notes ? (

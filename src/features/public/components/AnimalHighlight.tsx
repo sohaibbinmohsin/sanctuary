@@ -1,17 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { CaretLeft, CaretRight, PawPrint, SealCheck, X } from '@phosphor-icons/react'
 import { VerifiedPhotoBadge } from '@/features/public/components/VerifiedPhotoBadge'
+import {
+  formatPublicWhen,
+  publicCareLabel,
+} from '@/shared/lib/public/format'
 import type { PublicAnimalDto } from '@/shared/lib/public/visibility'
-
-function formatDate(iso: string): string {
-  const d = new Date(`${iso}T12:00:00`)
-  if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
 
 type AnimalHighlightProps = {
   animal: PublicAnimalDto
@@ -222,10 +216,10 @@ export function AnimalHighlight({
                 {animal.care.map((entry) => (
                   <li key={entry.id}>
                     <span className="public-shelter__care-when">
-                      {formatDate(entry.treatedAt)}
+                      {formatPublicWhen(entry.treatedAt)}
                     </span>
                     <span className="public-shelter__care-type">
-                      {entry.treatmentType}
+                      {publicCareLabel(entry.treatmentType)}
                     </span>
                     {entry.notes ? (
                       <span className="public-shelter__care-notes">

@@ -100,6 +100,55 @@ describe('buildPublicShelterDto', () => {
     expect(dto.animals[0]!.photos[0]!.verified).toBe(true)
   })
 
+  it('synthesizes Arrived from intakeDate when no arrival care exists', () => {
+    const dto = buildPublicShelterDto({
+      ...base,
+      animals: [
+        {
+          ...base.animals[0]!,
+          intakeDate: '2026-01-01',
+          care: [
+            {
+              id: 'c-status',
+              treatedAt: '2026-01-05T10:00:00.000Z',
+              treatmentType: 'status',
+              notes: 'In sanctuary',
+              hideFromPublic: false,
+            },
+          ],
+        },
+      ],
+    })
+    expect(dto.animals[0]!.care.map((c) => c.treatmentType)).toEqual([
+      'status',
+      'arrived',
+    ])
+    expect(dto.animals[0]!.care[1]!.treatedAt).toBe('2026-01-01T12:00:00.000Z')
+  })
+
+  it('does not synthesize Arrived when an arrival care row already exists', () => {
+    const dto = buildPublicShelterDto({
+      ...base,
+      animals: [
+        {
+          ...base.animals[0]!,
+          intakeDate: '2026-01-01',
+          care: [
+            {
+              id: 'c-arrived',
+              treatedAt: '2026-01-01T12:00:00.000Z',
+              treatmentType: 'arrived',
+              notes: 'Friendly',
+              hideFromPublic: false,
+            },
+          ],
+        },
+      ],
+    })
+    expect(dto.animals[0]!.care).toHaveLength(1)
+    expect(dto.animals[0]!.care[0]!.notes).toBe('Friendly')
+  })
+
   it('omits hidden ledger rows and strips anonymous attachments', () => {
     const dto = buildPublicShelterDto(base)
     expect(dto.ledger.map((e) => e.id)).toEqual(['l1', 'l3'])
