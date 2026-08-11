@@ -47,6 +47,9 @@ export function AnimalsListScreen() {
   const [species, setSpecies] = useState('')
   const [sex, setSex] = useState('')
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
+  const [verifiedAnimalIds, setVerifiedAnimalIds] = useState<
+    Record<string, boolean>
+  >({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -70,8 +73,10 @@ export function AnimalsListScreen() {
         setAnimals(rows)
 
         const urls: Record<string, string> = {}
+        const verified: Record<string, boolean> = {}
         for (const animal of rows.slice(0, 60)) {
           const photos = await listPhotosForAnimal(db, animal.id)
+          verified[animal.id] = photos.some((p) => Boolean(p.verified))
           const first = photos[0]
           if (!first) continue
           const remote = publicPhotoUrl(first.r2_key)
@@ -86,7 +91,10 @@ export function AnimalsListScreen() {
             urls[animal.id] = localPhotoUrl(first.id)
           }
         }
-        if (!cancelled) setPhotoUrls(urls)
+        if (!cancelled) {
+          setPhotoUrls(urls)
+          setVerifiedAnimalIds(verified)
+        }
       } catch (err) {
         console.warn('Animal search failed', err)
         if (!cancelled) setAnimals([])
@@ -197,6 +205,7 @@ export function AnimalsListScreen() {
               key={animal.id}
               animal={animal}
               photoUrl={photoUrls[animal.id]}
+              hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
             />
           ))}
         </div>

@@ -716,49 +716,63 @@ export function SettingsScreen() {
       <div className="panel stack" style={{ marginTop: '1.25rem' }}>
         <div className="section-copy">
           <p className="section-label">Public transparency</p>
-          <p className="muted" style={{ margin: 0 }}>
-            Donors can open this link. Private care notes and anonymous
-            proofs stay hidden when you mark them.
-          </p>
+          {playground ? (
+            <p className="muted" style={{ margin: 0 }}>
+              In a real shelter account, you can turn on a public page donors
+              open by link. It shows animals in care and ledger totals, while
+              private care notes and anonymous proofs stay hidden when you mark
+              them. Verified camera photos get a trust mark on that page.
+              Public pages are not available in the playground.
+            </p>
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>
+              Donors can open this link. Private care notes and anonymous
+              proofs stay hidden when you mark them.
+            </p>
+          )}
         </div>
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={publicEnabled}
-            disabled={!member || publicBusy}
-            onChange={(e) => void onTogglePublicPage(e.target.checked)}
-          />
-          <span>Enable public page</span>
-        </label>
-        {publicEnabled ? (
-          <div className="public-link">
-            <div className="row public-link__actions">
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={!publicSlug}
-                onClick={() => void onCopyPublicLink()}
-              >
-                {copyMessage === 'Link copied' ? 'Copied' : 'Copy link'}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={!member}
-                onClick={openSlugEditor}
-              >
-                Edit link
-              </Button>
-            </div>
-            {copyMessage && copyMessage !== 'Link copied' ? (
-              <p className="muted public-link__status">{copyMessage}</p>
+        {playground ? null : (
+          <>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={publicEnabled}
+                disabled={!member || publicBusy}
+                onChange={(e) => void onTogglePublicPage(e.target.checked)}
+              />
+              <span>Enable public page</span>
+            </label>
+            {publicEnabled ? (
+              <div className="public-link">
+                <div className="row public-link__actions">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!publicSlug}
+                    onClick={() => void onCopyPublicLink()}
+                  >
+                    {copyMessage === 'Link copied' ? 'Copied' : 'Copy link'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!member}
+                    onClick={openSlugEditor}
+                  >
+                    Edit link
+                  </Button>
+                </div>
+                {copyMessage && copyMessage !== 'Link copied' ? (
+                  <p className="muted public-link__status">{copyMessage}</p>
+                ) : null}
+              </div>
             ) : null}
-          </div>
-        ) : null}
-        {publicError ? <p className="form-error">{publicError}</p> : null}
+            {publicError ? <p className="form-error">{publicError}</p> : null}
+          </>
+        )}
       </div>
 
-      {slugEditorOpen
+      {slugEditorOpen && !playground
         ? createPortal(
             <PublicSlugEditorDialog
               slug={slugDraft}

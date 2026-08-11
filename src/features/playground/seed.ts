@@ -12,8 +12,30 @@ import {
   PLAYGROUND_ORG_ID,
   PLAYGROUND_ORG_INITIALS,
   PLAYGROUND_ORG_NAME,
+  PLAYGROUND_SEED_VERSION,
   PLAYGROUND_USER_ID,
 } from '@/features/playground/mode'
+
+const SEED_VERSION_KEY = 'sanctuary.playground.seedVersion'
+
+function readStoredSeedVersion(): number {
+  try {
+    const raw = localStorage.getItem(SEED_VERSION_KEY)
+    if (!raw) return 0
+    const n = Number.parseInt(raw, 10)
+    return Number.isFinite(n) ? n : 0
+  } catch {
+    return 0
+  }
+}
+
+function writeStoredSeedVersion(): void {
+  try {
+    localStorage.setItem(SEED_VERSION_KEY, String(PLAYGROUND_SEED_VERSION))
+  } catch {
+    // Private mode / blocked storage — next visit may re-seed again.
+  }
+}
 
 async function seedInto(db: SanctuaryDb): Promise<void> {
   const now = new Date().toISOString()
@@ -88,13 +110,16 @@ async function seedInto(db: SanctuaryDb): Promise<void> {
 
       await tx.execute(
         `INSERT INTO photos (
-          id, org_id, animal_id, r2_key, local_only, upload_state, created_at
-        ) VALUES (?, ?, ?, ?, 0, 'uploaded', ?)`,
+          id, org_id, animal_id, r2_key, local_only, upload_state,
+          capture_source, verified, created_at
+        ) VALUES (?, ?, ?, ?, 0, 'uploaded', ?, ?, ?)`,
         [
           crypto.randomUUID(),
           PLAYGROUND_ORG_ID,
           animal.id,
           animal.photoUrl,
+          animal.photoVerified ? 'camera' : 'gallery',
+          animal.photoVerified ? 1 : 0,
           now,
         ],
       )
@@ -149,24 +174,24 @@ async function playgroundAnimalCount(db: SanctuaryDb): Promise<number> {
   return row?.c ?? 0
 }
 
-/** Seed once if the playground DB has no demo animals. */
+/**
+ * Ensure playground demo data matches {@link PLAYGROUND_SEED_VERSION}.
+ * Empty DB or a version mismatch wipes local playground data and re-seeds.
+ */
 export async function ensurePlaygroundSeed(
   powerSync: AbstractPowerSyncDatabase,
 ): Promise<void> {
   const db = asDb(powerSync)
-  if ((await playgroundAnimalCount(db)) > 0) return
+  const versionMatches = readStoredSeedVersion() === PLAYGROUND_SEED_VERSION
+  const hasAnimals = (await playgroundAnimalCount(db)) > 0
 
-  // Incomplete prior seed (org without animals) — clear then seed.
-  const org = await db.getOptional<{ c: number }>(
-    `SELECT COUNT(*) as c FROM organizations WHERE id = ?`,
-    [PLAYGROUND_ORG_ID],
-  )
-  if ((org?.c ?? 0) > 0) {
-    await powerSync.disconnectAndClear()
-  }
+  if (versionMatches && hasAnimals) return
+
+  await powerSync.disconnectAndClear()
 
   try {
     await seedInto(asDb(powerSync))
+    writeStoredSeedVersion()
   } catch (err) {
     console.error('Playground seed failed', err)
     throw err
@@ -177,6 +202,11 @@ export async function ensurePlaygroundSeed(
 export async function resetPlaygroundSeed(
   powerSync: AbstractPowerSyncDatabase,
 ): Promise<void> {
+  try {
+    localStorage.removeItem(SEED_VERSION_KEY)
+  } catch {
+    // ignore
+  }
   await powerSync.disconnectAndClear()
   await ensurePlaygroundSeed(powerSync)
 }
