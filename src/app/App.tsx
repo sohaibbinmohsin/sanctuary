@@ -1,13 +1,34 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Providers, hasActiveSession } from '@/app/providers'
 import { AppShell } from '@/app/router'
 import { LoginScreen } from '@/features/auth/LoginScreen'
 import { LandingScreen } from '@/features/landing/LandingScreen'
+import { PublicShelterScreen } from '@/features/public/screens/PublicShelterScreen'
 import { isPlaygroundPath } from '@/features/playground/mode'
+import { isReservedPublicSlug } from '@/shared/lib/public/slug'
 import { supabase, supabaseConfigured } from '@/shared/lib/supabase'
 
 const playground = isPlaygroundPath(window.location.pathname)
+
+/** First path segments owned by the signed-in app shell, so /:slug can still resolve to it. */
+const APP_ROOTS = new Set(['animals', 'ledger', 'dashboard', 'settings'])
+
+/**
+ * Signed-in staff may still want to preview a donor-facing `/{slug}` page.
+ * Renders the app shell for known app paths, and the public page otherwise.
+ */
+function PublicSlugOrApp() {
+  const location = useLocation()
+  const firstSegment = location.pathname.split('/')[1] ?? ''
+
+  if (isReservedPublicSlug(firstSegment) || APP_ROOTS.has(firstSegment)) {
+    return <AppShell />
+  }
+
+  // The signed-in route is `/*`, so there is no `:slug` param to read.
+  return <PublicShelterScreen slug={firstSegment} />
+}
 
 export default function App() {
   const [ready, setReady] = useState(playground)
@@ -68,7 +89,7 @@ export default function App() {
         {signedIn ? (
           <Routes>
             <Route path="/login" element={<Navigate to="/animals" replace />} />
-            <Route path="*" element={<AppShell />} />
+            <Route path="/*" element={<PublicSlugOrApp />} />
           </Routes>
         ) : (
           <Routes>
@@ -77,6 +98,7 @@ export default function App() {
               path="/login"
               element={<LoginScreen onSuccess={() => setSignedIn(true)} />}
             />
+            <Route path="/:slug" element={<PublicShelterScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         )}

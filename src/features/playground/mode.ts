@@ -13,6 +13,13 @@ export function isPlaygroundPath(pathname: string): boolean {
   return pathname === '/playground' || pathname.startsWith('/playground/')
 }
 
+/**
+ * Bump when playground demo data or seeded feature flags must refresh for
+ * returning visitors (verified photo demos, new animals, etc.).
+ * Stored in localStorage; mismatch triggers wipe + re-seed.
+ */
+export const PLAYGROUND_SEED_VERSION = 2
+
 /** Stable IDs so re-seed / reset stay consistent. */
 export const PLAYGROUND_ORG_ID = 'a1111111-1111-4111-8111-111111111111'
 export const PLAYGROUND_USER_ID = 'a2222222-2222-4222-8222-222222222222'

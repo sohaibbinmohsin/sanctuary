@@ -1,9 +1,15 @@
 // Deno Supabase Edge Function — signed R2 PUT URLs + server-side DELETE
-// Secrets: R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_ENDPOINT, R2_PUBLIC_BASE_URL
+// Secrets: R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_ENDPOINT, R2_PUBLIC_BASE_URL,
+//          SUPABASE_SERVICE_ROLE_KEY (verify capture-session tokens + set photos.verified)
 // Deploy with: supabase functions deploy r2-sign
 //
-// Body: { key: string, action?: 'upload' | 'delete' }
-// - upload (default): returns { uploadUrl, publicUrl } for browser PUT
+// Body: { key: string, action?: 'upload' | 'delete', captureToken?: string, photoId?: string }
+// - upload (default): returns { uploadUrl, publicUrl } for browser PUT (requires R2 CORS)
+//   - When captureToken + photoId are present and match an unused, unexpired
+//     `photo_capture_sessions` row scoped to the key's org/animal, the session is
+//     marked used and `photos.verified` is set true via the service role. An
+//     invalid/expired/missing token never blocks the upload — it just stays unverified.
+//   - The client-sent `verified` value (if any) is always ignored.
 // - delete: deletes the object in R2 from the edge function (no browser CORS needed)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
@@ -131,6 +137,60 @@ async function signedR2Url(opts: {
   return `${opts.endpoint}${canonicalUri}?${canonicalQuerystring}&X-Amz-Signature=${signature}`
 }
 
+/**
+ * Best-effort: mark a matching capture-session token used and flip
+ * `photos.verified` true via the service role. Any failure (missing/expired/
+ * already-used/mismatched token, missing service role key, DB error) is
+ * swallowed — an invalid token must never fail or block the upload.
+ */
+async function tryBindCaptureSession(opts: {
+  supabaseUrl: string
+  serviceRoleKey: string
+  orgId: string
+  animalId: string
+  photoId: string
+  token: string
+}): Promise<void> {
+  if (!opts.supabaseUrl || !opts.serviceRoleKey) return
+  try {
+    const admin = createClient(opts.supabaseUrl, opts.serviceRoleKey)
+    const tokenHash = await sha256Hex(opts.token)
+    const nowIso = new Date().toISOString()
+
+    const { data: session } = await admin
+      .from('photo_capture_sessions')
+      .select('id')
+      .eq('token_hash', tokenHash)
+      .eq('org_id', opts.orgId)
+      .eq('animal_id', opts.animalId)
+      .is('used_at', null)
+      .gt('expires_at', nowIso)
+      .maybeSingle()
+
+    if (!session?.id) return
+
+    const { error: updateSessionError } = await admin
+      .from('photo_capture_sessions')
+      .update({ used_at: nowIso, photo_id: opts.photoId })
+      .eq('id', session.id)
+      .eq('org_id', opts.orgId)
+      .eq('animal_id', opts.animalId)
+      .is('used_at', null)
+    if (updateSessionError) return
+
+    // Scope by org/animal too — a client-supplied photoId must never flip
+    // `verified` on a photo outside the caller's org or the key's animal.
+    await admin
+      .from('photos')
+      .update({ verified: true })
+      .eq('id', opts.photoId)
+      .eq('org_id', opts.orgId)
+      .eq('animal_id', opts.animalId)
+  } catch (err) {
+    console.error('Capture-session binding failed (non-fatal):', err)
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -179,6 +239,8 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as {
       key?: string
       action?: 'upload' | 'delete'
+      captureToken?: string
+      photoId?: string
     }
     const key = body.key?.replace(/^\/+/, '')
     if (!key || !key.startsWith(`${membership.org_id}/`)) {
@@ -187,6 +249,9 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    // Key layout is `{orgId}/{animalId}/{photoId}.jpg` — pull animalId for
+    // capture-session scoping without trusting the client's photoId alone.
+    const keyAnimalId = key.split('/')[1]
 
     const action = body.action === 'delete' ? 'delete' : 'upload'
 
@@ -243,6 +308,21 @@ Deno.serve(async (req) => {
       endpoint,
     })
     const publicUrl = publicBase ? `${publicBase}/${key}` : key
+
+    // Never trust a client-sent `verified` flag — only a matched, valid
+    // capture-session token can flip it, and only via the service role.
+    const captureToken = body.captureToken?.trim()
+    const photoId = body.photoId?.trim()
+    if (captureToken && photoId && keyAnimalId) {
+      await tryBindCaptureSession({
+        supabaseUrl: Deno.env.get('SUPABASE_URL') ?? '',
+        serviceRoleKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        orgId: membership.org_id,
+        animalId: keyAnimalId,
+        photoId,
+        token: captureToken,
+      })
+    }
 
     return new Response(JSON.stringify({ uploadUrl, publicUrl }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

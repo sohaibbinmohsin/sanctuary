@@ -1,4 +1,5 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery } from '@powersync/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
@@ -36,6 +37,12 @@ import {
   getLocalPartnerLogo,
   setPartnerLogo,
 } from '@/features/settings/domain/partnerLogo'
+import {
+  disablePublicPage,
+  enablePublicPage,
+  updatePublicSlug,
+} from '@/features/settings/domain/publicPage'
+import { publicShelterUrl } from '@/shared/lib/public/slug'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { SelectField } from '@/shared/ui/SelectField'
@@ -66,14 +73,27 @@ export function SettingsScreen() {
   const [logoBusy, setLogoBusy] = useState(false)
   const [logoError, setLogoError] = useState<string | null>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
+  const [publicBusy, setPublicBusy] = useState(false)
+  const [publicError, setPublicError] = useState<string | null>(null)
+  const [slugDraft, setSlugDraft] = useState('')
+  const [slugSaving, setSlugSaving] = useState(false)
+  const [slugError, setSlugError] = useState<string | null>(null)
+  const [slugEditorOpen, setSlugEditorOpen] = useState(false)
+  const [copyMessage, setCopyMessage] = useState<string | null>(null)
 
-  const { data: orgRows } = useQuery<{ logo_r2_key: string | null }>(
+  const { data: orgRows } = useQuery<{
+    logo_r2_key: string | null
+    public_enabled: number | null
+    public_slug: string | null
+  }>(
     member?.orgId
-      ? `SELECT logo_r2_key FROM organizations WHERE id = ?`
-      : `SELECT logo_r2_key FROM organizations WHERE 0`,
+      ? `SELECT logo_r2_key, public_enabled, public_slug FROM organizations WHERE id = ?`
+      : `SELECT logo_r2_key, public_enabled, public_slug FROM organizations WHERE 0`,
     member?.orgId ? [member.orgId] : [],
   )
   const logoR2Key = orgRows?.[0]?.logo_r2_key ?? null
+  const publicEnabled = orgRows?.[0]?.public_enabled === 1
+  const publicSlug = orgRows?.[0]?.public_slug ?? null
 
   async function reload() {
     if (!db || !member) return
@@ -173,6 +193,84 @@ export function SettingsScreen() {
       )
     } finally {
       setLogoBusy(false)
+    }
+  }
+
+  useEffect(() => {
+    setSlugDraft(publicSlug ?? '')
+    setSlugError(null)
+  }, [publicSlug])
+
+  async function onTogglePublicPage(next: boolean) {
+    if (!db || !member) return
+    setPublicBusy(true)
+    setPublicError(null)
+    try {
+      if (next) {
+        await enablePublicPage(db, {
+          orgId: member.orgId,
+          orgName: member.orgName,
+          initials: member.orgInitials,
+        })
+      } else {
+        await disablePublicPage(db, member.orgId)
+      }
+    } catch (err) {
+      setPublicError(
+        err instanceof Error ? err.message : 'Could not update the public page.',
+      )
+    } finally {
+      setPublicBusy(false)
+    }
+  }
+
+  async function onCommitSlug(): Promise<boolean> {
+    if (!db || !member) return false
+    const next = slugDraft.trim()
+    if (!next || next === (publicSlug ?? '')) return true
+    setSlugSaving(true)
+    setSlugError(null)
+    try {
+      await updatePublicSlug(db, member.orgId, next)
+      return true
+    } catch (err) {
+      setSlugError(
+        err instanceof Error ? err.message : 'Could not save that link.',
+      )
+      return false
+    } finally {
+      setSlugSaving(false)
+    }
+  }
+
+  function openSlugEditor() {
+    setSlugDraft(publicSlug ?? '')
+    setSlugError(null)
+    setSlugEditorOpen(true)
+  }
+
+  function closeSlugEditor() {
+    setSlugEditorOpen(false)
+    setSlugDraft(publicSlug ?? '')
+    setSlugError(null)
+  }
+
+  async function onSaveSlugFromEditor() {
+    const saved = await onCommitSlug()
+    if (saved) setSlugEditorOpen(false)
+  }
+
+  async function onCopyPublicLink() {
+    const slug = publicSlug?.trim()
+    if (!slug) return
+    const url = publicShelterUrl(slug)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopyMessage('Link copied')
+    } catch {
+      setCopyMessage('Could not copy link')
+    } finally {
+      window.setTimeout(() => setCopyMessage(null), 2000)
     }
   }
 
@@ -356,7 +454,7 @@ export function SettingsScreen() {
   async function onResetPlayground() {
     const ok = await confirm({
       title: 'Reset playground?',
-      body: 'Demo animals and money entries will be restored. Your playground edits on this device will be cleared.',
+      body: 'Demo animals and ledger entries will be restored. Your playground edits on this device will be cleared.',
       confirmLabel: 'Reset',
       tone: 'danger',
     })
@@ -457,7 +555,7 @@ export function SettingsScreen() {
 
         <div className="panel stack">
           <div className="section-copy">
-            <p className="section-label">Money categories</p>
+            <p className="section-label">Ledger categories</p>
             <p className="muted" style={{ margin: 0 }}>
               Labels like Donation or Food. Mark each as money in or out.
             </p>
@@ -471,7 +569,7 @@ export function SettingsScreen() {
                   setNewCategory(e.target.value)
                   if (categoryError) setCategoryError(null)
                 }}
-                aria-label="New money category"
+                aria-label="New ledger category"
                 style={{ flex: 1, minWidth: '8rem' }}
               />
               <div style={{ minWidth: '8.5rem', flex: '0 0 auto' }}>
@@ -545,7 +643,7 @@ export function SettingsScreen() {
                       void (async () => {
                         const ok = await confirm({
                           title: `Hide “${c.label}”?`,
-                          body: 'It will no longer show when adding money entries.',
+                          body: 'It will no longer show when adding ledger entries.',
                           confirmLabel: 'Hide category',
                           tone: 'danger',
                         })
@@ -616,9 +714,85 @@ export function SettingsScreen() {
       </div>
 
       <div className="panel stack" style={{ marginTop: '1.25rem' }}>
+        <div className="section-copy">
+          <p className="section-label">Public transparency</p>
+          {playground ? (
+            <p className="muted" style={{ margin: 0 }}>
+              In a real shelter account, you can turn on a public page donors
+              open by link. It shows animals in care and ledger totals, while
+              private care notes and anonymous proofs stay hidden when you mark
+              them. Verified camera photos get a trust mark on that page.
+              Public pages are not available in the playground.
+            </p>
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>
+              Donors can open this link. Private care notes and anonymous
+              proofs stay hidden when you mark them.
+            </p>
+          )}
+        </div>
+        {playground ? null : (
+          <>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={publicEnabled}
+                disabled={!member || publicBusy}
+                onChange={(e) => void onTogglePublicPage(e.target.checked)}
+              />
+              <span>Enable public page</span>
+            </label>
+            {publicEnabled ? (
+              <div className="public-link">
+                <div className="row public-link__actions">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!publicSlug}
+                    onClick={() => void onCopyPublicLink()}
+                  >
+                    {copyMessage === 'Link copied' ? 'Copied' : 'Copy link'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!member}
+                    onClick={openSlugEditor}
+                  >
+                    Edit link
+                  </Button>
+                </div>
+                {copyMessage && copyMessage !== 'Link copied' ? (
+                  <p className="muted public-link__status">{copyMessage}</p>
+                ) : null}
+              </div>
+            ) : null}
+            {publicError ? <p className="form-error">{publicError}</p> : null}
+          </>
+        )}
+      </div>
+
+      {slugEditorOpen && !playground
+        ? createPortal(
+            <PublicSlugEditorDialog
+              slug={slugDraft}
+              saving={slugSaving}
+              error={slugError}
+              onSlugChange={(value) => {
+                setSlugDraft(value)
+                if (slugError) setSlugError(null)
+              }}
+              onSave={() => void onSaveSlugFromEditor()}
+              onCancel={closeSlugEditor}
+            />,
+            document.body,
+          )
+        : null}
+
+      <div className="panel stack" style={{ marginTop: '1.25rem' }}>
         <p className="section-label">Your data</p>
         <p className="muted" style={{ margin: 0 }}>
-          Download a zip of animal records, care notes, money entries, and photos.
+          Download a zip of animal records, care notes, ledger entries, and photos.
         </p>
         <Button
           type="button"
@@ -667,5 +841,108 @@ export function SettingsScreen() {
         )}
       </div>
     </section>
+  )
+}
+
+type PublicSlugEditorDialogProps = {
+  slug: string
+  saving: boolean
+  error: string | null
+  onSlugChange: (value: string) => void
+  onSave: () => void
+  onCancel: () => void
+}
+
+function PublicSlugEditorDialog({
+  slug,
+  saving,
+  error,
+  onSlugChange,
+  onSave,
+  onCancel,
+}: PublicSlugEditorDialogProps) {
+  const titleId = useId()
+  const bodyId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !saving) onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [onCancel, saving])
+
+  return (
+    <div className="confirm-root" role="presentation">
+      <button
+        type="button"
+        className="confirm-backdrop"
+        aria-label="Dismiss"
+        disabled={saving}
+        onClick={onCancel}
+      />
+      <div
+        className="confirm-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={bodyId}
+      >
+        <h2 id={titleId} className="confirm-card__title">
+          Edit public link
+        </h2>
+        <p id={bodyId} className="confirm-card__body">
+          Change the ending of your public page URL. Donors use this link to
+          open your shelter page.
+        </p>
+        <div className="public-link-editor">
+          <input
+            ref={inputRef}
+            className="public-link-editor__slug"
+            value={slug}
+            onChange={(e) => onSlugChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                onSave()
+              }
+            }}
+            aria-label="Public page path"
+            placeholder="your-shelter"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            disabled={saving}
+          />
+        </div>
+        {error ? <p className="form-error">{error}</p> : null}
+        <div className="confirm-card__actions">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={saving}
+            onClick={onCancel}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={saving || !slug.trim()}
+            onClick={onSave}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }

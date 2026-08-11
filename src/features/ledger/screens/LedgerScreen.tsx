@@ -172,7 +172,7 @@ export function LedgerScreen() {
   return (
     <section className="screen">
       <PageHeader
-        title="Money"
+        title="Ledger"
         subtitle="Track donations and expenses for your shelter."
         actions={
           hasEntries ? (
@@ -275,7 +275,7 @@ export function LedgerScreen() {
       {!hasEntries ? (
         <EmptyState
           icon={<CurrencyCircleDollar size={28} weight="duotone" />}
-          title="No money entries yet"
+          title="No ledger entries yet"
           body="Add a donation or expense to start your record."
           actionLabel="Add entry"
           actionTo="/ledger/new"
@@ -322,7 +322,7 @@ export function LedgerScreen() {
                       to={`/ledger/${e.id}`}
                       variant="ghost"
                       className="btn--icon"
-                      aria-label="Edit money entry"
+                      aria-label="Edit ledger entry"
                       title="Edit"
                     >
                       <PencilSimple size={18} weight="bold" aria-hidden />

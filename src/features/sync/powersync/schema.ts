@@ -4,6 +4,8 @@ const organizations = new Table({
   name: column.text,
   initials: column.text,
   logo_r2_key: column.text,
+  public_enabled: column.integer, // 0/1
+  public_slug: column.text,
   created_at: column.text,
 })
 
@@ -55,6 +57,7 @@ const treatments = new Table(
     treatment_type: column.text,
     notes: column.text,
     ledger_entry_id: column.text,
+    hide_from_public: column.integer, // 0/1
     created_at: column.text,
   },
   { indexes: { by_animal: ['animal_id'], by_org: ['org_id'] } },
@@ -81,6 +84,7 @@ const ledger_entries = new Table(
     notes: column.text,
     animal_id: column.text,
     is_anonymous: column.integer,
+    hide_from_public: column.integer, // 0/1
     created_at: column.text,
   },
   { indexes: { by_org: ['org_id'], by_animal: ['animal_id'] } },
@@ -93,6 +97,8 @@ const photos = new Table(
     r2_key: column.text,
     local_only: column.integer,
     upload_state: column.text,
+    capture_source: column.text,
+    verified: column.integer, // 0/1 — never set to 1 from the client
     created_at: column.text,
   },
   { indexes: { by_animal: ['animal_id'], by_state: ['upload_state'] } },

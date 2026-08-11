@@ -55,6 +55,7 @@ export function LedgerEntryScreen() {
   >([])
   const [animalSearchBusy, setAnimalSearchBusy] = useState(false)
   const [isAnonymous, setIsAnonymous] = useState(false)
+  const [hideFromPublic, setHideFromPublic] = useState(false)
   const [proofFiles, setProofFiles] = useState<File[]>([])
   const [toast, setToast] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -96,6 +97,7 @@ export function LedgerEntryScreen() {
         setEntryDate(entry.entry_date ?? new Date().toISOString().slice(0, 10))
         setNotes(entry.notes ?? '')
         setIsAnonymous(isTruthyFlag(entry.is_anonymous))
+        setHideFromPublic(isTruthyFlag(entry.hide_from_public))
         if (entry.animal_id) {
           setAnimalId(entry.animal_id)
           const animal = await getAnimal(db, entry.animal_id)
@@ -108,7 +110,7 @@ export function LedgerEntryScreen() {
           }
         }
       } catch (err) {
-        console.warn('Failed to load money entry', err)
+        console.warn('Failed to load ledger entry', err)
         if (!cancelled) setNotFound(true)
       } finally {
         if (!cancelled) setLoadingEntry(false)
@@ -190,6 +192,7 @@ export function LedgerEntryScreen() {
           notes,
           animalId: animalId || null,
           isAnonymous: direction === 'in' ? isAnonymous : false,
+          hideFromPublic,
         })
         setToast('Entry updated')
       } else {
@@ -202,6 +205,7 @@ export function LedgerEntryScreen() {
           notes,
           animalId: animalId || undefined,
           isAnonymous: direction === 'in' ? isAnonymous : false,
+          hideFromPublic,
         })
         for (const file of proofFiles) {
           await queueLedgerAttachment(db, {
@@ -228,7 +232,7 @@ export function LedgerEntryScreen() {
   async function onDelete() {
     if (!db || !entryId) return
     const ok = await confirm({
-      title: 'Delete this money entry?',
+      title: 'Delete this ledger entry?',
       body: 'Attached proof will be deleted too. This cannot be undone.',
       confirmLabel: 'Delete entry',
       tone: 'danger',
@@ -264,7 +268,7 @@ export function LedgerEntryScreen() {
           title="Entry not found"
           subtitle="It may have been deleted."
           backTo="/ledger"
-          backLabel="Money"
+          backLabel="Ledger"
         />
       </section>
     )
@@ -273,14 +277,14 @@ export function LedgerEntryScreen() {
   return (
     <section className="screen">
       <PageHeader
-        title={isEdit ? 'Edit money entry' : 'Add money entry'}
+        title={isEdit ? 'Edit ledger entry' : 'Add ledger entry'}
         subtitle={
           isEdit
             ? 'Update details, proof, or delete this entry.'
             : 'Record a donation or expense.'
         }
         backTo="/ledger"
-        backLabel="Money"
+        backLabel="Ledger"
       />
 
       <form className="stack stack--loose" onSubmit={onSubmit}>
@@ -385,9 +389,24 @@ export function LedgerEntryScreen() {
                 checked={isAnonymous}
                 onChange={(e) => setIsAnonymous(e.target.checked)}
               />
-              <span>Anonymous donation</span>
+              <span>
+                Anonymous donation
+                <span className="field__hint">
+                  {' '}
+                  · Hides proof attachments on the public page.
+                </span>
+              </span>
             </label>
           ) : null}
+
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={hideFromPublic}
+              onChange={(e) => setHideFromPublic(e.target.checked)}
+            />
+            <span>Hide from public</span>
+          </label>
 
           {member ? (
             <ProofCapture

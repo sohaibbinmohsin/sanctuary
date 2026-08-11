@@ -28,6 +28,8 @@ export type SanctuaryDb = {
   currentStatus?: {
     connected: boolean
     connecting: boolean
+    /** True after at least one successful sync downloaded into local DB. */
+    hasSynced?: boolean
     dataFlowStatus: {
       downloading?: boolean
       uploading?: boolean

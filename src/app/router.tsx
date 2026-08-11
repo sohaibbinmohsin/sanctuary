@@ -19,7 +19,7 @@ import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 
 const NAV = [
   { to: '/animals', label: 'Animals', icon: Cat },
-  { to: '/ledger', label: 'Money', icon: CurrencyCircleDollar },
+  { to: '/ledger', label: 'Ledger', icon: CurrencyCircleDollar },
   { to: '/dashboard', label: 'Overview', icon: ChartBar },
   { to: '/settings', label: 'Settings', icon: GearSix },
 ] as const

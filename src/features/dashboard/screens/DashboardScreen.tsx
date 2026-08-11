@@ -228,7 +228,7 @@ export function DashboardScreen() {
       <div
         className="filter-chips money-period"
         role="group"
-        aria-label="Money period for share card"
+        aria-label="Ledger period for share card"
       >
         <button
           type="button"
@@ -306,7 +306,7 @@ export function DashboardScreen() {
           <p className="dashboard-card__count-label">animals in care</p>
         </div>
 
-        <div className="dashboard-card__metrics" aria-label={`Money · ${periodHint}`}>
+        <div className="dashboard-card__metrics" aria-label={`Ledger · ${periodHint}`}>
           <div className="dashboard-card__metric">
             <span className="dashboard-card__metric-label">
               Money in
@@ -370,7 +370,7 @@ export function DashboardScreen() {
       </section>
 
       <section className="overview-panel" aria-labelledby="money-chart-title">
-        <h2 id="money-chart-title">Money trend</h2>
+        <h2 id="money-chart-title">Ledger trend</h2>
         <p className="muted overview-panel__lede">
           Last 6 months. Green is money in, amber is money out.
         </p>

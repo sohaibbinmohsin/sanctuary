@@ -21,6 +21,8 @@ export type AddTreatmentInput = {
   notes?: string
   treatedAt?: string
   ledgerEntryId?: string
+  /** Hide this care note from the public shelter page. Defaults to 0. */
+  hideFromPublic?: boolean
 }
 
 export async function addTreatment(
@@ -30,11 +32,12 @@ export async function addTreatment(
   const id = crypto.randomUUID()
   const created_at = new Date().toISOString()
   const treated_at = input.treatedAt ?? created_at
+  const hideFromPublic = input.hideFromPublic ? 1 : 0
 
   await db.execute(
     `INSERT INTO treatments (
-      id, org_id, animal_id, treated_at, treatment_type, notes, ledger_entry_id, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, org_id, animal_id, treated_at, treatment_type, notes, ledger_entry_id, hide_from_public, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.orgId,
@@ -43,6 +46,7 @@ export async function addTreatment(
       input.treatmentType,
       input.notes?.trim() || null,
       input.ledgerEntryId ?? null,
+      hideFromPublic,
       created_at,
     ],
   )
@@ -55,6 +59,7 @@ export async function addTreatment(
     treatment_type: input.treatmentType,
     notes: input.notes?.trim() || null,
     ledger_entry_id: input.ledgerEntryId ?? null,
+    hide_from_public: hideFromPublic,
     created_at,
   }
 }
@@ -74,6 +79,7 @@ export type UpdateTreatmentInput = {
   notes?: string
   treatedAt?: string
   ledgerEntryId?: string | null
+  hideFromPublic?: boolean
 }
 
 export async function updateTreatment(
@@ -90,19 +96,27 @@ export async function updateTreatment(
     input.ledgerEntryId === undefined
       ? existing.ledger_entry_id
       : input.ledgerEntryId
+  const hideFromPublic =
+    input.hideFromPublic === undefined
+      ? (existing.hide_from_public ?? 0)
+      : input.hideFromPublic
+        ? 1
+        : 0
 
   await db.execute(
     `UPDATE treatments SET
       treated_at = ?,
       treatment_type = ?,
       notes = ?,
-      ledger_entry_id = ?
+      ledger_entry_id = ?,
+      hide_from_public = ?
      WHERE id = ?`,
     [
       treated_at,
       input.treatmentType,
       notes,
       ledgerEntryId,
+      hideFromPublic,
       id,
     ],
   )
