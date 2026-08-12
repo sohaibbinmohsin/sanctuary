@@ -15,6 +15,7 @@ import { AnimalDetailScreen } from '@/features/animals/screens/AnimalDetailScree
 import { LedgerScreen } from '@/features/ledger/screens/LedgerScreen'
 import { LedgerEntryScreen } from '@/features/ledger/screens/LedgerEntryScreen'
 import { DashboardScreen } from '@/features/dashboard/screens/DashboardScreen'
+import { ChecklistScreen } from '@/features/checklist/screens/ChecklistScreen'
 import { SettingsScreen } from '@/features/settings/screens/SettingsScreen'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 
@@ -68,6 +69,7 @@ export function AppShell() {
             <Route path="/ledger/new" element={<LedgerEntryScreen />} />
             <Route path="/ledger/:id" element={<LedgerEntryScreen />} />
             <Route path="/dashboard" element={<DashboardScreen />} />
+            <Route path="/checklist" element={<ChecklistScreen />} />
             <Route path="/settings" element={<SettingsScreen />} />
           </Routes>
         </main>
