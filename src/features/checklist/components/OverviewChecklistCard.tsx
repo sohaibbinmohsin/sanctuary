@@ -5,6 +5,11 @@ import {
   setChecklistChecked,
   type ChecklistRow,
 } from '@/features/checklist/domain/checklist'
+import {
+  enableChecklistPush,
+  getPushPermissionState,
+  type PushPermissionState,
+} from '@/features/checklist/domain/pushSubscribe'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { useDb } from '@/shared/hooks/useDb'
 import { Button } from '@/shared/ui/Button'
@@ -40,6 +45,28 @@ export function OverviewChecklistCard() {
   const [rows, setRows] = useState<ChecklistRow[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [pushState, setPushState] = useState<PushPermissionState>(() =>
+    getPushPermissionState(),
+  )
+  const [pushBusy, setPushBusy] = useState(false)
+
+  useEffect(() => {
+    setPushState(getPushPermissionState())
+  }, [])
+
+  async function onEnableReminders() {
+    if (pushBusy) return
+    setPushBusy(true)
+    try {
+      const next = await enableChecklistPush()
+      setPushState(next)
+    } catch (err) {
+      console.warn('Enable checklist push failed', err)
+      setPushState(getPushPermissionState())
+    } finally {
+      setPushBusy(false)
+    }
+  }
 
   async function reload(opts?: { quiet?: boolean }) {
     if (!db || !member) return
@@ -109,6 +136,23 @@ export function OverviewChecklistCard() {
       <p className="muted overview-panel__lede">
         Today’s care list. Overdue animals need a check.
       </p>
+
+      {pushState === 'default' ? (
+        <div className="row" style={{ marginBottom: '0.75rem' }}>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={pushBusy}
+            onClick={() => void onEnableReminders()}
+          >
+            Enable reminders
+          </Button>
+        </div>
+      ) : pushState === 'denied' ? (
+        <p className="muted" style={{ marginBottom: '0.75rem' }}>
+          Notifications blocked in browser settings.
+        </p>
+      ) : null}
 
       {loading && rows.length === 0 ? (
         <p className="muted">Loading…</p>
