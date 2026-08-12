@@ -2,7 +2,8 @@
 
 **Date:** 2026-08-12  
 **Product:** Sanctuary — shelter management software by The Mohsin Project  
-**Status:** Draft for user review  
+**Status:** Approved for implementation planning  
+
 **Related:** Extends MVP animal status (single `status_id`) and Overview. Does not add a fifth primary nav item.
 
 ---
