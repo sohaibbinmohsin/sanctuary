@@ -115,7 +115,7 @@ export function AnimalIntakeScreen() {
       if (isEdit && animalId) {
         await updateAnimal(db, animalId, {
           species,
-          statusId,
+          statusIds: [statusId],
           name,
           sex,
           markings,
@@ -129,7 +129,7 @@ export function AnimalIntakeScreen() {
         orgId: member.orgId,
         prefix: member.orgInitials,
         species,
-        statusId,
+        statusIds: [statusId],
         name,
         sex,
         markings,

@@ -109,6 +109,19 @@ async function seedInto(db: SanctuaryDb): Promise<void> {
       )
 
       await tx.execute(
+        `INSERT INTO animal_status_assignments (
+          id, org_id, animal_id, status_id, created_at
+        ) VALUES (?, ?, ?, ?, ?)`,
+        [
+          crypto.randomUUID(),
+          PLAYGROUND_ORG_ID,
+          animal.id,
+          statusId,
+          now,
+        ],
+      )
+
+      await tx.execute(
         `INSERT INTO photos (
           id, org_id, animal_id, r2_key, local_only, upload_state,
           capture_source, verified, created_at

@@ -2,12 +2,16 @@ import type { SanctuaryDb } from '@/shared/lib/db'
 import { nextShelterId } from '@/shared/lib/ids/shelterId'
 import type { AnimalRecord } from '@/features/sync/powersync/schema'
 import { addTreatment } from '@/features/treatments/domain/treatments'
+import {
+  listAssignmentsForAnimal,
+  replaceAnimalStatuses,
+} from '@/features/statuses/domain/assignments'
 
 export type CreateAnimalInput = {
   orgId: string
   prefix: string
   species: string
-  statusId: string
+  statusIds: string[]
   name?: string
   sex?: string
   markings?: string
@@ -17,7 +21,8 @@ export type CreateAnimalInput = {
 
 export type AnimalSearchFilters = {
   query?: string
-  statusId?: string
+  statusIds?: string[]
+  statusMode?: 'any' | 'all'
   species?: string
   /** Exact sex match; use `__unknown__` for blank/unknown sex. */
   sex?: string
@@ -25,12 +30,17 @@ export type AnimalSearchFilters = {
 
 export type AnimalWithStatus = AnimalRecord & {
   status_label?: string | null
+  status_labels: string[]
 }
 
 export async function createAnimal(
   db: SanctuaryDb,
   input: CreateAnimalInput,
 ): Promise<AnimalRecord> {
+  if (input.statusIds.length === 0) {
+    throw new Error('At least one status is required.')
+  }
+
   const codes = await db.getAll<{ shelter_code: string }>(
     `SELECT shelter_code FROM animals WHERE org_id = ?`,
     [input.orgId],
@@ -59,12 +69,18 @@ export async function createAnimal(
       input.sex?.trim() || null,
       input.markings?.trim() || null,
       intake_date,
-      input.statusId,
+      input.statusIds[0],
       notes,
       now,
       now,
     ],
   )
+
+  await replaceAnimalStatuses(db, {
+    orgId: input.orgId,
+    animalId: id,
+    statusIds: input.statusIds,
+  })
 
   await addTreatment(db, {
     orgId: input.orgId,
@@ -73,6 +89,9 @@ export async function createAnimal(
     notes: notes ?? undefined,
     treatedAt: `${intake_date}T12:00:00.000Z`,
   })
+
+  const created = await getAnimal(db, id)
+  if (!created) throw new Error('Created animal not found')
 
   return {
     id,
@@ -83,7 +102,7 @@ export async function createAnimal(
     sex: input.sex?.trim() || null,
     markings: input.markings?.trim() || null,
     intake_date,
-    status_id: input.statusId,
+    status_id: created.status_id,
     notes,
     archived: 0,
     created_at: now,
@@ -99,9 +118,23 @@ export async function searchAnimals(
   const clauses = ['a.org_id = ?', 'a.archived = 0']
   const params: unknown[] = [orgId]
 
-  if (filters.statusId) {
-    clauses.push('a.status_id = ?')
-    params.push(filters.statusId)
+  const statusIds = [...new Set(filters.statusIds ?? [])]
+  if (statusIds.length > 0) {
+    const placeholders = statusIds.map(() => '?').join(', ')
+    const matchAll =
+      filters.statusMode === 'all'
+        ? ` GROUP BY asa.animal_id
+            HAVING COUNT(DISTINCT asa.status_id) = ?`
+        : ''
+    clauses.push(
+      `a.id IN (
+        SELECT asa.animal_id
+        FROM animal_status_assignments asa
+        WHERE asa.status_id IN (${placeholders})${matchAll}
+      )`,
+    )
+    params.push(...statusIds)
+    if (filters.statusMode === 'all') params.push(statusIds.length)
   }
   if (filters.species?.trim()) {
     clauses.push('LOWER(a.species) = LOWER(?)')
@@ -122,7 +155,7 @@ export async function searchAnimals(
     params.push(q, q)
   }
 
-  return db.getAll<AnimalWithStatus>(
+  const rows = await db.getAll<Omit<AnimalWithStatus, 'status_labels'>>(
     `SELECT a.*, s.label as status_label
      FROM animals a
      LEFT JOIN animal_statuses s ON s.id = a.status_id
@@ -130,19 +163,48 @@ export async function searchAnimals(
      ORDER BY a.intake_date DESC, a.shelter_code ASC`,
     params,
   )
+  if (rows.length === 0) return []
+
+  const placeholders = rows.map(() => '?').join(', ')
+  const labels = await db.getAll<{ animal_id: string; label: string }>(
+    `SELECT asa.animal_id, s.label
+     FROM animal_status_assignments asa
+     JOIN animal_statuses s ON s.id = asa.status_id
+     WHERE asa.animal_id IN (${placeholders})
+     ORDER BY s.sort_order ASC, s.label ASC, s.id ASC`,
+    rows.map((row) => row.id),
+  )
+  const labelsByAnimal = new Map<string, string[]>()
+  for (const assignment of labels) {
+    const animalLabels = labelsByAnimal.get(assignment.animal_id) ?? []
+    animalLabels.push(assignment.label)
+    labelsByAnimal.set(assignment.animal_id, animalLabels)
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    status_labels: labelsByAnimal.get(row.id) ?? [],
+  }))
 }
 
 export async function getAnimal(
   db: SanctuaryDb,
   id: string,
 ): Promise<AnimalWithStatus | null> {
-  return db.getOptional<AnimalWithStatus>(
+  const animal = await db.getOptional<Omit<AnimalWithStatus, 'status_labels'>>(
     `SELECT a.*, s.label as status_label
      FROM animals a
      LEFT JOIN animal_statuses s ON s.id = a.status_id
      WHERE a.id = ?`,
     [id],
   )
+  if (!animal) return null
+
+  const assignments = await listAssignmentsForAnimal(db, id)
+  return {
+    ...animal,
+    status_labels: assignments.map((assignment) => assignment.label),
+  }
 }
 
 export async function updateAnimalStatus(
@@ -152,34 +214,18 @@ export async function updateAnimalStatus(
 ): Promise<void> {
   const existing = await getAnimal(db, id)
   if (!existing) throw new Error('Animal not found')
-  if (existing.status_id === statusId) return
+  if (!existing.org_id) throw new Error('Animal organization not found')
 
-  const status = await db.getOptional<{ label: string | null }>(
-    `SELECT label FROM animal_statuses WHERE id = ?`,
-    [statusId],
-  )
-  const now = new Date().toISOString()
-
-  await db.execute(
-    `UPDATE animals SET status_id = ?, updated_at = ? WHERE id = ?`,
-    [statusId, now, id],
-  )
-
-  if (existing.org_id) {
-    const label = status?.label?.trim() || 'Unknown status'
-    await addTreatment(db, {
-      orgId: existing.org_id,
-      animalId: id,
-      treatmentType: 'status',
-      notes: label,
-      treatedAt: now,
-    })
-  }
+  await replaceAnimalStatuses(db, {
+    orgId: existing.org_id,
+    animalId: id,
+    statusIds: [statusId],
+  })
 }
 
 export type UpdateAnimalInput = {
   species: string
-  statusId: string
+  statusIds: string[]
   name?: string
   sex?: string
   markings?: string
@@ -193,6 +239,10 @@ export async function updateAnimal(
   id: string,
   input: UpdateAnimalInput,
 ): Promise<void> {
+  if (input.statusIds.length === 0) {
+    throw new Error('At least one status is required.')
+  }
+
   const existing = await getAnimal(db, id)
   if (!existing) throw new Error('Animal not found')
 
@@ -200,8 +250,6 @@ export async function updateAnimal(
   const notes = input.notes?.trim() || null
   const intake_date =
     input.intakeDate ?? existing.intake_date ?? now.slice(0, 10)
-  const statusChanged = input.statusId !== existing.status_id
-
   await db.execute(
     `UPDATE animals SET
       name = ?,
@@ -219,12 +267,19 @@ export async function updateAnimal(
       input.sex?.trim() || null,
       input.markings?.trim() || null,
       intake_date,
-      input.statusId,
+      input.statusIds[0],
       notes,
       now,
       id,
     ],
   )
+
+  if (!existing.org_id) throw new Error('Animal organization not found')
+  await replaceAnimalStatuses(db, {
+    orgId: existing.org_id,
+    animalId: id,
+    statusIds: input.statusIds,
+  })
 
   // Keep the arrival care note in sync with intake date / notes.
   const arrivalRows = await db.getAll<{ id: string }>(
@@ -249,20 +304,6 @@ export async function updateAnimal(
     })
   }
 
-  if (statusChanged && existing.org_id) {
-    const status = await db.getOptional<{ label: string | null }>(
-      `SELECT label FROM animal_statuses WHERE id = ?`,
-      [input.statusId],
-    )
-    const label = status?.label?.trim() || 'Unknown status'
-    await addTreatment(db, {
-      orgId: existing.org_id,
-      animalId: id,
-      treatmentType: 'status',
-      notes: label,
-      treatedAt: now,
-    })
-  }
 }
 
 /** Soft-delete: hides the animal from lists while keeping history syncable. */
@@ -283,8 +324,19 @@ export async function countInCare(
   const row = await db.getOptional<{ n: number }>(
     `SELECT COUNT(*) as n
      FROM animals a
-     JOIN animal_statuses s ON s.id = a.status_id
-     WHERE a.org_id = ? AND a.archived = 0 AND s.counts_as_in_care = 1`,
+     WHERE a.org_id = ? AND a.archived = 0
+       AND EXISTS (
+         SELECT 1
+         FROM animal_status_assignments asa
+         JOIN animal_statuses s ON s.id = asa.status_id
+         WHERE asa.animal_id = a.id AND s.counts_as_in_care = 1
+       )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM animal_status_assignments asa
+         JOIN animal_statuses s ON s.id = asa.status_id
+         WHERE asa.animal_id = a.id AND s.counts_as_in_care = 0
+       )`,
     [orgId],
   )
   return row?.n ?? 0
@@ -308,11 +360,12 @@ export async function countAnimalsByStatus(
     sort_order: number | null
     n: number
   }>(
-    `SELECT a.status_id, s.label, s.sort_order, COUNT(*) as n
+    `SELECT asa.status_id, s.label, s.sort_order, COUNT(*) as n
      FROM animals a
-     LEFT JOIN animal_statuses s ON s.id = a.status_id
+     JOIN animal_status_assignments asa ON asa.animal_id = a.id
+     JOIN animal_statuses s ON s.id = asa.status_id
      WHERE a.org_id = ? AND a.archived = 0
-     GROUP BY a.status_id, s.label, s.sort_order
+     GROUP BY asa.status_id, s.label, s.sort_order
      ORDER BY COALESCE(s.sort_order, 999), s.label ASC`,
     [orgId],
   )

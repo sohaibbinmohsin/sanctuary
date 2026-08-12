@@ -65,7 +65,7 @@ export function AnimalsListScreen() {
       try {
         const rows = await searchAnimals(db, member.orgId, {
           query: deferredQuery,
-          statusId: statusId || undefined,
+          statusIds: statusId ? [statusId] : undefined,
           species: species || undefined,
           sex: sex || undefined,
         })
