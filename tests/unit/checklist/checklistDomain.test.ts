@@ -3,6 +3,7 @@ import {
   addAnimalsToChecklist,
   countChecklistOverdue,
   listChecklist,
+  removeChecklistItemForAnimal,
   removeFromChecklist,
   setChecklistChecked,
 } from '@/features/checklist/domain/checklist'
@@ -120,6 +121,15 @@ describe('checklist domain', () => {
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('DELETE FROM checklist_items'),
       ['org-1', 'a1'],
+    )
+  })
+
+  it('removes checklist items for an animal across orgs', async () => {
+    const execute = vi.fn().mockResolvedValue(undefined)
+    await removeChecklistItemForAnimal({ execute } as never, 'a1')
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('DELETE FROM checklist_items WHERE animal_id'),
+      ['a1'],
     )
   })
 

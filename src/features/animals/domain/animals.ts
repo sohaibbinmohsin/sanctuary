@@ -1,6 +1,7 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
 import { nextShelterId } from '@/shared/lib/ids/shelterId'
 import type { AnimalRecord } from '@/features/sync/powersync/schema'
+import { removeChecklistItemForAnimal } from '@/features/checklist/domain/checklist'
 import { addTreatment } from '@/features/treatments/domain/treatments'
 import {
   listAssignmentsForAnimal,
@@ -313,6 +314,7 @@ export async function archiveAnimal(
     `UPDATE animals SET archived = 1, updated_at = ? WHERE id = ?`,
     [new Date().toISOString(), id],
   )
+  await removeChecklistItemForAnimal(db, id)
 }
 
 export async function countInCare(

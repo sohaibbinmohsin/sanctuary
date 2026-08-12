@@ -8,6 +8,7 @@ import {
   searchAnimals,
   type AnimalWithStatus,
 } from '@/features/animals/domain/animals'
+import { addAnimalsToChecklist } from '@/features/checklist/domain/checklist'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
   getLocalPhoto,
@@ -18,6 +19,7 @@ import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { MoraleToast } from '@/shared/ui/MoraleToast'
 import {
   parseAnimalFilterParams,
   serializeAnimalFilterParams,
@@ -41,6 +43,8 @@ export function AnimalsListScreen() {
   const [loading, setLoading] = useState(true)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [confirming, setConfirming] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
     if (!db || !member) return
@@ -169,6 +173,29 @@ export function AnimalsListScreen() {
     })
   }
 
+  async function confirmAddToChecklist() {
+    if (!db || !member || selectedIds.size === 0 || confirming) return
+    setConfirming(true)
+    try {
+      const { added, skipped } = await addAnimalsToChecklist(db, {
+        orgId: member.orgId,
+        animalIds: [...selectedIds],
+        addedBy: member.userId,
+      })
+      const message =
+        skipped > 0
+          ? `Added ${added}, skipped ${skipped} already on checklist`
+          : `Added ${added}`
+      setToast(message)
+      finishSelecting()
+    } catch (err) {
+      console.warn('Add to checklist failed', err)
+      setToast('Could not add to checklist. Try again.')
+    } finally {
+      setConfirming(false)
+    }
+  }
+
   return (
     <section className="screen">
       <PageHeader
@@ -285,18 +312,20 @@ export function AnimalsListScreen() {
 
       {selectMode ? (
         <div className="animal-selection-actions">
-          <Button variant="secondary" onClick={finishSelecting}>
+          <Button variant="secondary" onClick={finishSelecting} disabled={confirming}>
             Cancel
           </Button>
           <Button
             variant="accent"
-            disabled={selectedIds.size === 0}
-            onClick={finishSelecting}
+            disabled={selectedIds.size === 0 || confirming}
+            onClick={() => void confirmAddToChecklist()}
           >
             Confirm
           </Button>
         </div>
       ) : null}
+
+      <MoraleToast message={toast} onDone={() => setToast(null)} />
     </section>
   )
 }
