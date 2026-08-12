@@ -14,6 +14,7 @@ streams:
       - SELECT * FROM organizations WHERE id IN user_orgs
       - SELECT * FROM org_members WHERE org_id IN user_orgs
       - SELECT * FROM animal_statuses WHERE org_id IN user_orgs
+      - SELECT * FROM animal_status_assignments WHERE org_id IN user_orgs
       - SELECT * FROM animals WHERE org_id IN user_orgs
       - SELECT * FROM treatments WHERE org_id IN user_orgs
       - SELECT * FROM ledger_categories WHERE org_id IN user_orgs
