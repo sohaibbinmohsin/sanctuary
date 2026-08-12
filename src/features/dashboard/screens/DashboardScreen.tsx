@@ -6,6 +6,7 @@ import {
   countInCare,
   type StatusCount,
 } from '@/features/animals/domain/animals'
+import { OverviewChecklistCard } from '@/features/checklist/components/OverviewChecklistCard'
 import {
   formatPkr,
   sumLedger,
@@ -341,6 +342,8 @@ export function DashboardScreen() {
           Copy text
         </Button>
       </div>
+
+      <OverviewChecklistCard />
 
       <section className="overview-panel" aria-labelledby="status-chart-title">
         <h2 id="status-chart-title">Animals by status</h2>
