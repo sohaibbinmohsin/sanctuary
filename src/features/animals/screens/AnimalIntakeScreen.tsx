@@ -61,8 +61,13 @@ export function AnimalIntakeScreen() {
     if (!db || !member) return
     void listStatuses(db, member.orgId).then((rows) => {
       setStatuses(rows)
-      if (!isEdit && rows[0]) {
-        setStatusIds((current) => current.length > 0 ? current : [rows[0].id])
+      if (!isEdit) {
+        const firstInCare = rows.find((row) => row.counts_as_in_care === 1)
+        if (firstInCare) {
+          setStatusIds((current) =>
+            current.length > 0 ? current : [firstInCare.id],
+          )
+        }
       }
     })
   }, [db, member, isEdit])
