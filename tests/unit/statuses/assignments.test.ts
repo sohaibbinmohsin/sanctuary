@@ -12,13 +12,20 @@ type Status = {
   counts_as_in_care: number
 }
 
-function createDb(statuses: Status[], currentStatusIds: string[] = []) {
+function createDb(
+  statuses: Status[],
+  currentStatusIds: string[] = [],
+  primaryStatusId?: string,
+) {
   const transactionExecute = vi.fn().mockResolvedValue(undefined)
   const execute = vi.fn().mockResolvedValue(undefined)
   const getAll = vi.fn(async (sql: string) => {
     if (sql.includes('FROM animal_statuses')) return statuses
     if (sql.includes('FROM animal_status_assignments')) {
-      return currentStatusIds.map((status_id) => ({ status_id }))
+      return currentStatusIds.map((status_id) => ({
+        status_id,
+        primary_status_id: primaryStatusId,
+      }))
     }
     return []
   })
@@ -141,13 +148,43 @@ describe('replaceAnimalStatuses', () => {
     ])
   })
 
-  it('does nothing when the effective assignment set is unchanged', async () => {
+  it('repairs the primary mirror when reordered assignments are unchanged', async () => {
     const { db, execute, transactionExecute, writeTransaction } = createDb(
       [
         { id: 'watch', label: 'Watch', sort_order: 5, counts_as_in_care: 1 },
         { id: 'urgent', label: 'Urgent', sort_order: 1, counts_as_in_care: 1 },
       ],
       ['urgent', 'watch'],
+      'watch',
+    )
+
+    await replaceAnimalStatuses(db as never, {
+      orgId: 'org-1',
+      animalId: 'animal-1',
+      statusIds: ['watch', 'urgent'],
+    })
+
+    expect(writeTransaction).not.toHaveBeenCalled()
+    expect(transactionExecute).not.toHaveBeenCalled()
+    expect(execute).toHaveBeenCalledOnce()
+    expect(execute.mock.calls[0]![0]).toContain(
+      'UPDATE animals SET status_id',
+    )
+    expect(execute.mock.calls[0]![1]).toEqual([
+      'urgent',
+      expect.any(String),
+      'animal-1',
+    ])
+  })
+
+  it('does nothing when assignments and the primary mirror are unchanged', async () => {
+    const { db, execute, transactionExecute, writeTransaction } = createDb(
+      [
+        { id: 'watch', label: 'Watch', sort_order: 5, counts_as_in_care: 1 },
+        { id: 'urgent', label: 'Urgent', sort_order: 1, counts_as_in_care: 1 },
+      ],
+      ['urgent', 'watch'],
+      'urgent',
     )
 
     await replaceAnimalStatuses(db as never, {

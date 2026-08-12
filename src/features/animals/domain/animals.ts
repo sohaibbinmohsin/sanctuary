@@ -257,7 +257,6 @@ export async function updateAnimal(
       sex = ?,
       markings = ?,
       intake_date = ?,
-      status_id = ?,
       notes = ?,
       updated_at = ?
      WHERE id = ?`,
@@ -267,7 +266,6 @@ export async function updateAnimal(
       input.sex?.trim() || null,
       input.markings?.trim() || null,
       intake_date,
-      input.statusIds[0],
       notes,
       now,
       id,

@@ -83,11 +83,16 @@ export async function replaceAnimalStatuses(
   )
   const selectedIds = firstExitId ? [firstExitId] : requestedIds
   const selectedStatuses = selectedIds.map((id) => statusesById.get(id)!)
+  const primaryStatusId = resolvePrimaryStatusId(selectedStatuses)
 
-  const currentAssignments = await db.getAll<{ status_id: string }>(
-    `SELECT status_id
-     FROM animal_status_assignments
-     WHERE animal_id = ?`,
+  const currentAssignments = await db.getAll<{
+    status_id: string
+    primary_status_id: string
+  }>(
+    `SELECT asa.status_id, a.status_id AS primary_status_id
+     FROM animal_status_assignments asa
+     JOIN animals a ON a.id = asa.animal_id
+     WHERE asa.animal_id = ?`,
     [input.animalId],
   )
   const currentIds = new Set(
@@ -96,10 +101,16 @@ export async function replaceAnimalStatuses(
   const unchanged =
     currentIds.size === selectedIds.length &&
     selectedIds.every((id) => currentIds.has(id))
-  if (unchanged) return
-
   const now = new Date().toISOString()
-  const primaryStatusId = resolvePrimaryStatusId(selectedStatuses)
+  if (unchanged) {
+    if (currentAssignments[0]?.primary_status_id !== primaryStatusId) {
+      await db.execute(
+        `UPDATE animals SET status_id = ?, updated_at = ? WHERE id = ?`,
+        [primaryStatusId, now, input.animalId],
+      )
+    }
+    return
+  }
 
   await db.writeTransaction(async (tx) => {
     await tx.execute(
