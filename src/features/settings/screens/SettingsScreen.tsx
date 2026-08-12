@@ -8,9 +8,13 @@ import {
   listStatuses,
   renameStatus,
   reorderStatuses,
-  setStatusInCare,
   type AnimalStatus,
 } from '@/features/statuses/domain/statuses'
+import {
+  applyCountsAsInCareChange,
+  countAnimalsWithStatusAndOthers,
+  setStatusOutOfCareWithStrip,
+} from '@/features/settings/domain/statusInCare'
 import {
   archiveLedgerCategory,
   createLedgerCategory,
@@ -526,6 +530,10 @@ export function SettingsScreen() {
               void renameStatus(db, id, label)
             }}
             onInCareChange={(id, countsAsInCare) => {
+              const previousInCare =
+                statuses.find((s) => s.id === id)?.counts_as_in_care ?? 1
+              const statusLabel =
+                statuses.find((s) => s.id === id)?.label ?? 'status'
               setStatuses((prev) =>
                 prev.map((x) =>
                   x.id === id
@@ -534,7 +542,35 @@ export function SettingsScreen() {
                 ),
               )
               if (!db) return
-              void setStatusInCare(db, id, countsAsInCare)
+              void (async () => {
+                const result = await applyCountsAsInCareChange(db, {
+                  statusId: id,
+                  countsAsInCare,
+                })
+                if (result !== 'needs_strip_confirm') return
+
+                const count = await countAnimalsWithStatusAndOthers(db, id)
+                const ok = await confirm({
+                  title: `Save “${statusLabel}” as out of care?`,
+                  body: `${count} animals also have other statuses. Save as out of care and remove those other statuses?`,
+                  confirmLabel: 'Save and remove',
+                  tone: 'danger',
+                })
+                if (!ok) {
+                  setStatuses((prev) =>
+                    prev.map((x) =>
+                      x.id === id
+                        ? { ...x, counts_as_in_care: previousInCare }
+                        : x,
+                    ),
+                  )
+                  return
+                }
+                await setStatusOutOfCareWithStrip(db, {
+                  statusId: id,
+                  stripOthers: true,
+                })
+              })()
             }}
             onHide={(s) => {
               if (!db) return
