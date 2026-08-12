@@ -1,11 +1,47 @@
 -- supabase/migrations/20260812120000_animal_status_assignments.sql
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'animals'::regclass
+      and contype = 'u'
+      and conkey = array[
+        (select attnum from pg_attribute where attrelid = 'animals'::regclass and attname = 'id'),
+        (select attnum from pg_attribute where attrelid = 'animals'::regclass and attname = 'org_id')
+      ]::smallint[]
+  ) then
+    alter table animals
+      add constraint animals_id_org_id_key unique (id, org_id);
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'animal_statuses'::regclass
+      and contype = 'u'
+      and conkey = array[
+        (select attnum from pg_attribute where attrelid = 'animal_statuses'::regclass and attname = 'id'),
+        (select attnum from pg_attribute where attrelid = 'animal_statuses'::regclass and attname = 'org_id')
+      ]::smallint[]
+  ) then
+    alter table animal_statuses
+      add constraint animal_statuses_id_org_id_key unique (id, org_id);
+  end if;
+end
+$$;
+
 create table animal_status_assignments (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references organizations(id) on delete cascade,
-  animal_id uuid not null references animals(id) on delete cascade,
-  status_id uuid not null references animal_statuses(id),
+  animal_id uuid not null,
+  status_id uuid not null,
   created_at timestamptz not null default now(),
-  unique (animal_id, status_id)
+  unique (animal_id, status_id),
+  foreign key (animal_id, org_id)
+    references animals(id, org_id) on delete cascade,
+  foreign key (status_id, org_id)
+    references animal_statuses(id, org_id)
 );
 
 create index animal_status_assignments_by_org on animal_status_assignments (org_id);
