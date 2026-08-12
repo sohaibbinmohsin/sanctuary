@@ -21,3 +21,5 @@ streams:
       - SELECT * FROM ledger_entries WHERE org_id IN user_orgs
       - SELECT * FROM photos WHERE org_id IN user_orgs
       - SELECT * FROM ledger_attachments WHERE org_id IN user_orgs
+      - SELECT * FROM checklist_items WHERE org_id IN user_orgs
+      - SELECT * FROM checklist_checks WHERE org_id IN user_orgs

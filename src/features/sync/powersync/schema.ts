@@ -137,6 +137,32 @@ const ledger_attachments = new Table(
   },
 )
 
+const checklist_items = new Table(
+  {
+    org_id: column.text,
+    animal_id: column.text,
+    added_at: column.text,
+    added_by: column.text,
+  },
+  { indexes: { by_org: ['org_id'], by_animal: ['animal_id'] } },
+)
+
+const checklist_checks = new Table(
+  {
+    org_id: column.text,
+    animal_id: column.text,
+    check_date: column.text,
+    checked_at: column.text,
+    checked_by: column.text,
+  },
+  {
+    indexes: {
+      by_org: ['org_id'],
+      by_animal_date: ['animal_id', 'check_date'],
+    },
+  },
+)
+
 export const AppSchema = new Schema({
   organizations,
   org_members,
@@ -148,6 +174,8 @@ export const AppSchema = new Schema({
   ledger_entries,
   photos,
   ledger_attachments,
+  checklist_items,
+  checklist_checks,
 })
 
 export type Database = (typeof AppSchema)['types']
@@ -161,3 +189,5 @@ export type LedgerCategoryRecord = Database['ledger_categories']
 export type LedgerEntryRecord = Database['ledger_entries']
 export type PhotoRecord = Database['photos']
 export type LedgerAttachmentRecord = Database['ledger_attachments']
+export type ChecklistItemRecord = Database['checklist_items']
+export type ChecklistCheckRecord = Database['checklist_checks']
