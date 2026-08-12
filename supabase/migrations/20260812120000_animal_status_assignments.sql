@@ -25,3 +25,5 @@ create policy animal_status_assignments_all on animal_status_assignments for all
   with check (org_id in (select public.user_org_ids()));
 
 -- Keep animals.status_id NOT NULL as denormalized primary (do not drop).
+
+alter publication powersync add table animal_status_assignments;
