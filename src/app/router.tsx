@@ -9,6 +9,7 @@ import { SyncBanner } from '@/shared/ui/SyncBanner'
 import { PlaygroundBanner } from '@/features/playground/PlaygroundBanner'
 import { isPlaygroundMode } from '@/features/playground/mode'
 import { AnimalsListScreen } from '@/features/animals/screens/AnimalsListScreen'
+import { AnimalsFiltersScreen } from '@/features/animals/screens/AnimalsFiltersScreen'
 import { AnimalIntakeScreen } from '@/features/animals/screens/AnimalIntakeScreen'
 import { AnimalDetailScreen } from '@/features/animals/screens/AnimalDetailScreen'
 import { LedgerScreen } from '@/features/ledger/screens/LedgerScreen'
@@ -59,6 +60,7 @@ export function AppShell() {
           <Routes>
             <Route path="/" element={<Navigate to="/animals" replace />} />
             <Route path="/animals" element={<AnimalsListScreen />} />
+            <Route path="/animals/filters" element={<AnimalsFiltersScreen />} />
             <Route path="/animals/new" element={<AnimalIntakeScreen />} />
             <Route path="/animals/:id/edit" element={<AnimalIntakeScreen />} />
             <Route path="/animals/:id" element={<AnimalDetailScreen />} />
