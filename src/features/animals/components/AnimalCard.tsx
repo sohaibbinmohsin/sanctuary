@@ -15,6 +15,14 @@ export function AnimalCard({
   photoUrl,
   hasVerifiedPhoto = false,
 }: AnimalCardProps) {
+  const labels = animal.status_labels?.length
+    ? animal.status_labels
+    : animal.status_label
+      ? [animal.status_label]
+      : []
+  const shown = labels.slice(0, 2)
+  const extra = labels.length - shown.length
+
   return (
     <Link className="animal-card" to={`/animals/${animal.id}`}>
       <div
@@ -50,8 +58,15 @@ export function AnimalCard({
         >
           {animal.name?.trim() || animal.shelter_code}
         </div>
-        {animal.status_label ? (
-          <StatusBadge label={animal.status_label} />
+        {shown.length > 0 ? (
+          <div className="status-badge-row" aria-label={`Status: ${labels.join(', ')}`}>
+            {shown.map((label) => (
+              <StatusBadge key={label} label={label} />
+            ))}
+            {extra > 0 ? (
+              <span className="status-badge status-badge--more">+{extra}</span>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </Link>

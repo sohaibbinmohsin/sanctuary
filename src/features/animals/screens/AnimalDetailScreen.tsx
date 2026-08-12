@@ -6,10 +6,13 @@ import { useDb } from '@/shared/hooks/useDb'
 import {
   getAnimal,
   archiveAnimal,
-  updateAnimalStatus,
   type AnimalWithStatus,
 } from '@/features/animals/domain/animals'
 import { listStatuses, type AnimalStatus } from '@/features/statuses/domain/statuses'
+import {
+  listAssignmentsForAnimal,
+  replaceAnimalStatuses,
+} from '@/features/statuses/domain/assignments'
 import {
   addTreatment,
   deleteTreatment,
@@ -35,6 +38,7 @@ import {
 } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
+import { StatusMultiSelect } from '@/features/animals/components/StatusMultiSelect'
 
 const TREATMENT_LABELS: Record<TreatmentType, string> = {
   meds: 'Medicine',
@@ -79,6 +83,7 @@ export function AnimalDetailScreen() {
   const confirm = useConfirm()
   const [animal, setAnimal] = useState<AnimalWithStatus | null>(null)
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
+  const [statusIds, setStatusIds] = useState<string[]>([])
   const [treatments, setTreatments] = useState<TreatmentRecord[]>([])
   const [photos, setPhotos] = useState<PhotoItem[]>([])
   const [activePhotoId, setActivePhotoId] = useState<string | null>(null)
@@ -103,8 +108,14 @@ export function AnimalDetailScreen() {
 
   async function reload() {
     if (!db || !id) return
-    setAnimal(await getAnimal(db, id))
-    setTreatments(await listTreatmentsForAnimal(db, id))
+    const [nextAnimal, nextTreatments, assignments] = await Promise.all([
+      getAnimal(db, id),
+      listTreatmentsForAnimal(db, id),
+      listAssignmentsForAnimal(db, id),
+    ])
+    setAnimal(nextAnimal)
+    setTreatments(nextTreatments)
+    setStatusIds(assignments.map((assignment) => assignment.status_id))
   }
 
   useEffect(() => {
@@ -178,10 +189,33 @@ export function AnimalDetailScreen() {
     setShowCareForm(true)
   }
 
-  async function onStatusChange(statusId: string) {
-    if (!db || !id) return
-    await updateAnimalStatus(db, id, statusId)
-    await reload()
+  async function onStatusChange(nextIds: string[]) {
+    if (!db || !id || !member) return
+    setStatusIds(nextIds)
+    setError(null)
+    try {
+      await replaceAnimalStatuses(db, {
+        orgId: member.orgId,
+        animalId: id,
+        statusIds: nextIds,
+      })
+      await reload()
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Could not update status. Try again.',
+      )
+      await reload()
+    }
+  }
+
+  async function onRequestExit(exitId: string) {
+    const ok = await confirm({
+      title: 'Mark as out of care?',
+      body: 'All other statuses will be removed from this animal.',
+      confirmLabel: 'Continue',
+      tone: 'danger',
+    })
+    if (ok) await onStatusChange([exitId])
   }
 
   async function onDeletePhoto(photoId: string) {
@@ -466,9 +500,11 @@ export function AnimalDetailScreen() {
                 ? animal.shelter_code
                 : animal.species}
             </p>
-            {animal.status_label ? (
-              <div style={{ marginTop: '0.65rem' }}>
-                <StatusBadge label={animal.status_label} />
+            {animal.status_labels.length > 0 ? (
+              <div className="status-badge-row" style={{ marginTop: '0.65rem' }}>
+                {animal.status_labels.map((label) => (
+                  <StatusBadge key={label} label={label} />
+                ))}
               </div>
             ) : null}
           </div>
@@ -479,11 +515,11 @@ export function AnimalDetailScreen() {
               .join(' · ')}
           </p>
 
-          <SelectField
-            label="Status"
-            value={animal.status_id ?? ''}
-            options={statuses.map((s) => ({ value: s.id, label: s.label ?? '' }))}
-            onChange={(value) => void onStatusChange(value)}
+          <StatusMultiSelect
+            statuses={statuses}
+            value={statusIds}
+            onChange={(nextIds) => void onStatusChange(nextIds)}
+            onRequestExit={(exitId) => void onRequestExit(exitId)}
           />
         </div>
       </div>

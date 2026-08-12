@@ -7,13 +7,16 @@ import {
   updateAnimal,
 } from '@/features/animals/domain/animals'
 import { listStatuses, type AnimalStatus } from '@/features/statuses/domain/statuses'
+import { listAssignmentsForAnimal } from '@/features/statuses/domain/assignments'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { INTAKE_MESSAGES, pickMessage } from '@/shared/lib/morale/messages'
 import { MoraleToast } from '@/shared/ui/MoraleToast'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
-import { SelectField, TextareaField, TextField } from '@/shared/ui/Field'
+import { TextareaField, TextField } from '@/shared/ui/Field'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
+import { useConfirm } from '@/shared/ui/ConfirmDialog'
+import { StatusMultiSelect } from '@/features/animals/components/StatusMultiSelect'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
 
@@ -35,10 +38,11 @@ export function AnimalIntakeScreen() {
   const db = useDb()
   const navigate = useNavigate()
   const { member } = useCurrentMember()
+  const confirm = useConfirm()
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
   const [speciesPreset, setSpeciesPreset] = useState('Dog')
   const [speciesOther, setSpeciesOther] = useState('')
-  const [statusId, setStatusId] = useState('')
+  const [statusIds, setStatusIds] = useState<string[]>([])
   const [name, setName] = useState('')
   const [sex, setSex] = useState('')
   const [markings, setMarkings] = useState('')
@@ -57,7 +61,9 @@ export function AnimalIntakeScreen() {
     if (!db || !member) return
     void listStatuses(db, member.orgId).then((rows) => {
       setStatuses(rows)
-      if (!isEdit && rows[0]) setStatusId((current) => current || rows[0].id)
+      if (!isEdit && rows[0]) {
+        setStatusIds((current) => current.length > 0 ? current : [rows[0].id])
+      }
     })
   }, [db, member, isEdit])
 
@@ -70,7 +76,10 @@ export function AnimalIntakeScreen() {
     setLoading(true)
     void (async () => {
       try {
-        const animal = await getAnimal(db, animalId)
+        const [animal, assignments] = await Promise.all([
+          getAnimal(db, animalId),
+          listAssignmentsForAnimal(db, animalId),
+        ])
         if (cancelled) return
         if (!animal || animal.org_id !== member.orgId || animal.archived) {
           setNotFound(true)
@@ -79,7 +88,13 @@ export function AnimalIntakeScreen() {
         const { preset, other } = splitSpecies(animal.species)
         setSpeciesPreset(preset)
         setSpeciesOther(other)
-        setStatusId(animal.status_id ?? '')
+        setStatusIds(
+          assignments.length > 0
+            ? assignments.map((assignment) => assignment.status_id)
+            : animal.status_id
+              ? [animal.status_id]
+              : [],
+        )
         setName(animal.name ?? '')
         setSex(animal.sex ?? '')
         setMarkings(animal.markings ?? '')
@@ -103,19 +118,29 @@ export function AnimalIntakeScreen() {
   const species =
     speciesPreset === 'Other' ? speciesOther.trim() : speciesPreset
 
+  async function onRequestExit(exitId: string) {
+    const ok = await confirm({
+      title: 'Mark as out of care?',
+      body: 'All other statuses will be removed from this animal.',
+      confirmLabel: 'Continue',
+      tone: 'danger',
+    })
+    if (ok) setStatusIds([exitId])
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!db || !member) return
     setBusy(true)
     setError(null)
     try {
-      if (!species || !statusId) {
+      if (!species || statusIds.length === 0) {
         throw new Error('Please choose an animal type and status.')
       }
       if (isEdit && animalId) {
         await updateAnimal(db, animalId, {
           species,
-          statusIds: [statusId],
+          statusIds,
           name,
           sex,
           markings,
@@ -129,7 +154,7 @@ export function AnimalIntakeScreen() {
         orgId: member.orgId,
         prefix: member.orgInitials,
         species,
-        statusIds: [statusId],
+        statusIds,
         name,
         sex,
         markings,
@@ -247,15 +272,11 @@ export function AnimalIntakeScreen() {
 
         <div className="panel stack">
           <p className="section-label">Arrival</p>
-          <SelectField
-            label="Status"
-            value={statusId}
-            options={statuses.map((s) => ({
-              value: s.id,
-              label: s.label ?? '',
-            }))}
-            onChange={setStatusId}
-            required
+          <StatusMultiSelect
+            statuses={statuses}
+            value={statusIds}
+            onChange={setStatusIds}
+            onRequestExit={(exitId) => void onRequestExit(exitId)}
           />
           <TextField
             label="Date arrived"
