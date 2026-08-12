@@ -1,5 +1,6 @@
-import { useEffect, useState, useDeferredValue } from 'react'
-import { MagnifyingGlass, PawPrint } from '@phosphor-icons/react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { Check, Funnel, MagnifyingGlass, PawPrint } from '@phosphor-icons/react'
+import { useSearchParams } from 'react-router-dom'
 import { useDb } from '@/shared/hooks/useDb'
 import { useSyncStatus } from '@/shared/hooks/useSyncStatus'
 import { AnimalCard } from '@/features/animals/components/AnimalCard'
@@ -7,7 +8,6 @@ import {
   searchAnimals,
   type AnimalWithStatus,
 } from '@/features/animals/domain/animals'
-import { listStatuses, type AnimalStatus } from '@/features/statuses/domain/statuses'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
   getLocalPhoto,
@@ -18,44 +18,29 @@ import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
-import { FilterMenu } from '@/shared/ui/FilterMenu'
-
-const SPECIES_OPTIONS = [
-  { value: 'Dog', label: 'Dog' },
-  { value: 'Cat', label: 'Cat' },
-  { value: 'Horse', label: 'Horse' },
-  { value: 'Donkey', label: 'Donkey' },
-  { value: 'Bird', label: 'Bird' },
-  { value: 'Other', label: 'Other' },
-]
-
-const SEX_OPTIONS = [
-  { value: 'Female', label: 'Female' },
-  { value: 'Male', label: 'Male' },
-  { value: '__unknown__', label: 'Unknown' },
-]
+import {
+  parseAnimalFilterParams,
+  serializeAnimalFilterParams,
+} from '@/shared/lib/animals/filterParams'
 
 export function AnimalsListScreen() {
   const db = useDb()
   const { member, loading: memberLoading } = useCurrentMember()
   const sync = useSyncStatus()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filters = useMemo(
+    () => parseAnimalFilterParams(searchParams.toString()),
+    [searchParams],
+  )
   const [animals, setAnimals] = useState<AnimalWithStatus[]>([])
-  const [statuses, setStatuses] = useState<AnimalStatus[]>([])
-  const [query, setQuery] = useState('')
-  const deferredQuery = useDeferredValue(query)
-  const [statusId, setStatusId] = useState('')
-  const [species, setSpecies] = useState('')
-  const [sex, setSex] = useState('')
+  const deferredQuery = useDeferredValue(filters.query)
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
   const [verifiedAnimalIds, setVerifiedAnimalIds] = useState<
     Record<string, boolean>
   >({})
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!db || !member) return
-    void listStatuses(db, member.orgId).then(setStatuses)
-  }, [db, member])
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     if (!db || !member) return
@@ -65,9 +50,10 @@ export function AnimalsListScreen() {
       try {
         const rows = await searchAnimals(db, member.orgId, {
           query: deferredQuery,
-          statusIds: statusId ? [statusId] : undefined,
-          species: species || undefined,
-          sex: sex || undefined,
+          statusIds: filters.statusIds,
+          statusMode: filters.statusMode,
+          species: filters.species || undefined,
+          sex: filters.sex || undefined,
         })
         if (cancelled) return
         setAnimals(rows)
@@ -107,9 +93,26 @@ export function AnimalsListScreen() {
     }
     // Re-run after the first PowerSync download fills an empty local DB
     // (common on a fresh tunnel origin / new browser profile).
-  }, [db, member, deferredQuery, statusId, species, sex, sync.hasSynced])
+  }, [
+    db,
+    member,
+    deferredQuery,
+    filters.statusIds,
+    filters.statusMode,
+    filters.species,
+    filters.sex,
+    sync.hasSynced,
+  ])
 
-  const hasFilters = Boolean(query || statusId || species || sex)
+  const hasFilters = Boolean(
+    filters.query ||
+      filters.statusIds.length ||
+      filters.species ||
+      filters.sex,
+  )
+  const hasAdvancedFilters = Boolean(
+    filters.statusIds.length || filters.species || filters.sex,
+  )
   const awaitingFirstSync =
     !hasFilters && animals.length === 0 && !sync.hasSynced && sync.kind !== 'failed'
   const showLoading = memberLoading || loading || awaitingFirstSync
@@ -124,18 +127,55 @@ export function AnimalsListScreen() {
         ? `Loading animals at ${member.orgName}…`
         : `${animals.length} in care at ${member.orgName}`
 
-  const statusOptions = statuses.map((s) => ({
-    value: s.id,
-    label: s.label,
-  }))
+  const filterSearch = serializeAnimalFilterParams(filters)
+  const allVisibleSelected =
+    animals.length > 0 && animals.every((animal) => selectedIds.has(animal.id))
+
+  function updateQuery(query: string) {
+    const nextSearch = serializeAnimalFilterParams({ ...filters, query })
+    setSearchParams(nextSearch.startsWith('?') ? nextSearch.slice(1) : nextSearch, {
+      replace: true,
+    })
+  }
+
+  function startSelecting() {
+    setSelectedIds(new Set())
+    setSelectMode(true)
+  }
+
+  function finishSelecting() {
+    setSelectedIds(new Set())
+    setSelectMode(false)
+  }
+
+  function toggleAnimal(animalId: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (next.has(animalId)) next.delete(animalId)
+      else next.add(animalId)
+      return next
+    })
+  }
+
+  function toggleAllVisible() {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (allVisibleSelected) {
+        for (const animal of animals) next.delete(animal.id)
+      } else {
+        for (const animal of animals) next.add(animal.id)
+      }
+      return next
+    })
+  }
 
   return (
     <section className="screen">
       <PageHeader
-        title="Animals"
+        title={selectMode ? 'Select animals' : 'Animals'}
         subtitle={subtitle}
         actions={
-          animals.length > 0 || hasFilters ? (
+          !selectMode && (animals.length > 0 || hasFilters) ? (
             <Button to="/animals/new" variant="accent">
               Add animal
             </Button>
@@ -143,38 +183,49 @@ export function AnimalsListScreen() {
         }
       />
 
-      <div className="filter-bar">
-        <div className="filter-bar__search">
-          <MagnifyingGlass size={18} weight="bold" aria-hidden />
-          <input
-            type="search"
-            placeholder="Search by ID or name"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search animals"
-          />
+      {selectMode ? (
+        <div className="animal-selection-toolbar">
+          <span>
+            {selectedIds.size} selected
+          </span>
+          <Button
+            variant="secondary"
+            onClick={toggleAllVisible}
+            disabled={animals.length === 0}
+          >
+            {allVisibleSelected ? 'Deselect all' : 'Select all'}
+          </Button>
         </div>
-        <div className="filter-menus" role="group" aria-label="List filters">
-          <FilterMenu
-            label="Status"
-            value={statusId}
-            options={statusOptions}
-            onChange={setStatusId}
-          />
-          <FilterMenu
-            label="Type"
-            value={species}
-            options={SPECIES_OPTIONS}
-            onChange={setSpecies}
-          />
-          <FilterMenu
-            label="Gender"
-            value={sex}
-            options={SEX_OPTIONS}
-            onChange={setSex}
-          />
+      ) : (
+        <div className="filter-bar filter-bar--chrome">
+          <div className="filter-bar__search">
+            <MagnifyingGlass size={18} weight="bold" aria-hidden />
+            <input
+              type="search"
+              placeholder="Search by ID or name"
+              value={filters.query}
+              onChange={(event) => updateQuery(event.target.value)}
+              aria-label="Search animals"
+            />
+          </div>
+          <Button
+            to={`/animals/filters${filterSearch}`}
+            variant="secondary"
+            className={`btn--icon filter-button${hasAdvancedFilters ? ' filter-button--active' : ''}`}
+            aria-label="Filter animals"
+            title="Filter animals"
+          >
+            <Funnel size={20} weight={hasAdvancedFilters ? 'fill' : 'bold'} aria-hidden />
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={startSelecting}
+            disabled={animals.length === 0}
+          >
+            Add to checklist
+          </Button>
         </div>
-      </div>
+      )}
 
       {showLoading ? (
         <div className="animal-grid">
@@ -200,16 +251,52 @@ export function AnimalsListScreen() {
         />
       ) : (
         <div className="animal-grid">
-          {animals.map((animal) => (
-            <AnimalCard
-              key={animal.id}
-              animal={animal}
-              photoUrl={photoUrls[animal.id]}
-              hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
-            />
-          ))}
+          {animals.map((animal) => {
+            const selected = selectedIds.has(animal.id)
+            return (
+              <div
+                key={animal.id}
+                className={`animal-card-selectable${selectMode ? ' animal-card-selectable--enabled' : ''}${selected ? ' animal-card-selectable--selected' : ''}`}
+                aria-selected={selectMode ? selected : undefined}
+                onClickCapture={
+                  selectMode
+                    ? (event) => {
+                        event.preventDefault()
+                        toggleAnimal(animal.id)
+                      }
+                    : undefined
+                }
+              >
+                <AnimalCard
+                  animal={animal}
+                  photoUrl={photoUrls[animal.id]}
+                  hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
+                />
+                {selectMode ? (
+                  <span className="animal-card-selectable__indicator" aria-hidden>
+                    {selected ? <Check size={18} weight="bold" /> : null}
+                  </span>
+                ) : null}
+              </div>
+            )
+          })}
         </div>
       )}
+
+      {selectMode ? (
+        <div className="animal-selection-actions">
+          <Button variant="secondary" onClick={finishSelecting}>
+            Cancel
+          </Button>
+          <Button
+            variant="accent"
+            disabled={selectedIds.size === 0}
+            onClick={finishSelecting}
+          >
+            Confirm
+          </Button>
+        </div>
+      ) : null}
     </section>
   )
 }
