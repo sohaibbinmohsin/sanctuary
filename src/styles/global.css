@@ -741,6 +741,10 @@ a.primary {
   padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-4));
 }
 
+.app-shell--no-bottom-nav .app-content {
+  padding-bottom: calc(var(--space-4) + var(--safe-bottom));
+}
+
 .app-nav {
   position: fixed;
   bottom: 0;
@@ -2740,6 +2744,14 @@ a.primary {
   background: linear-gradient(transparent, var(--color-mist) 30%);
 }
 
+.app-shell--no-bottom-nav .sticky-actions {
+  bottom: calc(var(--safe-bottom) + var(--space-2));
+}
+
+.app-shell--no-bottom-nav .morale-toast {
+  bottom: calc(var(--safe-bottom) + var(--space-3));
+}
+
 .morale-toast {
   position: fixed;
   left: 50%;
@@ -2808,6 +2820,10 @@ a.primary {
   .app-content {
     padding: var(--space-6);
     padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-6));
+  }
+
+  .app-shell--no-bottom-nav .app-content {
+    padding-bottom: calc(var(--space-6) + var(--safe-bottom));
   }
 
   .filter-bar--chrome {

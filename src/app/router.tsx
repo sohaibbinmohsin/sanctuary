@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import {
   Cat,
   CurrencyCircleDollar,
@@ -26,11 +26,25 @@ const NAV = [
   { to: '/settings', label: 'Settings', icon: GearSix },
 ] as const
 
+const PRIMARY_PATHS = new Set<string>(NAV.map((item) => item.to))
+
+function isPrimaryPath(pathname: string): boolean {
+  const normalized =
+    pathname.length > 1 && pathname.endsWith('/')
+      ? pathname.slice(0, -1)
+      : pathname
+  return PRIMARY_PATHS.has(normalized)
+}
+
 function NavItems({ className }: { className: string }) {
   return (
     <nav className={className} aria-label="Main">
       {NAV.map(({ to, label, icon: Icon }) => (
-        <NavLink key={to} to={to} end={to === '/animals' || to === '/ledger' ? false : undefined}>
+        <NavLink
+          key={to}
+          to={to}
+          end={to === '/animals' || to === '/ledger' ? false : undefined}
+        >
           <Icon weight="duotone" aria-hidden />
           <span className="app-nav__label">{label}</span>
         </NavLink>
@@ -42,9 +56,15 @@ function NavItems({ className }: { className: string }) {
 export function AppShell() {
   const { member } = useCurrentMember()
   const playground = isPlaygroundMode()
+  const { pathname } = useLocation()
+  const showBottomNav = isPrimaryPath(pathname)
 
   return (
-    <div className="app-shell">
+    <div
+      className={
+        showBottomNav ? 'app-shell' : 'app-shell app-shell--no-bottom-nav'
+      }
+    >
       {playground ? null : <SyncBanner />}
       <aside className="app-sidebar" aria-label="Sidebar">
         <div>
@@ -73,7 +93,7 @@ export function AppShell() {
             <Route path="/settings" element={<SettingsScreen />} />
           </Routes>
         </main>
-        <NavItems className="app-nav" />
+        {showBottomNav ? <NavItems className="app-nav" /> : null}
       </div>
     </div>
   )
