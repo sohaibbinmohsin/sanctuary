@@ -1009,7 +1009,7 @@ a.primary {
   right: 0;
   z-index: var(--z-banner);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
@@ -1029,7 +1029,7 @@ a.primary {
 }
 
 .sync-banner__body p {
-  margin: 0 0 var(--space-2);
+  margin: 0;
 }
 
 .sync-banner__dismiss {
@@ -1066,10 +1066,6 @@ a.primary {
 .sync-banner--failed {
   background: rgba(253, 236, 236, 0.96);
   color: var(--color-ink);
-}
-
-.sync-banner--failed p {
-  margin: 0 0 var(--space-2);
 }
 
 @keyframes sync-banner-in {

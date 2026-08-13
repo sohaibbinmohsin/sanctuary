@@ -56,8 +56,10 @@ export function SyncBanner() {
   return (
     <div className="sync-banner sync-banner--failed" role="alert">
       <div className="sync-banner__body">
-        <p>{FAILED_COPY}</p>
-        <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
+        <p>
+          {FAILED_COPY}{' '}
+          <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
+        </p>
       </div>
       {dismissControl}
     </div>
