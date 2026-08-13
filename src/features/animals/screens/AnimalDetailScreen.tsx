@@ -115,7 +115,13 @@ export function AnimalDetailScreen() {
     ])
     setAnimal(nextAnimal)
     setTreatments(nextTreatments)
-    setStatusIds(assignments.map((assignment) => assignment.status_id))
+    setStatusIds(
+      assignments.length > 0
+        ? assignments.map((assignment) => assignment.status_id)
+        : nextAnimal?.status_id
+          ? [nextAnimal.status_id]
+          : [],
+    )
   }
 
   useEffect(() => {

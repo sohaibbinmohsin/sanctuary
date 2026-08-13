@@ -184,7 +184,9 @@ export async function searchAnimals(
 
   return rows.map((row) => ({
     ...row,
-    status_labels: labelsByAnimal.get(row.id) ?? [],
+    status_labels:
+      labelsByAnimal.get(row.id) ??
+      (row.status_label?.trim() ? [row.status_label.trim()] : []),
   }))
 }
 

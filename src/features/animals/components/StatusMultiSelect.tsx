@@ -55,8 +55,10 @@ export function StatusMultiSelect({
   statusesRef.current = statuses
 
   const availableStatuses = statuses.filter((status) => status.archived === 0)
+  // Resolve tags from all known statuses (incl. archived) so existing
+  // assignments still render even if the status was later hidden.
   const selectedStatuses = value
-    .map((id) => availableStatuses.find((status) => status.id === id))
+    .map((id) => statuses.find((status) => status.id === id))
     .filter((status): status is AnimalStatus => Boolean(status))
   const canAdd = availableStatuses.some((status) => !value.includes(status.id))
 

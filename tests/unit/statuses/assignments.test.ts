@@ -279,4 +279,39 @@ describe('listAssignmentsForAnimal', () => {
     expect(sql).toMatch(/ORDER BY s\.sort_order ASC, s\.label ASC/i)
     expect(params).toEqual(['animal-1'])
   })
+
+  it('falls back to animals.status_id and backfills when assignments are empty', async () => {
+    const getAll = vi.fn().mockResolvedValue([])
+    const getOptional = vi
+      .fn()
+      .mockResolvedValueOnce({ org_id: 'org-1', status_id: 'crit' })
+      .mockResolvedValueOnce({
+        id: 'crit',
+        label: 'Critical',
+        sort_order: 1,
+        counts_as_in_care: 1,
+      })
+    const execute = vi.fn().mockResolvedValue(undefined)
+
+    await expect(
+      listAssignmentsForAnimal(
+        { getAll, getOptional, execute } as never,
+        'animal-1',
+      ),
+    ).resolves.toEqual([
+      {
+        status_id: 'crit',
+        label: 'Critical',
+        sort_order: 1,
+        counts_as_in_care: 1,
+      },
+    ])
+
+    expect(execute).toHaveBeenCalledOnce()
+    const [sql, params] = execute.mock.calls[0]!
+    expect(sql).toMatch(/INSERT OR IGNORE INTO animal_status_assignments/i)
+    expect(params).toEqual(
+      expect.arrayContaining(['org-1', 'animal-1', 'crit']),
+    )
+  })
 })
