@@ -22,6 +22,16 @@ import { ChecklistCompleteCelebration } from '@/features/checklist/components/Ch
 import { ChecklistRemindersControl } from '@/features/checklist/components/ChecklistRemindersControl'
 import type { ChecklistPushStatus } from '@/features/checklist/domain/pushSubscribe'
 
+const REMINDERS_DOCK_DISMISS_KEY = 'sanctuary.checklist.remindersDockDismissed'
+
+function remindersDockWasDismissed(): boolean {
+  try {
+    return localStorage.getItem(REMINDERS_DOCK_DISMISS_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 function animalLabel(row: ChecklistRow): string {
   return row.name?.trim() || row.shelter_code || 'Animal'
 }
@@ -54,11 +64,24 @@ export function ChecklistScreen() {
   const [toast, setToast] = useState<string | null>(null)
   const [celebrate, setCelebrate] = useState(false)
   const [remindersDock, setRemindersDock] = useState<'loading' | 'show' | 'hide'>(
-    'loading',
+    () => (remindersDockWasDismissed() ? 'hide' : 'loading'),
   )
 
   const onRemindersStatus = useCallback((status: ChecklistPushStatus) => {
+    if (remindersDockWasDismissed()) {
+      setRemindersDock('hide')
+      return
+    }
     setRemindersDock(status === 'on' ? 'hide' : 'show')
+  }, [])
+
+  const onDismissRemindersDock = useCallback(() => {
+    try {
+      localStorage.setItem(REMINDERS_DOCK_DISMISS_KEY, '1')
+    } catch {
+      // Private mode / quota — still hide for this visit.
+    }
+    setRemindersDock('hide')
   }, [])
 
   useEffect(() => {
@@ -223,13 +246,14 @@ export function ChecklistScreen() {
 
       {remindersDock !== 'hide' ? (
         <div
-          className="sticky-actions"
+          className="sticky-actions sticky-actions--reminders"
           hidden={remindersDock !== 'show'}
           aria-hidden={remindersDock !== 'show'}
         >
           <ChecklistRemindersControl
             layout="dock"
             onStatusChange={onRemindersStatus}
+            onDismiss={onDismissRemindersDock}
           />
         </div>
       ) : null}

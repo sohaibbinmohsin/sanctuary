@@ -110,55 +110,52 @@ export async function getChecklistPushStatus(): Promise<ChecklistPushStatus> {
   }
 }
 
-async function upsertSubscription(subscription: PushSubscription): Promise<void> {
+async function callPushSubscribe(body: Record<string, unknown>): Promise<Response> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   if (!supabaseUrl) {
     throw new Error('VITE_SUPABASE_URL is not set')
   }
   const token = await authToken()
-  const json = subscription.toJSON()
-
-  const res = await fetch(`${supabaseUrl}/functions/v1/push-subscribe`, {
+  return fetch(`${supabaseUrl}/functions/v1/push-subscribe`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      endpoint: json.endpoint,
-      keys: json.keys,
-    }),
+    body: JSON.stringify(body),
+  })
+}
+
+function pushHttpError(action: string, res: Response, detail: string): Error {
+  return new Error(
+    `${action} failed: ${res.status}${detail ? ` ${detail}` : ''}`,
+  )
+}
+
+async function upsertSubscription(subscription: PushSubscription): Promise<void> {
+  const json = subscription.toJSON()
+  const res = await callPushSubscribe({
+    endpoint: json.endpoint,
+    keys: json.keys,
   })
 
   if (!res.ok) {
     const detail = (await res.text().catch(() => '')).slice(0, 200)
-    throw new Error(
-      `Push subscribe failed: ${res.status}${detail ? ` ${detail}` : ''}`,
-    )
+    throw pushHttpError('Push subscribe', res, detail)
   }
 }
 
 async function deleteSubscription(endpoint: string): Promise<void> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  if (!supabaseUrl) {
-    throw new Error('VITE_SUPABASE_URL is not set')
-  }
-  const token = await authToken()
-
-  const res = await fetch(`${supabaseUrl}/functions/v1/push-subscribe`, {
-    method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ endpoint }),
+  // POST (not HTTP DELETE): browsers CORS-preflight DELETE and fail with
+  // TypeError "Failed to fetch" when Allow-Methods is missing.
+  const res = await callPushSubscribe({
+    action: 'unsubscribe',
+    endpoint,
   })
 
   if (!res.ok && res.status !== 404) {
     const detail = (await res.text().catch(() => '')).slice(0, 200)
-    throw new Error(
-      `Push unsubscribe failed: ${res.status}${detail ? ` ${detail}` : ''}`,
-    )
+    throw pushHttpError('Push unsubscribe', res, detail)
   }
 }
 
@@ -208,8 +205,8 @@ export async function disableChecklistPush(): Promise<ChecklistPushStatus> {
   const subscription = await registration.pushManager.getSubscription()
   if (subscription) {
     const endpoint = subscription.endpoint
-    await subscription.unsubscribe()
     await deleteSubscription(endpoint)
+    await subscription.unsubscribe()
   }
 
   return 'off'
