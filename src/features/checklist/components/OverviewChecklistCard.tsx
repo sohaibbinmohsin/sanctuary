@@ -157,50 +157,61 @@ export function OverviewChecklistCard() {
       {loading && rows.length === 0 ? (
         <p className="muted">Loading…</p>
       ) : rows.length === 0 ? (
-        <p className="muted">No animals on the checklist yet.</p>
+        <>
+          <p className="muted">No animals on the checklist yet.</p>
+          <div className="row" style={{ marginTop: '1rem' }}>
+            <Button to="/animals" variant="secondary">
+              Add from Animals
+            </Button>
+          </div>
+        </>
       ) : (
-        <div className="panel" style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
-          {preview.map((row) => {
-            const label = animalLabel(row)
-            const disabled = busyId === row.id
-            return (
-              <div className="list-item list-item--row" key={row.id}>
-                <label className="check-row" style={{ flex: 1, minWidth: 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={row.checkedToday}
-                    disabled={disabled}
-                    onChange={(event) =>
-                      void onToggle(row, event.target.checked)
-                    }
-                    aria-label={`Mark ${label} checked today`}
-                  />
-                  <span>
-                    <strong>{label}</strong>
-                    {row.name?.trim() && row.shelter_code ? (
-                      <span className="muted"> · {row.shelter_code}</span>
-                    ) : null}
-                    {row.missedDays >= 1 ? (
-                      <span
-                        className="muted"
-                        style={{ display: 'block', color: 'var(--color-amber)' }}
-                      >
-                        {missedLabel(row.missedDays)}
-                      </span>
-                    ) : null}
-                  </span>
-                </label>
-              </div>
-            )
-          })}
-        </div>
+        <>
+          <div className="panel" style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
+            {preview.map((row) => {
+              const label = animalLabel(row)
+              const disabled = busyId === row.id
+              return (
+                <div className="list-item list-item--row" key={row.id}>
+                  <label className="check-row" style={{ flex: 1, minWidth: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={row.checkedToday}
+                      disabled={disabled}
+                      onChange={(event) =>
+                        void onToggle(row, event.target.checked)
+                      }
+                      aria-label={`Mark ${label} checked today`}
+                    />
+                    <span>
+                      <strong>{label}</strong>
+                      {row.name?.trim() && row.shelter_code ? (
+                        <span className="muted"> · {row.shelter_code}</span>
+                      ) : null}
+                      {row.missedDays >= 1 ? (
+                        <span
+                          className="muted"
+                          style={{
+                            display: 'block',
+                            color: 'var(--color-amber)',
+                          }}
+                        >
+                          {missedLabel(row.missedDays)}
+                        </span>
+                      ) : null}
+                    </span>
+                  </label>
+                </div>
+              )
+            })}
+          </div>
+          <div className="row" style={{ marginTop: '1rem' }}>
+            <Button to="/checklist" variant="secondary">
+              View all
+            </Button>
+          </div>
+        </>
       )}
-
-      <div className="row" style={{ marginTop: '1rem' }}>
-        <Button to="/checklist" variant="secondary">
-          View all
-        </Button>
-      </div>
     </section>
   )
 }
