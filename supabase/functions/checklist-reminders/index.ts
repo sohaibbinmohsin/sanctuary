@@ -7,17 +7,18 @@
 // with the matching `slot` query param and CHECKLIST_CRON_SECRET header.
 //
 // Secrets:
-//   CHECKLIST_CRON_SECRET — shared secret (Authorization: Bearer … or
-//                           x-checklist-cron-secret)
+//   CHECKLIST_CRON_SECRET — shared secret via header:
+//     x-checklist-cron-secret: <secret>
+//     (or Authorization: Bearer <secret> only if verify_jwt is disabled)
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 //   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:… or https:…)
 //
 // Deploy: supabase functions deploy checklist-reminders
+// Config: [functions.checklist-reminders] verify_jwt = false
 //
-// GET|POST ?slot=evening|morning
-// - 200: { ok: true, slot, orgs, sent, failed, skippedOrgs }
-// - 401: missing/invalid cron secret
-// - 400: bad slot
+// Manual test (with verify_jwt false):
+//   curl -i ".../checklist-reminders?slot=evening" \
+//     -H "x-checklist-cron-secret: $CHECKLIST_CRON_SECRET"
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import webpush from 'npm:web-push@3.6.7'
@@ -43,7 +44,7 @@ const unauthorized = () => jsonResponse({ error: 'Unauthorized' }, 401)
 // --- Copy (keep in sync with src/shared/lib/checklist/reminderCopy.ts) ---
 
 function eveningReminderTitle(): string {
-  return 'Checklist incomplete'
+  return 'Sanctuary · Checklist incomplete'
 }
 
 function eveningReminderBody(uncheckedCount: number): string {
@@ -53,13 +54,13 @@ function eveningReminderBody(uncheckedCount: number): string {
 }
 
 function morningReminderTitle(): string {
-  return 'Checklist overdue'
+  return 'Sanctuary · Checklist overdue'
 }
 
 function morningReminderBody(missedCount: number): string {
   return missedCount === 1
-    ? '1 animal still has a missed checklist day.'
-    : `${missedCount} animals still have missed checklist days.`
+    ? '1 animal wasn’t checked yesterday.'
+    : `${missedCount} animals weren’t checked yesterday.`
 }
 
 // --- Pilot calendar helpers (mirror missedStreak.ts with fixed TZ) ---

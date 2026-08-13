@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import {
   Cat,
+  CheckSquare,
   CurrencyCircleDollar,
   ChartBar,
   GearSix,
@@ -18,16 +19,29 @@ import { LedgerEntryScreen } from '@/features/ledger/screens/LedgerEntryScreen'
 import { DashboardScreen } from '@/features/dashboard/screens/DashboardScreen'
 import { ChecklistScreen } from '@/features/checklist/screens/ChecklistScreen'
 import { SettingsScreen } from '@/features/settings/screens/SettingsScreen'
+import { HelpAndAccount } from '@/features/settings/components/HelpAndAccount'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 
-const NAV = [
+const SIDEBAR_NAV = [
   { to: '/animals', label: 'Animals', icon: Cat },
   { to: '/ledger', label: 'Ledger', icon: CurrencyCircleDollar },
+  { to: '/checklist', label: 'Checklist', icon: CheckSquare },
   { to: '/dashboard', label: 'Overview', icon: ChartBar },
   { to: '/settings', label: 'Settings', icon: GearSix },
 ] as const
 
-const PRIMARY_PATHS = new Set<string>(NAV.map((item) => item.to))
+/** Mobile bottom bar: Checklist replaces Settings. */
+const BOTTOM_NAV = [
+  { to: '/animals', label: 'Animals', icon: Cat },
+  { to: '/ledger', label: 'Ledger', icon: CurrencyCircleDollar },
+  { to: '/dashboard', label: 'Overview', icon: ChartBar },
+  { to: '/checklist', label: 'Checklist', icon: CheckSquare },
+] as const
+
+const PRIMARY_PATHS = new Set<string>([
+  ...BOTTOM_NAV.map((item) => item.to),
+  '/settings',
+])
 
 function isPrimaryPath(pathname: string): boolean {
   const normalized =
@@ -37,10 +51,20 @@ function isPrimaryPath(pathname: string): boolean {
   return PRIMARY_PATHS.has(normalized)
 }
 
-function NavItems({ className }: { className: string }) {
+function NavItems({
+  className,
+  items,
+}: {
+  className: string
+  items: readonly {
+    to: string
+    label: string
+    icon: typeof Cat
+  }[]
+}) {
   return (
     <nav className={className} aria-label="Main">
-      {NAV.map(({ to, label, icon: Icon }) => (
+      {items.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
@@ -74,7 +98,8 @@ export function AppShell() {
             <div className="app-sidebar__org">{member.orgName}</div>
           ) : null}
         </div>
-        <NavItems className="app-sidebar__nav" />
+        <NavItems className="app-sidebar__nav" items={SIDEBAR_NAV} />
+        <HelpAndAccount variant="sidebar" />
       </aside>
       <div className="app-shell__body">
         {playground ? <PlaygroundBanner /> : null}
@@ -98,7 +123,7 @@ export function AppShell() {
             <Route path="/settings" element={<SettingsScreen />} />
           </Routes>
         </main>
-        {showBottomNav ? <NavItems className="app-nav" /> : null}
+        {showBottomNav ? <NavItems className="app-nav" items={BOTTOM_NAV} /> : null}
       </div>
     </div>
   )

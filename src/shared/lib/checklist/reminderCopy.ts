@@ -1,7 +1,7 @@
 /** Pure Web Push copy for checklist evening / morning reminders. */
 
 export function eveningReminderTitle(): string {
-  return 'Checklist incomplete'
+  return 'Sanctuary · Checklist incomplete'
 }
 
 export function eveningReminderBody(uncheckedCount: number): string {
@@ -11,11 +11,11 @@ export function eveningReminderBody(uncheckedCount: number): string {
 }
 
 export function morningReminderTitle(): string {
-  return 'Checklist overdue'
+  return 'Sanctuary · Checklist overdue'
 }
 
 export function morningReminderBody(missedCount: number): string {
   return missedCount === 1
-    ? '1 animal still has a missed checklist day.'
-    : `${missedCount} animals still have missed checklist days.`
+    ? '1 animal wasn’t checked yesterday.'
+    : `${missedCount} animals weren’t checked yesterday.`
 }

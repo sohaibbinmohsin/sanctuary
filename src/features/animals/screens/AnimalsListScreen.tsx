@@ -2,7 +2,6 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import {
   Funnel,
   List,
-  ListChecks,
   MagnifyingGlass,
   PawPrint,
   SquaresFour,
@@ -197,7 +196,7 @@ export function AnimalsListScreen() {
         }
       />
 
-      <div className="filter-bar filter-bar--chrome">
+      <div className="filter-bar filter-bar--chrome filter-bar--chrome-3">
         <div className="filter-bar__search">
           <MagnifyingGlass size={18} weight="bold" aria-hidden />
           <input
@@ -239,19 +238,10 @@ export function AnimalsListScreen() {
           title={isListView ? 'Grid view' : 'List view'}
         >
           {isListView ? (
-            <SquaresFour size={24} weight="bold" aria-hidden />
+            <SquaresFour size={20} weight="bold" aria-hidden />
           ) : (
-            <List size={24} weight="bold" aria-hidden />
+            <List size={20} weight="bold" aria-hidden />
           )}
-        </Button>
-        <Button
-          to="/checklist"
-          variant="secondary"
-          className="btn--icon"
-          aria-label="Checklist"
-          title="Checklist"
-        >
-          <ListChecks size={24} weight="bold" aria-hidden />
         </Button>
       </div>
 

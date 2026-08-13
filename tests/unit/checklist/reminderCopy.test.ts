@@ -23,20 +23,20 @@ describe('eveningReminderBody', () => {
 describe('morningReminderBody', () => {
   it('singular when one missed', () => {
     expect(morningReminderBody(1)).toBe(
-      '1 animal still has a missed checklist day.',
+      '1 animal wasn’t checked yesterday.',
     )
   })
 
   it('plural when multiple missed', () => {
     expect(morningReminderBody(4)).toBe(
-      '4 animals still have missed checklist days.',
+      '4 animals weren’t checked yesterday.',
     )
   })
 })
 
 describe('reminder titles', () => {
-  it('returns stable titles', () => {
-    expect(eveningReminderTitle()).toBe('Checklist incomplete')
-    expect(morningReminderTitle()).toBe('Checklist overdue')
+  it('returns stable branded titles', () => {
+    expect(eveningReminderTitle()).toBe('Sanctuary · Checklist incomplete')
+    expect(morningReminderTitle()).toBe('Sanctuary · Checklist overdue')
   })
 })

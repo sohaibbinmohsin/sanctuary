@@ -9,6 +9,8 @@ type PageHeaderProps = {
   /** When set, shows a back control above the title. */
   backTo?: string
   backLabel?: string
+  /** Hide the back control at the desktop sidebar breakpoint. */
+  hideBackOnDesktop?: boolean
 }
 
 export function PageHeader({
@@ -17,11 +19,19 @@ export function PageHeader({
   actions,
   backTo,
   backLabel = 'Back',
+  hideBackOnDesktop = false,
 }: PageHeaderProps) {
   return (
     <header className="page-header">
       {backTo ? (
-        <Link className="back-link" to={backTo}>
+        <Link
+          className={
+            hideBackOnDesktop
+              ? 'back-link back-link--desktop-hidden'
+              : 'back-link'
+          }
+          to={backTo}
+        >
           <ArrowLeft size={18} weight="bold" aria-hidden />
           {backLabel}
         </Link>

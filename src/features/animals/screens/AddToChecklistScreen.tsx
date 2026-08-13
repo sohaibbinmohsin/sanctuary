@@ -318,9 +318,9 @@ export function AddToChecklistScreen() {
           title={isListView ? 'Grid view' : 'List view'}
         >
           {isListView ? (
-            <SquaresFour size={24} weight="bold" aria-hidden />
+            <SquaresFour size={20} weight="bold" aria-hidden />
           ) : (
-            <List size={24} weight="bold" aria-hidden />
+            <List size={20} weight="bold" aria-hidden />
           )}
         </Button>
       </div>

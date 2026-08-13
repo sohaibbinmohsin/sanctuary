@@ -17,6 +17,12 @@ export default defineConfig({
     wasm(),
     VitePWA({
       registerType: 'autoUpdate',
+      devOptions: {
+        // Needed so checklist Web Push can subscribe during `npm run dev`.
+        enabled: true,
+        // Workbox precache globs are empty in the temp `dev-dist` folder.
+        suppressWarnings: true,
+      },
       includeAssets: [
         'favicon.svg',
         'apple-touch-icon.png',

@@ -9,6 +9,14 @@ export type PushPermissionState =
   | 'unsupported'
   | 'no-vapid'
 
+/** App-level reminder status (permission alone isn’t enough after turn-off). */
+export type ChecklistPushStatus =
+  | 'unsupported'
+  | 'no-vapid'
+  | 'denied'
+  | 'off'
+  | 'on'
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
@@ -49,34 +57,60 @@ async function authToken(): Promise<string> {
   return token
 }
 
-/**
- * Request notification permission, subscribe via PushManager, and POST the
- * subscription to `push-subscribe`. Returns the resulting permission state.
- * Soft-fails (returns without throwing) when VAPID / Push is unavailable.
- */
-export async function enableChecklistPush(): Promise<PushPermissionState> {
-  const state = getPushPermissionState()
-  if (state === 'unsupported' || state === 'no-vapid') {
-    return state
-  }
-  if (state === 'denied') {
-    return 'denied'
+async function waitForServiceWorker(
+  timeoutMs = 10000,
+): Promise<ServiceWorkerRegistration> {
+  const existing = await navigator.serviceWorker.getRegistration()
+  if (existing?.active) return existing
+
+  // Ensure a registration is kicked off (virtual:pwa-register also does this).
+  if (!existing) {
+    try {
+      await navigator.serviceWorker.register(
+        import.meta.env.MODE === 'production' ? '/sw.js' : '/dev-sw.js?dev-sw',
+      )
+    } catch {
+      // Fall through to ready / timeout messaging.
+    }
   }
 
-  const vapid = vapidPublicKey()
-  if (!vapid) return 'no-vapid'
+  const ready = navigator.serviceWorker.ready
+  const timedOut = new Promise<never>((_, reject) => {
+    window.setTimeout(() => {
+      reject(
+        new Error(
+          'Service worker is still starting. Reload the page, then try again.',
+        ),
+      )
+    }, timeoutMs)
+  })
+  return Promise.race([ready, timedOut])
+}
 
-  const permission = await Notification.requestPermission()
-  if (permission !== 'granted') {
+async function currentSubscription(): Promise<PushSubscription | null> {
+  const registration = await waitForServiceWorker()
+  return registration.pushManager.getSubscription()
+}
+
+export async function getChecklistPushStatus(): Promise<ChecklistPushStatus> {
+  const permission = getPushPermissionState()
+  if (
+    permission === 'unsupported' ||
+    permission === 'no-vapid' ||
+    permission === 'denied'
+  ) {
     return permission
   }
+  if (permission === 'default') return 'off'
+  try {
+    const sub = await currentSubscription()
+    return sub ? 'on' : 'off'
+  } catch {
+    return 'off'
+  }
+}
 
-  const registration = await navigator.serviceWorker.ready
-  const subscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(vapid) as BufferSource,
-  })
-
+async function upsertSubscription(subscription: PushSubscription): Promise<void> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   if (!supabaseUrl) {
     throw new Error('VITE_SUPABASE_URL is not set')
@@ -102,6 +136,81 @@ export async function enableChecklistPush(): Promise<PushPermissionState> {
       `Push subscribe failed: ${res.status}${detail ? ` ${detail}` : ''}`,
     )
   }
+}
 
-  return 'granted'
+async function deleteSubscription(endpoint: string): Promise<void> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  if (!supabaseUrl) {
+    throw new Error('VITE_SUPABASE_URL is not set')
+  }
+  const token = await authToken()
+
+  const res = await fetch(`${supabaseUrl}/functions/v1/push-subscribe`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ endpoint }),
+  })
+
+  if (!res.ok && res.status !== 404) {
+    const detail = (await res.text().catch(() => '')).slice(0, 200)
+    throw new Error(
+      `Push unsubscribe failed: ${res.status}${detail ? ` ${detail}` : ''}`,
+    )
+  }
+}
+
+/**
+ * Request notification permission, subscribe via PushManager, and POST the
+ * subscription to `push-subscribe`. Reuses an existing subscription when present.
+ */
+export async function enableChecklistPush(): Promise<ChecklistPushStatus> {
+  const state = getPushPermissionState()
+  if (state === 'unsupported' || state === 'no-vapid') {
+    return state
+  }
+  if (state === 'denied') {
+    return 'denied'
+  }
+
+  const vapid = vapidPublicKey()
+  if (!vapid) return 'no-vapid'
+
+  const permission =
+    state === 'granted' ? 'granted' : await Notification.requestPermission()
+  if (permission !== 'granted') {
+    return permission === 'denied' ? 'denied' : 'off'
+  }
+
+  const registration = await waitForServiceWorker()
+  let subscription = await registration.pushManager.getSubscription()
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapid) as BufferSource,
+    })
+  }
+
+  await upsertSubscription(subscription)
+  return 'on'
+}
+
+/** Unsubscribe this device and remove the server row so reminders stop. */
+export async function disableChecklistPush(): Promise<ChecklistPushStatus> {
+  const state = getPushPermissionState()
+  if (state === 'unsupported' || state === 'no-vapid') {
+    return state
+  }
+
+  const registration = await waitForServiceWorker()
+  const subscription = await registration.pushManager.getSubscription()
+  if (subscription) {
+    const endpoint = subscription.endpoint
+    await subscription.unsubscribe()
+    await deleteSubscription(endpoint)
+  }
+
+  return 'off'
 }

@@ -1,10 +1,11 @@
-// Deno Supabase Edge Function — upsert Web Push subscriptions for checklist reminders.
+// Deno Supabase Edge Function — upsert / delete Web Push subscriptions for checklist reminders.
 // Secrets: SUPABASE_URL, SUPABASE_ANON_KEY (verify caller JWT),
 //          SUPABASE_SERVICE_ROLE_KEY (upsert push_subscriptions)
 // Deploy with: supabase functions deploy push-subscribe
 //
 // Body: POST { endpoint: string, keys: { p256dh: string, auth: string } }
 //   (PushSubscription.toJSON() shape; flat { endpoint, p256dh, auth } also accepted)
+// DELETE { endpoint: string }
 // - Auth: user JWT required; caller must have an `org_members` row
 // - 200: { ok: true }
 // - 400: missing/invalid body; 401: no/invalid JWT; 403: no org membership
@@ -38,7 +39,7 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  if (req.method !== 'POST') {
+  if (req.method !== 'POST' && req.method !== 'DELETE') {
     return jsonResponse({ error: 'Method not allowed' }, 405)
   }
 
@@ -86,10 +87,24 @@ Deno.serve(async (req) => {
     }
 
     const endpoint = body.endpoint?.trim()
+    if (!endpoint) {
+      return jsonResponse({ error: 'endpoint is required' }, 400)
+    }
+
+    if (req.method === 'DELETE') {
+      const { error: deleteError } = await admin
+        .from('push_subscriptions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('endpoint', endpoint)
+      if (deleteError) throw deleteError
+      return jsonResponse({ ok: true }, 200)
+    }
+
     const p256dh = (body.keys?.p256dh ?? body.p256dh)?.trim()
     const auth = (body.keys?.auth ?? body.auth)?.trim()
 
-    if (!endpoint || !p256dh || !auth) {
+    if (!p256dh || !auth) {
       return jsonResponse(
         { error: 'endpoint, keys.p256dh, and keys.auth are required' },
         400,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { CheckSquare, Eye, Trash } from '@phosphor-icons/react'
 import { useLocation } from 'react-router-dom'
 import {
@@ -7,11 +7,6 @@ import {
   setChecklistChecked,
   type ChecklistRow,
 } from '@/features/checklist/domain/checklist'
-import {
-  enableChecklistPush,
-  getPushPermissionState,
-  type PushPermissionState,
-} from '@/features/checklist/domain/pushSubscribe'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { useDb } from '@/shared/hooks/useDb'
 import { Button } from '@/shared/ui/Button'
@@ -24,6 +19,8 @@ import {
   willCompleteChecklist,
 } from '@/shared/lib/morale/messages'
 import { ChecklistCompleteCelebration } from '@/features/checklist/components/ChecklistCompleteCelebration'
+import { ChecklistRemindersControl } from '@/features/checklist/components/ChecklistRemindersControl'
+import type { ChecklistPushStatus } from '@/features/checklist/domain/pushSubscribe'
 
 function animalLabel(row: ChecklistRow): string {
   return row.name?.trim() || row.shelter_code || 'Animal'
@@ -56,33 +53,18 @@ export function ChecklistScreen() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [celebrate, setCelebrate] = useState(false)
-  const [pushState, setPushState] = useState<PushPermissionState>(() =>
-    getPushPermissionState(),
+  const [remindersDock, setRemindersDock] = useState<'loading' | 'show' | 'hide'>(
+    'loading',
   )
-  const [pushBusy, setPushBusy] = useState(false)
+
+  const onRemindersStatus = useCallback((status: ChecklistPushStatus) => {
+    setRemindersDock(status === 'on' ? 'hide' : 'show')
+  }, [])
 
   useEffect(() => {
     const message = (location.state as { toast?: string } | null)?.toast
     if (message) setToast(message)
   }, [location.state])
-
-  useEffect(() => {
-    setPushState(getPushPermissionState())
-  }, [])
-
-  async function onEnableReminders() {
-    if (pushBusy) return
-    setPushBusy(true)
-    try {
-      const next = await enableChecklistPush()
-      setPushState(next)
-    } catch (err) {
-      console.warn('Enable checklist push failed', err)
-      setPushState(getPushPermissionState())
-    } finally {
-      setPushBusy(false)
-    }
-  }
 
   async function reload(opts?: { quiet?: boolean }) {
     if (!db || !member) return
@@ -151,42 +133,24 @@ export function ChecklistScreen() {
       : rows.length === 0
         ? 'Daily care checklist for your shelter'
         : `${rows.length} on today’s checklist`
-  const backState = location.state as
-    | { backTo?: string; backLabel?: string }
-    | null
-  const backTo = backState?.backTo || '/animals'
-  const backLabel = backState?.backLabel || 'Animals'
 
   return (
-    <section className="screen">
+    <section
+      className={`screen${remindersDock === 'show' ? ' screen--sticky-footer' : ''}${
+        !showLoading && rows.length === 0 ? ' screen--checklist-empty' : ''
+      }`}
+    >
       <PageHeader
         title="Checklist"
         subtitle={subtitle}
-        backTo={backTo}
-        backLabel={backLabel}
         actions={
-          <Button to="/animals/add-to-checklist" variant="accent">
-            Add to checklist
-          </Button>
+          rows.length > 0 ? (
+            <Button to="/animals/add-to-checklist" variant="accent">
+              Add to checklist
+            </Button>
+          ) : undefined
         }
       />
-
-      {pushState === 'default' ? (
-        <div className="row" style={{ marginBottom: '1rem' }}>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={pushBusy}
-            onClick={() => void onEnableReminders()}
-          >
-            Enable reminders
-          </Button>
-        </div>
-      ) : pushState === 'denied' ? (
-        <p className="muted" style={{ marginBottom: '1rem' }}>
-          Notifications blocked in browser settings.
-        </p>
-      ) : null}
 
       {showLoading ? (
         <p className="muted">Loading…</p>
@@ -256,6 +220,19 @@ export function ChecklistScreen() {
           })}
         </div>
       )}
+
+      {remindersDock !== 'hide' ? (
+        <div
+          className="sticky-actions"
+          hidden={remindersDock !== 'show'}
+          aria-hidden={remindersDock !== 'show'}
+        >
+          <ChecklistRemindersControl
+            layout="dock"
+            onStatusChange={onRemindersStatus}
+          />
+        </div>
+      ) : null}
 
       <MoraleToast message={toast} onDone={() => setToast(null)} />
       <ChecklistCompleteCelebration

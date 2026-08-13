@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@powersync/react'
-import { Copy, DownloadSimple } from '@phosphor-icons/react'
+import { Check, CaretDown } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   countAnimalsByStatus,
@@ -26,6 +26,15 @@ import { TextField } from '@/shared/ui/Field'
 const GREETING_KEY = 'sanctuary.dashboardGreetingShown'
 
 type OverviewPeriod = 'all' | 'today' | 'yesterday' | 'month' | 'custom'
+type CardMenu = 'period' | 'share' | null
+
+const PERIOD_OPTIONS: { value: OverviewPeriod; label: string }[] = [
+  { value: 'all', label: 'All time' },
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'month', label: 'This month' },
+  { value: 'custom', label: 'Custom' },
+]
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
@@ -94,6 +103,10 @@ export function DashboardScreen() {
   const [greeting, setGreeting] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [openMenu, setOpenMenu] = useState<CardMenu>(null)
+  const actionsRef = useRef<HTMLDivElement>(null)
+  const periodListId = useId()
+  const shareListId = useId()
 
   const { data: orgRows } = useQuery<{ logo_r2_key: string | null }>(
     member?.orgId
@@ -201,10 +214,12 @@ export function DashboardScreen() {
   async function copySummary() {
     await navigator.clipboard.writeText(summaryText)
     setToast('Summary copied')
+    setOpenMenu(null)
   }
 
   async function downloadPng() {
     if (!cardRef.current) return
+    setOpenMenu(null)
     try {
       const blob = await renderDashboardImage(cardRef.current)
       const url = URL.createObjectURL(blob)
@@ -220,144 +235,228 @@ export function DashboardScreen() {
     }
   }
 
+  useEffect(() => {
+    if (!openMenu) return
+    function onPointer(e: MouseEvent) {
+      if (!actionsRef.current?.contains(e.target as Node)) setOpenMenu(null)
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpenMenu(null)
+    }
+    document.addEventListener('mousedown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [openMenu])
+
   return (
     <section className="screen">
       <PageHeader
         title="Overview"
-        subtitle={greeting ?? 'A quick look for you, and for supporters.'}
+        subtitle={greeting ?? 'Checklist and shelter numbers for your team.'}
+        actions={
+          <Button
+            to="/settings"
+            variant="accent"
+            className="page-header__settings"
+          >
+            Settings
+          </Button>
+        }
       />
 
-      <div
-        className="filter-chips money-period"
-        role="group"
-        aria-label="Ledger period for share card"
-      >
-        <button
-          type="button"
-          className="chip"
-          aria-pressed={period === 'all'}
-          onClick={() => setPeriod('all')}
-        >
-          All time
-        </button>
-        <button
-          type="button"
-          className="chip"
-          aria-pressed={period === 'today'}
-          onClick={() => setPeriod('today')}
-        >
-          Today
-        </button>
-        <button
-          type="button"
-          className="chip"
-          aria-pressed={period === 'yesterday'}
-          onClick={() => setPeriod('yesterday')}
-        >
-          Yesterday
-        </button>
-        <button
-          type="button"
-          className="chip"
-          aria-pressed={period === 'month'}
-          onClick={() => setPeriod('month')}
-        >
-          This month
-        </button>
-        <button
-          type="button"
-          className="chip"
-          aria-pressed={period === 'custom'}
-          onClick={() => setPeriod('custom')}
-        >
-          Custom
-        </button>
-      </div>
-
-      {period === 'custom' ? (
-        <div className="money-range panel panel--soft">
-          <TextField
-            label="From"
-            type="date"
-            value={customFrom}
-            max={customTo || undefined}
-            onChange={(e) => setCustomFrom(e.target.value)}
-          />
-          <TextField
-            label="To"
-            type="date"
-            value={customTo}
-            min={customFrom || undefined}
-            onChange={(e) => setCustomTo(e.target.value)}
-          />
-        </div>
-      ) : null}
-
-      <div className="dashboard-card" ref={cardRef}>
-        <div className="dashboard-card__header">
-          <h2 className="dashboard-card__title">
-            {member?.orgName ?? 'Your shelter'}
-          </h2>
-          <div className="dashboard-card__actions">
-            <Button
-              type="button"
-              variant="ghost"
-              className="btn--icon"
-              aria-label="Copy summary"
-              title="Copy text"
-              onClick={() => void copySummary()}
-            >
-              <Copy size={20} weight="bold" aria-hidden />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="btn--icon"
-              aria-label="Save image"
-              title="Save image"
-              onClick={() => void downloadPng()}
-            >
-              <DownloadSimple size={20} weight="bold" aria-hidden />
-            </Button>
-          </div>
-          {logoUrl ? (
-            <img className="dashboard-card__logo" src={logoUrl} alt="" />
-          ) : null}
-        </div>
-
-        <div className="dashboard-card__hero">
-          <p className="dashboard-card__count">{headcount}</p>
-          <p className="dashboard-card__count-label">animals in care</p>
-        </div>
-
-        <div className="dashboard-card__metrics" aria-label={`Ledger · ${periodHint}`}>
-          <div className="dashboard-card__metric">
-            <span className="dashboard-card__metric-label">
-              Money in
-              <span className="dashboard-card__metric-period"> · {periodHint}</span>
-            </span>
-            <strong className="money-in">{formatPkr(money.inCents)}</strong>
-          </div>
-          <div className="dashboard-card__metric">
-            <span className="dashboard-card__metric-label">
-              Money out
-              <span className="dashboard-card__metric-period"> · {periodHint}</span>
-            </span>
-            <strong className="money-out">{formatPkr(money.outCents)}</strong>
-          </div>
-          <div className="dashboard-card__metric dashboard-card__metric--net">
-            <span className="dashboard-card__metric-label">
-              Net
-              <span className="dashboard-card__metric-period"> · {periodHint}</span>
-            </span>
-            <strong className={net >= 0 ? 'money-in' : 'money-out'}>
-              {formatPkr(net)}
-            </strong>
-          </div>
-        </div>
-      </div>
-
       <OverviewChecklistCard />
+
+      <section
+        className="overview-panel"
+        aria-labelledby="overview-summary-title"
+      >
+        <div className="overview-panel__header row">
+          <div className="overview-panel__heading">
+            <h2 id="overview-summary-title" style={{ margin: 0 }}>
+              Summary
+            </h2>
+            <p className="muted overview-panel__lede">
+              Headcount and ledger totals. Copy text or save an image.
+            </p>
+          </div>
+          <div className="dashboard-card__actions" ref={actionsRef}>
+            <div className="filter-menu">
+              <Button
+                type="button"
+                variant="secondary"
+                aria-label={`Ledger period: ${periodHint}`}
+                aria-haspopup="listbox"
+                aria-expanded={openMenu === 'period'}
+                aria-controls={periodListId}
+                onClick={() =>
+                  setOpenMenu((m) => (m === 'period' ? null : 'period'))
+                }
+              >
+                {PERIOD_OPTIONS.find((o) => o.value === period)?.label ??
+                  'Period'}
+                <CaretDown size={14} weight="bold" aria-hidden />
+              </Button>
+              {openMenu === 'period' ? (
+                <ul
+                  id={periodListId}
+                  className="filter-menu__panel filter-menu__panel--end"
+                  role="listbox"
+                  aria-label="Ledger period"
+                >
+                  {PERIOD_OPTIONS.map((option) => {
+                    const isSelected = option.value === period
+                    return (
+                      <li key={option.value} role="presentation">
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          className={
+                            isSelected
+                              ? 'filter-menu__option filter-menu__option--selected'
+                              : 'filter-menu__option'
+                          }
+                          onClick={() => {
+                            setPeriod(option.value)
+                            setOpenMenu(null)
+                          }}
+                        >
+                          <span>{option.label}</span>
+                          {isSelected ? (
+                            <Check size={16} weight="bold" aria-hidden />
+                          ) : null}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : null}
+            </div>
+
+            <div className="filter-menu">
+              <Button
+                type="button"
+                variant="secondary"
+                aria-label="Copy or save summary"
+                aria-haspopup="menu"
+                aria-expanded={openMenu === 'share'}
+                aria-controls={shareListId}
+                onClick={() =>
+                  setOpenMenu((m) => (m === 'share' ? null : 'share'))
+                }
+              >
+                Copy
+                <CaretDown size={14} weight="bold" aria-hidden />
+              </Button>
+              {openMenu === 'share' ? (
+                <ul
+                  id={shareListId}
+                  className="filter-menu__panel filter-menu__panel--end"
+                  role="menu"
+                  aria-label="Share summary"
+                >
+                  <li role="presentation">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="filter-menu__option"
+                      onClick={() => void copySummary()}
+                    >
+                      <span>Copy text</span>
+                    </button>
+                  </li>
+                  <li role="presentation">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="filter-menu__option"
+                      onClick={() => void downloadPng()}
+                    >
+                      <span>Save image</span>
+                    </button>
+                  </li>
+                </ul>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {period === 'custom' ? (
+          <div className="dashboard-card__money-range" style={{ marginBottom: '0.75rem' }}>
+            <TextField
+              label="From"
+              type="date"
+              value={customFrom}
+              max={customTo || undefined}
+              onChange={(e) => setCustomFrom(e.target.value)}
+            />
+            <TextField
+              label="To"
+              type="date"
+              value={customTo}
+              min={customFrom || undefined}
+              onChange={(e) => setCustomTo(e.target.value)}
+            />
+          </div>
+        ) : null}
+
+        <div className="dashboard-card" ref={cardRef}>
+          <div className="dashboard-card__header dashboard-card__header--brand">
+            <h2 className="dashboard-card__title dashboard-card__title--brand">
+              {member?.orgName ?? 'Your shelter'}
+            </h2>
+            {logoUrl ? (
+              <img className="dashboard-card__logo" src={logoUrl} alt="" />
+            ) : null}
+          </div>
+
+          <div className="dashboard-card__hero">
+            <p className="dashboard-card__count">{headcount}</p>
+            <p className="dashboard-card__count-label">animals in care</p>
+          </div>
+
+          <div
+            className="dashboard-card__metrics"
+            aria-label={`Ledger · ${periodHint}`}
+          >
+            <div className="dashboard-card__metric">
+              <span className="dashboard-card__metric-label">
+                Money in
+                <span className="dashboard-card__metric-period">
+                  {' '}
+                  · {periodHint}
+                </span>
+              </span>
+              <strong className="money-in">{formatPkr(money.inCents)}</strong>
+            </div>
+            <div className="dashboard-card__metric">
+              <span className="dashboard-card__metric-label">
+                Money out
+                <span className="dashboard-card__metric-period">
+                  {' '}
+                  · {periodHint}
+                </span>
+              </span>
+              <strong className="money-out">{formatPkr(money.outCents)}</strong>
+            </div>
+            <div className="dashboard-card__metric dashboard-card__metric--net">
+              <span className="dashboard-card__metric-label">
+                Net
+                <span className="dashboard-card__metric-period">
+                  {' '}
+                  · {periodHint}
+                </span>
+              </span>
+              <strong className={net >= 0 ? 'money-in' : 'money-out'}>
+                {formatPkr(net)}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="overview-panel" aria-labelledby="status-chart-title">
         <h2 id="status-chart-title">Animals by status</h2>
