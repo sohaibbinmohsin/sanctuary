@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { useQuery } from '@powersync/react'
 import {
   ArrowLeft,
@@ -86,7 +86,6 @@ async function resolvePhotoUrl(photo: PhotoRecord): Promise<string | null> {
 
 export function AnimalDetailScreen() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const location = useLocation()
   const backState = location.state as
     | { backTo?: string; backLabel?: string }
