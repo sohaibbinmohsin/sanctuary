@@ -20,17 +20,19 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <header className="page-header">
-      <div>
-        {backTo ? (
-          <Link className="back-link" to={backTo}>
-            <ArrowLeft size={18} weight="bold" aria-hidden />
-            {backLabel}
-          </Link>
-        ) : null}
-        <h1>{title}</h1>
-        {subtitle ? <p className="page-header__sub">{subtitle}</p> : null}
+      {backTo ? (
+        <Link className="back-link" to={backTo}>
+          <ArrowLeft size={18} weight="bold" aria-hidden />
+          {backLabel}
+        </Link>
+      ) : null}
+      <div className="page-header__main">
+        <div className="page-header__copy">
+          <h1>{title}</h1>
+          {subtitle ? <p className="page-header__sub">{subtitle}</p> : null}
+        </div>
+        {actions ? <div className="page-header__actions">{actions}</div> : null}
       </div>
-      {actions ? <div className="page-header__actions">{actions}</div> : null}
     </header>
   )
 }

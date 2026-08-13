@@ -15,9 +15,15 @@ import {
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { useDb } from '@/shared/hooks/useDb'
 import { Button } from '@/shared/ui/Button'
+import { CheckMark } from '@/shared/ui/CheckMark'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { MoraleToast } from '@/shared/ui/MoraleToast'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import {
+  checklistTickMessage,
+  willCompleteChecklist,
+} from '@/shared/lib/morale/messages'
+import { ChecklistCompleteCelebration } from '@/features/checklist/components/ChecklistCompleteCelebration'
 
 function animalLabel(row: ChecklistRow): string {
   return row.name?.trim() || row.shelter_code || 'Animal'
@@ -49,6 +55,7 @@ export function ChecklistScreen() {
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [celebrate, setCelebrate] = useState(false)
   const [pushState, setPushState] = useState<PushPermissionState>(() =>
     getPushPermissionState(),
   )
@@ -99,6 +106,7 @@ export function ChecklistScreen() {
 
   async function onToggle(row: ChecklistRow, checked: boolean) {
     if (!db || !member || busyId) return
+    const completing = willCompleteChecklist(rows, row, checked)
     setBusyId(row.id)
     try {
       await setChecklistChecked(db, {
@@ -108,6 +116,11 @@ export function ChecklistScreen() {
         checkedBy: member.userId,
       })
       await reload({ quiet: true })
+      if (completing) {
+        setCelebrate(true)
+      } else if (checked) {
+        setToast(checklistTickMessage(animalLabel(row)))
+      }
     } catch (err) {
       console.warn('Checklist check failed', err)
     } finally {
@@ -193,8 +206,7 @@ export function ChecklistScreen() {
             return (
               <div className="list-item list-item--row" key={row.id}>
                 <label className="check-row" style={{ flex: 1, minWidth: 0 }}>
-                  <input
-                    type="checkbox"
+                  <CheckMark
                     checked={row.checkedToday}
                     disabled={disabled}
                     onChange={(event) =>
@@ -246,6 +258,10 @@ export function ChecklistScreen() {
       )}
 
       <MoraleToast message={toast} onDone={() => setToast(null)} />
+      <ChecklistCompleteCelebration
+        active={celebrate}
+        onDone={() => setCelebrate(false)}
+      />
     </section>
   )
 }
