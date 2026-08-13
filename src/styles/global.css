@@ -1422,8 +1422,8 @@ a.primary {
 }
 
 .status-badge--more {
-  background: #f5f1e8;
-  color: #3e4c3e;
+  background: var(--color-forest-soft);
+  color: var(--color-ink);
 }
 
 .status-multi-select {
@@ -1433,7 +1433,7 @@ a.primary {
   margin: 0;
   padding: 0;
   border: 0;
-  color: #3e4c3e;
+  color: var(--color-ink);
 }
 
 .status-multi-select legend {
@@ -1455,10 +1455,10 @@ a.primary {
   gap: 0.45rem;
   min-height: var(--touch-min);
   padding: 0.45rem 0.8rem;
-  border: 1px solid color-mix(in srgb, #87a96b 50%, #f5f1e8);
+  border: 1px solid var(--color-border);
   border-radius: 999px;
-  background: #f5f1e8;
-  color: #3e4c3e;
+  background: var(--color-surface);
+  color: var(--color-ink);
   font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
@@ -1469,8 +1469,9 @@ a.primary {
 }
 
 .status-multi-select__option[data-selected] {
-  border-color: #87a96b;
-  background: color-mix(in srgb, #87a96b 28%, #f5f1e8);
+  border-color: var(--color-forest);
+  background: var(--color-forest-soft);
+  color: var(--color-forest);
 }
 
 .status-multi-select__option[data-disabled] {
@@ -1485,11 +1486,11 @@ a.primary {
   margin: 0;
   padding: 0;
   border-radius: 0.2rem;
-  accent-color: #87a96b;
+  accent-color: var(--color-forest);
 }
 
 .status-multi-select__option:focus-within {
-  box-shadow: 0 0 0 3px color-mix(in srgb, #87a96b 35%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-forest) 28%, transparent);
 }
 
 /* Animal picker: selected statuses as removable tags + Add menu */
@@ -1506,10 +1507,10 @@ a.primary {
   gap: 0.3rem;
   min-height: 2.25rem;
   padding: 0.3rem 0.35rem 0.3rem 0.8rem;
-  border: 1px solid #87a96b;
+  border: 1px solid var(--color-forest);
   border-radius: 999px;
-  background: color-mix(in srgb, #87a96b 28%, #f5f1e8);
-  color: #3e4c3e;
+  background: var(--color-forest-soft);
+  color: var(--color-forest);
   font-size: var(--text-sm);
   font-weight: 600;
 }
@@ -1532,14 +1533,14 @@ a.primary {
   padding: 0;
   border: none;
   border-radius: 999px;
-  background: color-mix(in srgb, #87a96b 35%, #f5f1e8);
-  color: #3e4c3e;
+  background: color-mix(in srgb, var(--color-forest) 18%, var(--color-white));
+  color: var(--color-forest);
   cursor: pointer;
 }
 
 .status-multi-select--tags .status-multi-select__tag-remove:hover:not(:disabled),
 .status-multi-select--tags .status-multi-select__tag-remove:focus-visible {
-  background: color-mix(in srgb, #87a96b 55%, #f5f1e8);
+  background: color-mix(in srgb, var(--color-forest) 28%, var(--color-white));
   outline: none;
 }
 
@@ -1557,10 +1558,10 @@ a.primary {
   gap: 0.35rem;
   min-height: 2.25rem;
   padding: 0.35rem 0.85rem;
-  border: 1px dashed color-mix(in srgb, #87a96b 55%, #f5f1e8);
+  border: 1px dashed var(--color-border-strong);
   border-radius: 999px;
-  background: #f5f1e8;
-  color: #3e4c3e;
+  background: var(--color-white);
+  color: var(--color-ink);
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 600;
@@ -1574,16 +1575,18 @@ a.primary {
 .status-multi-select--tags .status-multi-select__add:hover,
 .status-multi-select--tags .status-multi-select__add:focus-visible {
   border-style: solid;
-  border-color: #87a96b;
-  background: color-mix(in srgb, #87a96b 16%, #f5f1e8);
+  border-color: var(--color-forest);
+  background: var(--color-forest-soft);
+  color: var(--color-forest);
   outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, #87a96b 35%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-forest) 28%, transparent);
 }
 
 .status-multi-select--tags .status-multi-select__add[aria-expanded='true'] {
   border-style: solid;
-  border-color: #87a96b;
-  background: color-mix(in srgb, #87a96b 22%, #f5f1e8);
+  border-color: var(--color-forest);
+  background: var(--color-forest-soft);
+  color: var(--color-forest);
 }
 
 .status-multi-select--tags .status-multi-select__panel {
@@ -1596,11 +1599,11 @@ a.primary {
   overflow: auto;
   margin: 0;
   padding: 0.35rem;
-  border: 1px solid color-mix(in srgb, #87a96b 40%, #f5f1e8);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: #f5f1e8;
-  box-shadow: var(--shadow-md, 0 8px 24px rgba(62, 76, 62, 0.14));
-  color: #3e4c3e;
+  background: var(--color-white);
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(26, 46, 34, 0.12));
+  color: var(--color-ink);
 }
 
 .status-multi-select--tags .status-multi-select__panel-list {
@@ -1620,7 +1623,7 @@ a.primary {
   border: none;
   border-radius: var(--radius-sm, 8px);
   background: transparent;
-  color: #3e4c3e;
+  color: var(--color-ink);
   font: inherit;
   font-size: var(--text-sm);
   text-align: left;
@@ -1629,45 +1632,20 @@ a.primary {
 
 .status-multi-select--tags .status-multi-select__panel-option:hover:not(:disabled),
 .status-multi-select--tags .status-multi-select__panel-option:focus-visible {
-  background: color-mix(in srgb, #87a96b 18%, #f5f1e8);
+  background: var(--color-forest-soft);
+  color: var(--color-forest);
   outline: none;
 }
 
 .status-multi-select--tags .status-multi-select__panel-option--selected {
-  color: #3e4c3e;
+  background: var(--color-forest-soft);
+  color: var(--color-forest);
   font-weight: 600;
 }
 
 .status-multi-select--tags .status-multi-select__panel-option:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-}
-
-.status-multi-select--tags .status-multi-select__panel-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0.35rem 0.35rem 0.15rem;
-  border-top: 1px solid color-mix(in srgb, #87a96b 25%, #f5f1e8);
-  margin-top: 0.25rem;
-}
-
-.status-multi-select--tags .status-multi-select__panel-done {
-  min-height: 2.25rem;
-  padding: 0.35rem 0.9rem;
-  border: none;
-  border-radius: 999px;
-  background: #87a96b;
-  color: #f5f1e8;
-  font: inherit;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.status-multi-select--tags .status-multi-select__panel-done:hover,
-.status-multi-select--tags .status-multi-select__panel-done:focus-visible {
-  background: color-mix(in srgb, #87a96b 88%, #3e4c3e);
-  outline: none;
 }
 
 .status-badge--amber {

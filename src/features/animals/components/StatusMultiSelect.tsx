@@ -9,17 +9,16 @@ type StatusMultiSelectProps = {
   onRequestExit?: (exitId: string, nextIds: string[]) => void
 }
 
-function idsEqual(a: string[], b: string[]) {
-  if (a.length !== b.length) return false
-  const set = new Set(b)
-  return a.every((id) => set.has(id))
-}
-
-function nextIdsAfterAdd(
+function nextIdsAfterToggle(
   statuses: AnimalStatus[],
   current: string[],
   status: AnimalStatus,
 ): string[] {
+  const selected = current.includes(status.id)
+  if (selected) {
+    if (current.length === 1) return current
+    return current.filter((id) => id !== status.id)
+  }
   if (status.counts_as_in_care === 1) {
     return [
       ...current.filter((id) => {
@@ -41,58 +40,16 @@ export function StatusMultiSelect({
   const listId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState<string[]>(value)
-  const draftRef = useRef(draft)
-  const valueRef = useRef(value)
-  const onChangeRef = useRef(onChange)
-  const onRequestExitRef = useRef(onRequestExit)
-  const statusesRef = useRef(statuses)
-
-  draftRef.current = draft
-  valueRef.current = value
-  onChangeRef.current = onChange
-  onRequestExitRef.current = onRequestExit
-  statusesRef.current = statuses
 
   const availableStatuses = statuses.filter((status) => status.archived === 0)
+  // Resolve tags from all known statuses so archived selections still show.
   const selectedStatuses = value
-    .map((id) => availableStatuses.find((status) => status.id === id))
+    .map((id) => statuses.find((status) => status.id === id))
     .filter((status): status is AnimalStatus => Boolean(status))
   const canAdd = availableStatuses.some((status) => !value.includes(status.id))
 
-  function applyDraft(nextDraft: string[]) {
+  function closePicker() {
     setOpen(false)
-    if (nextDraft.length === 0) return
-
-    const currentValue = valueRef.current
-    const addedExitId = nextDraft.find((id) => {
-      if (currentValue.includes(id)) return false
-      const status = statusesRef.current.find((item) => item.id === id)
-      return status?.counts_as_in_care === 0
-    })
-
-    if (addedExitId && onRequestExitRef.current) {
-      onRequestExitRef.current(addedExitId, nextDraft)
-      return
-    }
-
-    if (!idsEqual(nextDraft, currentValue)) {
-      onChangeRef.current(nextDraft)
-    }
-  }
-
-  function openPicker() {
-    setDraft(value)
-    setOpen(true)
-  }
-
-  function closeAndApply() {
-    applyDraft(draftRef.current)
-  }
-
-  function closeAndDiscard() {
-    setOpen(false)
-    setDraft(valueRef.current)
   }
 
   function remove(statusId: string) {
@@ -100,15 +57,21 @@ export function StatusMultiSelect({
     onChange(value.filter((id) => id !== statusId))
   }
 
-  function toggleDraft(status: AnimalStatus) {
-    setDraft((current) => {
-      const selected = current.includes(status.id)
-      if (selected) {
-        if (current.length === 1) return current
-        return current.filter((id) => id !== status.id)
-      }
-      return nextIdsAfterAdd(statuses, current, status)
-    })
+  function toggle(status: AnimalStatus) {
+    const selected = value.includes(status.id)
+    if (selected) {
+      if (value.length === 1) return
+      onChange(value.filter((id) => id !== status.id))
+      return
+    }
+
+    const nextIds = nextIdsAfterToggle(statuses, value, status)
+    if (status.counts_as_in_care === 0 && onRequestExit) {
+      onRequestExit(status.id, nextIds)
+      closePicker()
+      return
+    }
+    onChange(nextIds)
   }
 
   useEffect(() => {
@@ -116,15 +79,12 @@ export function StatusMultiSelect({
 
     function onPointer(e: MouseEvent) {
       const target = e.target as Node
-      // Ignore clicks inside the picker (Add control + panel).
       if (rootRef.current?.contains(target)) return
-      closeAndDiscard()
+      closePicker()
     }
 
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        closeAndDiscard()
-      }
+      if (e.key === 'Escape') closePicker()
     }
 
     document.addEventListener('mousedown', onPointer)
@@ -175,7 +135,7 @@ export function StatusMultiSelect({
               aria-haspopup="listbox"
               aria-expanded={open}
               aria-controls={open ? listId : undefined}
-              onClick={() => (open ? closeAndApply() : openPicker())}
+              onClick={() => setOpen((current) => !current)}
             >
               <Plus size={14} weight="bold" aria-hidden />
               <span>Add</span>
@@ -191,8 +151,8 @@ export function StatusMultiSelect({
               >
                 <ul className="status-multi-select__panel-list">
                   {availableStatuses.map((status) => {
-                    const selected = draft.includes(status.id)
-                    const isOnlySelection = selected && draft.length === 1
+                    const selected = value.includes(status.id)
+                    const isOnlySelection = selected && value.length === 1
                     return (
                       <li key={status.id} role="presentation">
                         <button
@@ -205,7 +165,7 @@ export function StatusMultiSelect({
                               ? 'status-multi-select__panel-option status-multi-select__panel-option--selected'
                               : 'status-multi-select__panel-option'
                           }
-                          onClick={() => toggleDraft(status)}
+                          onClick={() => toggle(status)}
                         >
                           <span>{status.label}</span>
                           {selected ? (
@@ -216,15 +176,6 @@ export function StatusMultiSelect({
                     )
                   })}
                 </ul>
-                <div className="status-multi-select__panel-actions">
-                  <button
-                    type="button"
-                    className="status-multi-select__panel-done"
-                    onClick={closeAndApply}
-                  >
-                    Done
-                  </button>
-                </div>
               </div>
             ) : null}
           </div>
