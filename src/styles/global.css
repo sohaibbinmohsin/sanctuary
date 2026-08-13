@@ -2889,13 +2889,11 @@ a.primary {
 
 .checklist-summary__metric {
   display: grid;
+  justify-items: center;
   gap: var(--space-1);
   min-width: 0;
   flex: 0 1 auto;
-}
-
-.checklist-summary__metric:last-child {
-  text-align: right;
+  text-align: center;
 }
 
 .checklist-summary__value {
