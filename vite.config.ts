@@ -28,6 +28,7 @@ export default defineConfig({
         'robots.txt',
         'sitemap.xml',
         'splashes/*.png',
+        'push-sw.js',
       ],
       manifest: {
         id: '/',
@@ -65,6 +66,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Checklist Web Push: push + notificationclick live in public/push-sw.js
+        importScripts: ['/push-sw.js'],
         // Keep the installable SW lean; wasm loads on demand via runtime cache.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
         globIgnores: ['**/landing/**', '**/splashes/**'],
