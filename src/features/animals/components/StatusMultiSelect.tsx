@@ -102,6 +102,7 @@ export function StatusMultiSelect({
         className="status-multi-select__tags"
         role="group"
         aria-label="Status"
+        ref={rootRef}
       >
         {selectedStatuses.map((status) => {
           const isOnlySelection = value.length === 1
@@ -128,56 +129,54 @@ export function StatusMultiSelect({
         })}
 
         {canAdd ? (
-          <div className="status-multi-select__add-wrap" ref={rootRef}>
-            <button
-              type="button"
-              className="status-multi-select__add"
-              aria-haspopup="listbox"
-              aria-expanded={open}
-              aria-controls={open ? listId : undefined}
-              onClick={() => setOpen((current) => !current)}
-            >
-              <Plus size={14} weight="bold" aria-hidden />
-              <span>Add</span>
-            </button>
+          <button
+            type="button"
+            className="status-multi-select__add"
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            aria-controls={open ? listId : undefined}
+            onClick={() => setOpen((current) => !current)}
+          >
+            <Plus size={14} weight="bold" aria-hidden />
+            <span>Add</span>
+          </button>
+        ) : null}
 
-            {open ? (
-              <div
-                id={listId}
-                className="status-multi-select__panel"
-                role="listbox"
-                aria-multiselectable="true"
-                aria-label="Add status"
-              >
-                <ul className="status-multi-select__panel-list">
-                  {availableStatuses.map((status) => {
-                    const selected = value.includes(status.id)
-                    const isOnlySelection = selected && value.length === 1
-                    return (
-                      <li key={status.id} role="presentation">
-                        <button
-                          type="button"
-                          role="option"
-                          aria-selected={selected}
-                          disabled={isOnlySelection}
-                          className={
-                            selected
-                              ? 'status-multi-select__panel-option status-multi-select__panel-option--selected'
-                              : 'status-multi-select__panel-option'
-                          }
-                          onClick={() => toggle(status)}
-                        >
-                          <span>{status.label}</span>
-                          {selected ? (
-                            <Check size={16} weight="bold" aria-hidden />
-                          ) : null}
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            ) : null}
+        {open && canAdd ? (
+          <div
+            id={listId}
+            className="status-multi-select__panel"
+            role="listbox"
+            aria-multiselectable="true"
+            aria-label="Add status"
+          >
+            <ul className="status-multi-select__panel-list">
+              {availableStatuses.map((status) => {
+                const selected = value.includes(status.id)
+                const isOnlySelection = selected && value.length === 1
+                return (
+                  <li key={status.id} role="presentation">
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
+                      disabled={isOnlySelection}
+                      className={
+                        selected
+                          ? 'status-multi-select__panel-option status-multi-select__panel-option--selected'
+                          : 'status-multi-select__panel-option'
+                      }
+                      onClick={() => toggle(status)}
+                    >
+                      <span>{status.label}</span>
+                      {selected ? (
+                        <Check size={16} weight="bold" aria-hidden />
+                      ) : null}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
           </div>
         ) : null}
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckSquare, Trash } from '@phosphor-icons/react'
+import { CheckSquare, Eye, Trash } from '@phosphor-icons/react'
+import { useLocation } from 'react-router-dom'
 import {
   listChecklist,
   removeFromChecklist,
@@ -15,6 +16,7 @@ import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { useDb } from '@/shared/hooks/useDb'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { MoraleToast } from '@/shared/ui/MoraleToast'
 import { PageHeader } from '@/shared/ui/PageHeader'
 
 function animalLabel(row: ChecklistRow): string {
@@ -41,14 +43,21 @@ function missedLabel(missedDays: number): string {
 
 export function ChecklistScreen() {
   const db = useDb()
+  const location = useLocation()
   const { member, loading: memberLoading } = useCurrentMember()
   const [rows, setRows] = useState<ChecklistRow[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const [pushState, setPushState] = useState<PushPermissionState>(() =>
     getPushPermissionState(),
   )
   const [pushBusy, setPushBusy] = useState(false)
+
+  useEffect(() => {
+    const message = (location.state as { toast?: string } | null)?.toast
+    if (message) setToast(message)
+  }, [location.state])
 
   useEffect(() => {
     setPushState(getPushPermissionState())
@@ -129,14 +138,24 @@ export function ChecklistScreen() {
       : rows.length === 0
         ? 'Daily care checklist for your shelter'
         : `${rows.length} on today’s checklist`
+  const backState = location.state as
+    | { backTo?: string; backLabel?: string }
+    | null
+  const backTo = backState?.backTo || '/animals'
+  const backLabel = backState?.backLabel || 'Animals'
 
   return (
     <section className="screen">
       <PageHeader
         title="Checklist"
         subtitle={subtitle}
-        backTo="/dashboard"
-        backLabel="Overview"
+        backTo={backTo}
+        backLabel={backLabel}
+        actions={
+          <Button to="/animals/add-to-checklist" variant="accent">
+            Add to checklist
+          </Button>
+        }
       />
 
       {pushState === 'default' ? (
@@ -162,9 +181,9 @@ export function ChecklistScreen() {
         <EmptyState
           icon={<CheckSquare size={28} weight="duotone" />}
           title="Checklist is empty"
-          body="Select animals on the Animals page and add them to the checklist."
-          actionLabel="Go to Animals"
-          actionTo="/animals"
+          body="Choose animals to add to today’s checklist."
+          actionLabel="Add to checklist"
+          actionTo="/animals/add-to-checklist"
         />
       ) : (
         <div className="panel" style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
@@ -200,6 +219,16 @@ export function ChecklistScreen() {
                 </label>
                 <div className="list-item__actions">
                   <Button
+                    to={`/animals/${row.id}`}
+                    state={{ backTo: '/checklist', backLabel: 'Checklist' }}
+                    variant="ghost"
+                    className="btn--icon"
+                    aria-label={`View ${label}`}
+                    title="View animal"
+                  >
+                    <Eye size={18} weight="bold" aria-hidden />
+                  </Button>
+                  <Button
                     type="button"
                     variant="danger-ghost"
                     disabled={disabled}
@@ -215,6 +244,8 @@ export function ChecklistScreen() {
           })}
         </div>
       )}
+
+      <MoraleToast message={toast} onDone={() => setToast(null)} />
     </section>
   )
 }

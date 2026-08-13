@@ -124,7 +124,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             target="_blank"
             rel="noopener noreferrer"
           >
-            <span>Nonprofit software by</span>
+            <span>Free software by</span>
             <span className="mohsin-credit__name">The Mohsin Project</span>
             <img
               src="/mohsin-project-logo.svg"

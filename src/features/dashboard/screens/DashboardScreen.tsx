@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@powersync/react'
+import { Copy, DownloadSimple } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   countAnimalsByStatus,
@@ -297,6 +298,28 @@ export function DashboardScreen() {
           <h2 className="dashboard-card__title">
             {member?.orgName ?? 'Your shelter'}
           </h2>
+          <div className="dashboard-card__actions">
+            <Button
+              type="button"
+              variant="ghost"
+              className="btn--icon"
+              aria-label="Copy summary"
+              title="Copy text"
+              onClick={() => void copySummary()}
+            >
+              <Copy size={20} weight="bold" aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="btn--icon"
+              aria-label="Save image"
+              title="Save image"
+              onClick={() => void downloadPng()}
+            >
+              <DownloadSimple size={20} weight="bold" aria-hidden />
+            </Button>
+          </div>
           {logoUrl ? (
             <img className="dashboard-card__logo" src={logoUrl} alt="" />
           ) : null}
@@ -332,15 +355,6 @@ export function DashboardScreen() {
             </strong>
           </div>
         </div>
-      </div>
-
-      <div className="row" style={{ marginTop: '1.25rem' }}>
-        <Button type="button" variant="primary" onClick={() => void downloadPng()}>
-          Save image
-        </Button>
-        <Button type="button" variant="secondary" onClick={() => void copySummary()}>
-          Copy text
-        </Button>
       </div>
 
       <OverviewChecklistCard />

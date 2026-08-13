@@ -1,14 +1,14 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import {
+  Check,
   Funnel,
   List,
-  ListChecks,
   MagnifyingGlass,
   PawPrint,
   SquaresFour,
   X,
 } from '@phosphor-icons/react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useDb } from '@/shared/hooks/useDb'
 import { useSyncStatus } from '@/shared/hooks/useSyncStatus'
 import { AnimalCard } from '@/features/animals/components/AnimalCard'
@@ -16,6 +16,7 @@ import {
   searchAnimals,
   type AnimalWithStatus,
 } from '@/features/animals/domain/animals'
+import { addAnimalsToChecklist } from '@/features/checklist/domain/checklist'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
   getLocalPhoto,
@@ -26,6 +27,7 @@ import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { MoraleToast } from '@/shared/ui/MoraleToast'
 import {
   parseAnimalFilterParams,
   serializeAnimalFilterParams,
@@ -34,6 +36,7 @@ import {
 type AnimalsView = 'grid' | 'list'
 
 const VIEW_STORAGE_KEY = 'sanctuary.animals.view'
+const FILTERS_RETURN = 'add-to-checklist'
 
 function readStoredView(): AnimalsView {
   try {
@@ -44,8 +47,18 @@ function readStoredView(): AnimalsView {
   }
 }
 
-export function AnimalsListScreen() {
+function filtersHref(filters: ReturnType<typeof parseAnimalFilterParams>): string {
+  const search = serializeAnimalFilterParams(filters)
+  const params = new URLSearchParams(
+    search.startsWith('?') ? search.slice(1) : search,
+  )
+  params.set('return', FILTERS_RETURN)
+  return `?${params.toString()}`
+}
+
+export function AddToChecklistScreen() {
   const db = useDb()
+  const navigate = useNavigate()
   const { member, loading: memberLoading } = useCurrentMember()
   const sync = useSyncStatus()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -61,6 +74,9 @@ export function AnimalsListScreen() {
   >({})
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<AnimalsView>(() => readStoredView())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [confirming, setConfirming] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
     if (!db || !member) return
@@ -111,8 +127,6 @@ export function AnimalsListScreen() {
     return () => {
       cancelled = true
     }
-    // Re-run after the first PowerSync download fills an empty local DB
-    // (common on a fresh tunnel origin / new browser profile).
   }, [
     db,
     member,
@@ -137,18 +151,8 @@ export function AnimalsListScreen() {
     !hasFilters && animals.length === 0 && !sync.hasSynced && sync.kind !== 'failed'
   const showLoading = memberLoading || loading || awaitingFirstSync
   const isListView = view === 'list'
-
-  const subtitle = !member?.orgName
-    ? awaitingFirstSync
-      ? 'Loading animals…'
-      : 'Everyone currently in your care'
-    : hasFilters
-      ? `${animals.length} match${animals.length === 1 ? '' : 'es'}`
-      : awaitingFirstSync
-        ? `Loading animals at ${member.orgName}…`
-        : `${animals.length} in care at ${member.orgName}`
-
-  const filterSearch = serializeAnimalFilterParams(filters)
+  const allVisibleSelected =
+    animals.length > 0 && animals.every((animal) => selectedIds.has(animal.id))
   const listClassName = isListView ? 'animal-list' : 'animal-grid'
 
   function updateQuery(query: string) {
@@ -183,21 +187,96 @@ export function AnimalsListScreen() {
     })
   }
 
+  function toggleAnimal(animalId: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (next.has(animalId)) next.delete(animalId)
+      else next.add(animalId)
+      return next
+    })
+  }
+
+  function toggleAllVisible() {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (allVisibleSelected) {
+        for (const animal of animals) next.delete(animal.id)
+      } else {
+        for (const animal of animals) next.add(animal.id)
+      }
+      return next
+    })
+  }
+
+  async function confirmAddToChecklist() {
+    if (!db || !member || selectedIds.size === 0 || confirming) return
+    setConfirming(true)
+    try {
+      const { added, skipped } = await addAnimalsToChecklist(db, {
+        orgId: member.orgId,
+        animalIds: [...selectedIds],
+        addedBy: member.userId,
+      })
+      const message =
+        skipped > 0
+          ? `Added ${added}, skipped ${skipped} already on checklist`
+          : `Added ${added}`
+      navigate('/checklist', { state: { toast: message } })
+    } catch (err) {
+      console.warn('Add to checklist failed', err)
+      setToast('Could not add to checklist. Try again.')
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  const selectionActions = (
+    <>
+      <Button
+        variant="secondary"
+        onClick={() => navigate('/checklist')}
+        disabled={confirming}
+      >
+        Cancel
+      </Button>
+      <Button
+        variant="accent"
+        disabled={selectedIds.size === 0 || confirming}
+        onClick={() => void confirmAddToChecklist()}
+      >
+        {confirming ? 'Adding…' : 'Confirm'}
+      </Button>
+    </>
+  )
+
   return (
-    <section className="screen">
+    <section className="screen screen--selection">
       <PageHeader
-        title="Animals"
-        subtitle={subtitle}
+        title="Add to checklist"
+        subtitle={
+          selectedIds.size > 0
+            ? `${selectedIds.size} selected`
+            : 'Tap animals to select them'
+        }
+        backTo="/checklist"
+        backLabel="Checklist"
         actions={
-          animals.length > 0 || hasFilters ? (
-            <Button to="/animals/new" variant="accent">
-              Add animal
+          <div className="animal-selection-header-actions">
+            <Button
+              variant="secondary"
+              onClick={toggleAllVisible}
+              disabled={animals.length === 0}
+            >
+              {allVisibleSelected ? 'Deselect all' : 'Select all'}
             </Button>
-          ) : undefined
+            <div className="animal-selection-actions animal-selection-actions--top">
+              {selectionActions}
+            </div>
+          </div>
         }
       />
 
-      <div className="filter-bar filter-bar--chrome">
+      <div className="filter-bar filter-bar--chrome filter-bar--chrome-3">
         <div className="filter-bar__search">
           <MagnifyingGlass size={18} weight="bold" aria-hidden />
           <input
@@ -210,7 +289,7 @@ export function AnimalsListScreen() {
         </div>
         <div className="filter-button-wrap">
           <Button
-            to={`/animals/filters${filterSearch}`}
+            to={`/animals/filters${filtersHref(filters)}`}
             variant="secondary"
             className={`btn--icon filter-button${hasAdvancedFilters ? ' filter-button--active' : ''}`}
             aria-label="Filter animals"
@@ -244,15 +323,6 @@ export function AnimalsListScreen() {
             <List size={24} weight="bold" aria-hidden />
           )}
         </Button>
-        <Button
-          to="/checklist"
-          variant="secondary"
-          className="btn--icon"
-          aria-label="Checklist"
-          title="Checklist"
-        >
-          <ListChecks size={24} weight="bold" aria-hidden />
-        </Button>
       </div>
 
       {showLoading ? (
@@ -276,25 +346,43 @@ export function AnimalsListScreen() {
           body={
             hasFilters
               ? 'Try a different search or clear your filters.'
-              : 'Start by adding the first animal in your care.'
+              : 'Add animals before building a checklist.'
           }
-          actionLabel={hasFilters ? undefined : 'Add animal'}
-          actionTo={hasFilters ? undefined : '/animals/new'}
         />
       ) : (
         <div className={listClassName}>
-          {animals.map((animal) => (
-            <div key={animal.id} className="animal-card-selectable">
-              <AnimalCard
-                animal={animal}
-                photoUrl={photoUrls[animal.id]}
-                hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
-                variant={view}
-              />
-            </div>
-          ))}
+          {animals.map((animal) => {
+            const selected = selectedIds.has(animal.id)
+            return (
+              <div
+                key={animal.id}
+                className={`animal-card-selectable animal-card-selectable--enabled${isListView ? ' animal-card-selectable--list' : ''}${selected ? ' animal-card-selectable--selected' : ''}`}
+                aria-selected={selected}
+                onClickCapture={(event) => {
+                  event.preventDefault()
+                  toggleAnimal(animal.id)
+                }}
+              >
+                <AnimalCard
+                  animal={animal}
+                  photoUrl={photoUrls[animal.id]}
+                  hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
+                  variant={view}
+                />
+                <span className="animal-card-selectable__indicator" aria-hidden>
+                  {selected ? <Check size={18} weight="bold" /> : null}
+                </span>
+              </div>
+            )
+          })}
         </div>
       )}
+
+      <div className="animal-selection-actions animal-selection-actions--bottom">
+        {selectionActions}
+      </div>
+
+      <MoraleToast message={toast} onDone={() => setToast(null)} />
     </section>
   )
 }

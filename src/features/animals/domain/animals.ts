@@ -1,5 +1,7 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
 import { nextShelterId } from '@/shared/lib/ids/shelterId'
+import { localDateString } from '@/shared/lib/checklist/missedStreak'
+import { arrivalTimestampFromIntakeDate } from '@/shared/lib/dates'
 import type { AnimalRecord } from '@/features/sync/powersync/schema'
 import { removeChecklistItemForAnimal } from '@/features/checklist/domain/checklist'
 import { addTreatment } from '@/features/treatments/domain/treatments'
@@ -51,8 +53,9 @@ export async function createAnimal(
     codes.map((c) => c.shelter_code),
   )
   const id = crypto.randomUUID()
-  const now = new Date().toISOString()
-  const intake_date = input.intakeDate ?? now.slice(0, 10)
+  const nowDate = new Date()
+  const now = nowDate.toISOString()
+  const intake_date = input.intakeDate ?? localDateString(nowDate)
 
   const notes = input.notes?.trim() || null
 
@@ -88,7 +91,7 @@ export async function createAnimal(
     animalId: id,
     treatmentType: 'arrived',
     notes: notes ?? undefined,
-    treatedAt: `${intake_date}T12:00:00.000Z`,
+    treatedAt: arrivalTimestampFromIntakeDate(intake_date, nowDate),
   })
 
   const created = await getAnimal(db, id)
@@ -226,11 +229,14 @@ export async function updateAnimalStatus(
 
 export type UpdateAnimalInput = {
   species: string
-  statusIds: string[]
   name?: string
   sex?: string
   markings?: string
+  /** When omitted, existing statuses are left unchanged. */
+  statusIds?: string[]
+  /** When omitted, animal notes and the arrival care note are left unchanged. */
   notes?: string
+  /** When omitted, intake date and arrival timestamp are left unchanged. */
   intakeDate?: string
 }
 
@@ -240,7 +246,7 @@ export async function updateAnimal(
   id: string,
   input: UpdateAnimalInput,
 ): Promise<void> {
-  if (input.statusIds.length === 0) {
+  if (input.statusIds && input.statusIds.length === 0) {
     throw new Error('At least one status is required.')
   }
 
@@ -248,9 +254,15 @@ export async function updateAnimal(
   if (!existing) throw new Error('Animal not found')
 
   const now = new Date().toISOString()
-  const notes = input.notes?.trim() || null
-  const intake_date =
-    input.intakeDate ?? existing.intake_date ?? now.slice(0, 10)
+  const touchNotes = input.notes !== undefined
+  const touchIntakeDate = input.intakeDate !== undefined
+  const notes = touchNotes
+    ? input.notes?.trim() || null
+    : (existing.notes ?? null)
+  const intake_date = touchIntakeDate
+    ? (input.intakeDate ?? existing.intake_date ?? localDateString())
+    : (existing.intake_date ?? localDateString())
+  const intakeDateChanged = intake_date !== existing.intake_date
   await db.execute(
     `UPDATE animals SET
       name = ?,
@@ -274,24 +286,31 @@ export async function updateAnimal(
   )
 
   if (!existing.org_id) throw new Error('Animal organization not found')
-  await replaceAnimalStatuses(db, {
-    orgId: existing.org_id,
-    animalId: id,
-    statusIds: input.statusIds,
-  })
+  if (input.statusIds) {
+    await replaceAnimalStatuses(db, {
+      orgId: existing.org_id,
+      animalId: id,
+      statusIds: input.statusIds,
+    })
+  }
 
-  // Keep the arrival care note in sync with intake date / notes.
-  const arrivalRows = await db.getAll<{ id: string }>(
-    `SELECT id FROM treatments
+  // Keep the arrival care note in sync only when arrival fields change.
+  if (!touchNotes && !touchIntakeDate) return
+
+  const arrivalRows = await db.getAll<{ id: string; treated_at: string }>(
+    `SELECT id, treated_at FROM treatments
      WHERE animal_id = ? AND treatment_type IN ('arrived', 'intake')
      ORDER BY created_at ASC`,
     [id],
   )
-  const arrivalId = arrivalRows[0]?.id
-  if (arrivalId) {
+  const arrival = arrivalRows[0]
+  const arrivalTreatedAt = intakeDateChanged
+    ? arrivalTimestampFromIntakeDate(intake_date)
+    : (arrival?.treated_at ?? arrivalTimestampFromIntakeDate(intake_date))
+  if (arrival) {
     await db.execute(
       `UPDATE treatments SET notes = ?, treated_at = ?, treatment_type = 'arrived' WHERE id = ?`,
-      [notes, `${intake_date}T12:00:00.000Z`, arrivalId],
+      [notes, arrivalTreatedAt, arrival.id],
     )
   } else if (existing.org_id) {
     await addTreatment(db, {
@@ -299,10 +318,9 @@ export async function updateAnimal(
       animalId: id,
       treatmentType: 'arrived',
       notes: notes ?? undefined,
-      treatedAt: `${intake_date}T12:00:00.000Z`,
+      treatedAt: arrivalTreatedAt,
     })
   }
-
 }
 
 /** Soft-delete: hides the animal from lists while keeping history syncable. */

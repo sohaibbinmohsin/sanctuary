@@ -12,7 +12,7 @@ import { supabase, supabaseConfigured } from '@/shared/lib/supabase'
 const playground = isPlaygroundPath(window.location.pathname)
 
 /** First path segments owned by the signed-in app shell, so /:slug can still resolve to it. */
-const APP_ROOTS = new Set(['animals', 'ledger', 'dashboard', 'settings'])
+const APP_ROOTS = new Set(['animals', 'ledger', 'dashboard', 'settings', 'checklist'])
 
 /**
  * Signed-in staff may still want to preview a donor-facing `/{slug}` page.

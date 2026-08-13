@@ -38,6 +38,13 @@ export function AnimalsFiltersScreen() {
   )
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
 
+  const returnTo =
+    new URLSearchParams(location.search).get('return') === 'add-to-checklist'
+      ? '/animals/add-to-checklist'
+      : '/animals'
+  const backLabel =
+    returnTo === '/animals/add-to-checklist' ? 'Add to checklist' : 'Animals'
+
   useEffect(() => {
     if (!db || !member) return
     void listStatuses(db, member.orgId).then(setStatuses)
@@ -57,7 +64,7 @@ export function AnimalsFiltersScreen() {
     // Keep list-page search (`q`); filters screen does not edit it.
     const query = parseAnimalFilterParams(location.search).query
     navigate(
-      `/animals${serializeAnimalFilterParams({ ...filters, query })}`,
+      `${returnTo}${serializeAnimalFilterParams({ ...filters, query })}`,
     )
   }
 
@@ -66,8 +73,8 @@ export function AnimalsFiltersScreen() {
       <PageHeader
         title="Filter animals"
         subtitle="Choose which animals appear in the list"
-        backTo="/animals"
-        backLabel="Animals"
+        backTo={returnTo}
+        backLabel={backLabel}
       />
 
       <form className="panel stack stack--loose" onSubmit={applyFilters}>
@@ -152,7 +159,7 @@ export function AnimalsFiltersScreen() {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => navigate('/animals')}
+            onClick={() => navigate(returnTo)}
           >
             Clear
           </Button>

@@ -1,13 +1,14 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { Trash } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   createAnimal,
   getAnimal,
   updateAnimal,
+  archiveAnimal,
 } from '@/features/animals/domain/animals'
 import { listStatuses, type AnimalStatus } from '@/features/statuses/domain/statuses'
-import { listAssignmentsForAnimal } from '@/features/statuses/domain/assignments'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { INTAKE_MESSAGES, pickMessage } from '@/shared/lib/morale/messages'
 import { MoraleToast } from '@/shared/ui/MoraleToast'
@@ -17,6 +18,7 @@ import { TextareaField, TextField } from '@/shared/ui/Field'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import { StatusMultiSelect } from '@/features/animals/components/StatusMultiSelect'
+import { deletePhotosForAnimal } from '@/features/photos/domain/photos'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
 
@@ -54,20 +56,19 @@ export function AnimalIntakeScreen() {
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const [loading, setLoading] = useState(isEdit)
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
-    if (!db || !member) return
+    if (!db || !member || isEdit) return
     void listStatuses(db, member.orgId).then((rows) => {
       setStatuses(rows)
-      if (!isEdit) {
-        const firstInCare = rows.find((row) => row.counts_as_in_care === 1)
-        if (firstInCare) {
-          setStatusIds((current) =>
-            current.length > 0 ? current : [firstInCare.id],
-          )
-        }
+      const firstInCare = rows.find((row) => row.counts_as_in_care === 1)
+      if (firstInCare) {
+        setStatusIds((current) =>
+          current.length > 0 ? current : [firstInCare.id],
+        )
       }
     })
   }, [db, member, isEdit])
@@ -81,10 +82,7 @@ export function AnimalIntakeScreen() {
     setLoading(true)
     void (async () => {
       try {
-        const [animal, assignments] = await Promise.all([
-          getAnimal(db, animalId),
-          listAssignmentsForAnimal(db, animalId),
-        ])
+        const animal = await getAnimal(db, animalId)
         if (cancelled) return
         if (!animal || animal.org_id !== member.orgId || animal.archived) {
           setNotFound(true)
@@ -93,20 +91,9 @@ export function AnimalIntakeScreen() {
         const { preset, other } = splitSpecies(animal.species)
         setSpeciesPreset(preset)
         setSpeciesOther(other)
-        setStatusIds(
-          assignments.length > 0
-            ? assignments.map((assignment) => assignment.status_id)
-            : animal.status_id
-              ? [animal.status_id]
-              : [],
-        )
         setName(animal.name ?? '')
         setSex(animal.sex ?? '')
         setMarkings(animal.markings ?? '')
-        setNotes(animal.notes ?? '')
-        setIntakeDate(
-          animal.intake_date ?? new Date().toISOString().slice(0, 10),
-        )
         setShelterCode(animal.shelter_code)
       } catch (err) {
         console.warn('Failed to load animal for edit', err)
@@ -133,27 +120,53 @@ export function AnimalIntakeScreen() {
     if (ok) setStatusIds([exitId])
   }
 
+  async function onRemoveAnimal() {
+    if (!db || !animalId || removing) return
+    const label = shelterCode || name.trim() || 'this animal'
+    const ok = await confirm({
+      title: `Remove ${label}?`,
+      body: 'They will leave your Animals list. Use this if the record was added by mistake.',
+      confirmLabel: 'Remove animal',
+      tone: 'danger',
+    })
+    if (!ok) return
+    setRemoving(true)
+    setError(null)
+    try {
+      await deletePhotosForAnimal(db, animalId)
+      await archiveAnimal(db, animalId)
+      navigate('/animals', { replace: true })
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not remove animal. Try again.',
+      )
+      setRemoving(false)
+    }
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!db || !member) return
     setBusy(true)
     setError(null)
     try {
-      if (!species || statusIds.length === 0) {
-        throw new Error('Please choose an animal type and status.')
+      if (!species) {
+        throw new Error('Please choose an animal type.')
       }
       if (isEdit && animalId) {
         await updateAnimal(db, animalId, {
           species,
-          statusIds,
           name,
           sex,
           markings,
-          notes,
-          intakeDate,
         })
         navigate(`/animals/${animalId}`, { replace: true })
         return
+      }
+      if (statusIds.length === 0) {
+        throw new Error('Please choose an animal type and status.')
       }
       const animal = await createAnimal(db, {
         orgId: member.orgId,
@@ -199,14 +212,14 @@ export function AnimalIntakeScreen() {
   }
 
   return (
-    <section className="screen">
+    <section className="screen screen--sticky-footer">
       <PageHeader
         title={isEdit ? 'Edit animal' : 'Add an animal'}
         subtitle={
           isEdit
             ? shelterCode
               ? `Shelter ID ${shelterCode} stays the same.`
-              : 'Update their details.'
+              : 'Update who they are.'
             : "We'll create a shelter ID when you save."
         }
         backTo={isEdit && animalId ? `/animals/${animalId}` : '/animals'}
@@ -275,41 +288,52 @@ export function AnimalIntakeScreen() {
           />
         </div>
 
-        <div className="panel stack">
-          <p className="section-label">Arrival</p>
-          <StatusMultiSelect
-            statuses={statuses}
-            value={statusIds}
-            onChange={setStatusIds}
-            onRequestExit={(exitId) => void onRequestExit(exitId)}
-          />
-          <TextField
-            label="Date arrived"
-            type="date"
-            value={intakeDate}
-            onChange={(e) => setIntakeDate(e.target.value)}
-          />
-          <TextareaField
-            label="Notes"
-            hint="optional — saved to the care log"
-            rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Anything helpers should know"
-          />
-          {isEdit ? null : (
+        {isEdit ? null : (
+          <div className="panel stack">
+            <p className="section-label">Arrival</p>
+            <StatusMultiSelect
+              statuses={statuses}
+              value={statusIds}
+              onChange={setStatusIds}
+              onRequestExit={(exitId) => void onRequestExit(exitId)}
+            />
+            <TextField
+              label="Date arrived"
+              type="date"
+              value={intakeDate}
+              onChange={(e) => setIntakeDate(e.target.value)}
+            />
+            <TextareaField
+              label="Notes"
+              hint="optional — saved to the care log"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Anything helpers should know"
+            />
             <p className="muted">You can add photos on the next screen after saving.</p>
-          )}
-        </div>
+          </div>
+        )}
 
         {error ? <p className="form-error">{error}</p> : null}
 
-        <div className="sticky-actions">
+        <div className="sticky-actions sticky-actions--split">
+          {isEdit ? (
+            <Button
+              type="button"
+              variant="danger-outline"
+              disabled={busy || removing}
+              onClick={() => void onRemoveAnimal()}
+            >
+              <Trash size={18} weight="bold" aria-hidden />
+              {removing ? 'Removing…' : 'Remove animal'}
+            </Button>
+          ) : null}
           <Button
             type="submit"
             variant="accent"
-            block
-            disabled={busy || !member}
+            block={!isEdit}
+            disabled={busy || removing || !member}
           >
             {busy ? 'Saving…' : isEdit ? 'Save changes' : 'Save animal'}
           </Button>

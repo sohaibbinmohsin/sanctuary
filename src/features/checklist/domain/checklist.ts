@@ -58,6 +58,18 @@ export async function addAnimalsToChecklist(
   }
 }
 
+export async function isAnimalOnChecklist(
+  db: SanctuaryDb,
+  orgId: string,
+  animalId: string,
+): Promise<boolean> {
+  const row = await db.getOptional<{ animal_id: string }>(
+    `SELECT animal_id FROM checklist_items WHERE org_id = ? AND animal_id = ?`,
+    [orgId, animalId],
+  )
+  return Boolean(row)
+}
+
 export async function removeFromChecklist(
   db: SanctuaryDb,
   input: { orgId: string; animalId: string },

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Eye } from '@phosphor-icons/react'
 import {
   countChecklistOverdue,
   listChecklist,
@@ -112,26 +113,25 @@ export function OverviewChecklistCard() {
 
   return (
     <section className="overview-panel" aria-labelledby="overview-checklist-title">
-      <div
-        className="row"
-        style={{
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '0.75rem',
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="overview-panel__header row">
         <h2 id="overview-checklist-title" style={{ margin: 0 }}>
           Checklist
         </h2>
-        {overdueCount >= 1 ? (
-          <StatusBadge
-            label={
-              overdueCount === 1 ? '1 overdue' : `${overdueCount} overdue`
-            }
-            tone="amber"
-          />
-        ) : null}
+        <div className="row" style={{ gap: '0.5rem' }}>
+          {overdueCount >= 1 ? (
+            <StatusBadge
+              label={
+                overdueCount === 1 ? '1 overdue' : `${overdueCount} overdue`
+              }
+              tone="amber"
+            />
+          ) : null}
+          {rows.length > 0 ? (
+            <Button to="/checklist" variant="secondary">
+              View all
+            </Button>
+          ) : null}
+        </div>
       </div>
       <p className="muted overview-panel__lede">
         Today’s care list. Overdue animals need a check.
@@ -160,8 +160,8 @@ export function OverviewChecklistCard() {
         <>
           <p className="muted">No animals on the checklist yet.</p>
           <div className="row" style={{ marginTop: '1rem' }}>
-            <Button to="/animals" variant="secondary">
-              Add from Animals
+            <Button to="/checklist" variant="secondary">
+              Open checklist
             </Button>
           </div>
         </>
@@ -201,14 +201,21 @@ export function OverviewChecklistCard() {
                       ) : null}
                     </span>
                   </label>
+                  <div className="list-item__actions">
+                    <Button
+                      to={`/animals/${row.id}`}
+                      state={{ backTo: '/dashboard', backLabel: 'Overview' }}
+                      variant="ghost"
+                      className="btn--icon"
+                      aria-label={`View ${label}`}
+                      title="View animal"
+                    >
+                      <Eye size={18} weight="bold" aria-hidden />
+                    </Button>
+                  </div>
                 </div>
               )
             })}
-          </div>
-          <div className="row" style={{ marginTop: '1rem' }}>
-            <Button to="/checklist" variant="secondary">
-              View all
-            </Button>
           </div>
         </>
       )}

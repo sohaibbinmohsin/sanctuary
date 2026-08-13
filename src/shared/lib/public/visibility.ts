@@ -1,4 +1,5 @@
 import { compareCareNewestFirst, isArrivalCareType } from '@/shared/lib/public/format'
+import { arrivalTimestampFromIntakeDate } from '@/shared/lib/dates'
 
 export type PublicPhotoDto = {
   id: string
@@ -106,7 +107,7 @@ export function buildPublicShelterDto(input: PublicShelterInput): PublicShelterD
               id: `${animal.id}-arrived`,
               treatedAt: intakeDate.includes('T')
                 ? intakeDate
-                : `${intakeDate}T12:00:00.000Z`,
+                : arrivalTimestampFromIntakeDate(intakeDate),
               treatmentType: 'arrived',
               notes: null,
             })

@@ -1,11 +1,16 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@powersync/react'
-import { ArrowLeft, Camera, PencilSimple, Trash } from '@phosphor-icons/react'
+import {
+  ArrowLeft,
+  Camera,
+  ListChecks,
+  PencilSimple,
+  Trash,
+} from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   getAnimal,
-  archiveAnimal,
   type AnimalWithStatus,
 } from '@/features/animals/domain/animals'
 import { listStatuses, type AnimalStatus } from '@/features/statuses/domain/statuses'
@@ -32,12 +37,17 @@ import { SelectField, TextareaField, TextField } from '@/shared/ui/Field'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import {
   deletePhoto,
-  deletePhotosForAnimal,
   getLocalPhoto,
 } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import { StatusMultiSelect } from '@/features/animals/components/StatusMultiSelect'
+import {
+  addAnimalsToChecklist,
+  isAnimalOnChecklist,
+  removeFromChecklist,
+} from '@/features/checklist/domain/checklist'
+import { formatCareTimestamp } from '@/shared/lib/dates'
 
 const TREATMENT_LABELS: Record<TreatmentType, string> = {
   meds: 'Medicine',
@@ -77,6 +87,12 @@ async function resolvePhotoUrl(photo: PhotoRecord): Promise<string | null> {
 export function AnimalDetailScreen() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const backState = location.state as
+    | { backTo?: string; backLabel?: string }
+    | null
+  const backTo = backState?.backTo || '/animals'
+  const backLabel = backState?.backLabel || 'Animals'
   const db = useDb()
   const { member } = useCurrentMember()
   const confirm = useConfirm()
@@ -103,7 +119,8 @@ export function AnimalDetailScreen() {
   const [toast, setToast] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [deletingPhoto, setDeletingPhoto] = useState(false)
-  const [removingAnimal, setRemovingAnimal] = useState(false)
+  const [onChecklist, setOnChecklist] = useState(false)
+  const [checklistBusy, setChecklistBusy] = useState(false)
 
   async function reload() {
     if (!db || !id) return
@@ -115,11 +132,14 @@ export function AnimalDetailScreen() {
     setAnimal(nextAnimal)
     setTreatments(nextTreatments)
     setStatusIds(assignments.map((assignment) => assignment.status_id))
+    if (member) {
+      setOnChecklist(await isAnimalOnChecklist(db, member.orgId, id))
+    }
   }
 
   useEffect(() => {
     void reload()
-  }, [db, id])
+  }, [db, id, member?.orgId])
 
   // Resolve display URLs whenever PowerSync brings new photo rows / r2 keys.
   useEffect(() => {
@@ -263,40 +283,54 @@ export function AnimalDetailScreen() {
     }
   }
 
-  async function onRemoveAnimal() {
-    if (!db || !animal) return
-    const label = animal.shelter_code || animal.name || 'this animal'
-    const ok = await confirm({
-      title: `Remove ${label}?`,
-      body: 'They will leave your Animals list. Use this if the record was added by mistake.',
-      confirmLabel: 'Remove animal',
-      tone: 'danger',
-    })
-    if (!ok) return
-    setRemovingAnimal(true)
+  async function onToggleChecklist() {
+    if (!db || !member || !animal || checklistBusy) return
+    setChecklistBusy(true)
+    setError(null)
     try {
-      await deletePhotosForAnimal(db, animal.id)
-      await archiveAnimal(db, animal.id)
-      navigate('/animals', { replace: true })
+      if (onChecklist) {
+        await removeFromChecklist(db, {
+          orgId: member.orgId,
+          animalId: animal.id,
+        })
+        setOnChecklist(false)
+        setToast('Removed from checklist')
+      } else {
+        await addAnimalsToChecklist(db, {
+          orgId: member.orgId,
+          animalIds: [animal.id],
+          addedBy: member.userId,
+        })
+        setOnChecklist(true)
+        setToast('Added to checklist')
+      }
     } catch (err) {
+      console.warn('Checklist toggle failed', err)
       setError(
         err instanceof Error
           ? err.message
-          : 'Could not remove animal. Try again.',
+          : onChecklist
+            ? 'Could not remove from checklist. Try again.'
+            : 'Could not add to checklist. Try again.',
       )
-      setRemovingAnimal(false)
+    } finally {
+      setChecklistBusy(false)
     }
   }
 
   async function onSaveTreatment(e: FormEvent) {
     e.preventDefault()
     if (!db || !member || !id) return
+    if (!notes.trim()) {
+      setError('Add a note before saving.')
+      return
+    }
     setError(null)
     try {
       if (editingTreatmentId) {
         await updateTreatment(db, editingTreatmentId, {
           treatmentType,
-          notes,
+          notes: notes.trim(),
           treatedAt: new Date(treatedAt).toISOString(),
           hideFromPublic,
         })
@@ -306,7 +340,7 @@ export function AnimalDetailScreen() {
           orgId: member.orgId,
           animalId: id,
           treatmentType,
-          notes,
+          notes: notes.trim(),
           treatedAt: new Date(treatedAt).toISOString(),
           hideFromPublic,
         })
@@ -341,12 +375,15 @@ export function AnimalDetailScreen() {
     editingTreatmentId && SYSTEM_CARE_TYPES.includes(treatmentType)
       ? [treatmentType, ...CARE_FORM_TYPES]
       : CARE_FORM_TYPES
+  const detailMeta = [animal.species, animal.sex, animal.markings]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
     <section className="screen">
-      <Link className="back-link" to="/animals">
+      <Link className="back-link" to={backTo}>
         <ArrowLeft size={18} weight="bold" aria-hidden />
-        Animals
+        {backLabel}
       </Link>
 
       <div className="detail-hero">
@@ -488,24 +525,18 @@ export function AnimalDetailScreen() {
                 <PencilSimple size={18} weight="bold" aria-hidden />
               </Button>
             </div>
-            <p
-              className={
-                animal.name?.trim()
-                  ? 'detail-hero__title shelter-code'
-                  : 'detail-hero__title'
-              }
-            >
-              {animal.name?.trim()
-                ? animal.shelter_code
-                : animal.species}
-            </p>
+            {animal.name?.trim() ? (
+              <p className="detail-hero__title shelter-code">
+                {animal.shelter_code}
+              </p>
+            ) : null}
           </div>
 
-          <p className="muted" style={{ margin: 0 }}>
-            {[animal.species, animal.sex, animal.markings]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
+          {detailMeta ? (
+            <p className="muted" style={{ margin: 0 }}>
+              {detailMeta}
+            </p>
+          ) : null}
 
           <StatusMultiSelect
             statuses={statuses}
@@ -513,6 +544,45 @@ export function AnimalDetailScreen() {
             onChange={(nextIds) => void onStatusChange(nextIds)}
             onRequestExit={(exitId) => void onRequestExit(exitId)}
           />
+
+          {member ? (
+            <div className="animal-checklist-actions">
+              <p className="animal-checklist-actions__heading">Checklist</p>
+              <div className="animal-checklist-actions__row">
+                {onChecklist ? (
+                  <Button
+                    type="button"
+                    variant="danger-outline"
+                    disabled={checklistBusy}
+                    onClick={() => void onToggleChecklist()}
+                  >
+                    <Trash size={18} weight="bold" aria-hidden />
+                    {checklistBusy ? 'Removing…' : 'Remove from checklist'}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="accent"
+                    disabled={checklistBusy}
+                    onClick={() => void onToggleChecklist()}
+                  >
+                    <ListChecks size={18} weight="bold" aria-hidden />
+                    {checklistBusy ? 'Adding…' : 'Add to checklist'}
+                  </Button>
+                )}
+                <Button
+                  to="/checklist"
+                  state={{
+                    backTo: `/animals/${animal.id}`,
+                    backLabel: animal.name?.trim() || animal.shelter_code || 'Animal',
+                  }}
+                  variant="secondary"
+                >
+                  View checklist
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -549,6 +619,7 @@ export function AnimalDetailScreen() {
           <TextareaField
             label="Notes"
             rows={3}
+            required
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="What was done, medicine given, next steps…"
@@ -563,7 +634,7 @@ export function AnimalDetailScreen() {
           </label>
           {error ? <p className="form-error">{error}</p> : null}
           <div className="row">
-            <Button type="submit" variant="primary">
+            <Button type="submit" variant="primary" disabled={!notes.trim()}>
               {editingTreatmentId ? 'Save changes' : 'Save care note'}
             </Button>
             <Button type="button" variant="ghost" onClick={resetCareForm}>
@@ -593,7 +664,7 @@ export function AnimalDetailScreen() {
                     <div>{title}</div>
                     <span className="muted">
                       {t.treated_at
-                        ? new Date(t.treated_at).toLocaleString()
+                        ? formatCareTimestamp(t.treated_at)
                         : 'Unknown date'}
                     </span>
                   </>
@@ -602,10 +673,12 @@ export function AnimalDetailScreen() {
                     <strong>{title}</strong>{' '}
                     <span className="muted">
                       {t.treated_at
-                        ? new Date(t.treated_at).toLocaleString()
+                        ? formatCareTimestamp(t.treated_at)
                         : 'Unknown date'}
                     </span>
-                    {t.notes ? <div>{t.notes}</div> : null}
+                    {t.notes?.trim() ? (
+                      <div className="list-item__notes">{t.notes}</div>
+                    ) : null}
                   </>
                 )}
               </div>
@@ -622,15 +695,17 @@ export function AnimalDetailScreen() {
                 >
                   <PencilSimple size={18} weight="bold" aria-hidden />
                 </Button>
-                <Button
-                  type="button"
-                  variant="danger-ghost"
-                  className="btn--icon"
-                  aria-label="Delete care note"
-                  onClick={() => void onDeleteTreatment(t.id)}
-                >
-                  <Trash size={18} weight="bold" aria-hidden />
-                </Button>
+                {isArrivalTreatmentType(type) ? null : (
+                  <Button
+                    type="button"
+                    variant="danger-ghost"
+                    className="btn--icon"
+                    aria-label="Delete care note"
+                    onClick={() => void onDeleteTreatment(t.id)}
+                  >
+                    <Trash size={18} weight="bold" aria-hidden />
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -647,10 +722,12 @@ export function AnimalDetailScreen() {
                 <strong>{TREATMENT_LABELS.arrived}</strong>{' '}
                 <span className="muted">
                   {animal.intake_date
-                    ? new Date(`${animal.intake_date}T12:00:00`).toLocaleString()
+                    ? formatCareTimestamp(`${animal.intake_date}T12:00:00`)
                     : 'Arrival'}
                 </span>
-                {animal.notes?.trim() ? <div>{animal.notes}</div> : null}
+                {animal.notes?.trim() ? (
+                  <div className="list-item__notes">{animal.notes}</div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -660,21 +737,6 @@ export function AnimalDetailScreen() {
         ) : null}
       </div>
 
-      <div className="danger-zone">
-        <p className="section-label">Remove animal</p>
-        <p className="muted">
-          Use this if this record was added by mistake. It will leave your Animals list.
-        </p>
-        <Button
-          type="button"
-          variant="danger-outline"
-          disabled={removingAnimal}
-          onClick={() => void onRemoveAnimal()}
-        >
-          <Trash size={18} weight="bold" aria-hidden />
-          {removingAnimal ? 'Removing…' : 'Remove animal'}
-        </Button>
-      </div>
       <MoraleToast message={toast} onDone={() => setToast(null)} />
     </section>
   )
