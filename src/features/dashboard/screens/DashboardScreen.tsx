@@ -275,7 +275,7 @@ export function DashboardScreen() {
       >
         <div className="overview-panel__header row">
           <div className="overview-panel__heading">
-            <h2 id="overview-summary-title" style={{ margin: 0 }}>
+            <h2 id="overview-summary-title">
               Summary
             </h2>
             <p className="muted overview-panel__lede">

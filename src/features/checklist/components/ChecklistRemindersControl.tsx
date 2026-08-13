@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { X } from '@phosphor-icons/react'
 import {
   disableChecklistPush,
   enableChecklistPush,
@@ -13,6 +14,8 @@ type ChecklistRemindersControlProps = {
   layout?: 'inline' | 'dock'
   /** Fired after status resolves / changes (dock uses this to hide when on). */
   onStatusChange?: (status: ChecklistPushStatus) => void
+  /** Dock only: hide the card (reminders stay available in Settings). */
+  onDismiss?: () => void
 }
 
 function RemindersExplainer() {
@@ -34,6 +37,7 @@ export function ChecklistRemindersControl({
   className,
   layout = 'inline',
   onStatusChange,
+  onDismiss,
 }: ChecklistRemindersControlProps) {
   const [status, setStatus] = useState<ChecklistPushStatus | null>(null)
   const [busy, setBusy] = useState(false)
@@ -162,7 +166,19 @@ export function ChecklistRemindersControl({
   return (
     <div className={rootClass}>
       {layout === 'dock' ? (
-        <p className="checklist-reminders-dock__title">Checklist reminders</p>
+        <div className="checklist-reminders-dock__head">
+          <p className="checklist-reminders-dock__title">Checklist reminders</p>
+          {onDismiss ? (
+            <button
+              type="button"
+              className="checklist-reminders-dock__close"
+              aria-label="Hide reminders. You can enable them later in Settings."
+              onClick={onDismiss}
+            >
+              <X size={18} weight="bold" aria-hidden />
+            </button>
+          ) : null}
+        </div>
       ) : null}
       <RemindersExplainer />
       {action}

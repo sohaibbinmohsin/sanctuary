@@ -317,7 +317,7 @@ export function AnimalIntakeScreen() {
 
         {error ? <p className="form-error">{error}</p> : null}
 
-        <div className="sticky-actions sticky-actions--split">
+        <div className={`sticky-actions${isEdit ? ' sticky-actions--split' : ''}`}>
           {isEdit ? (
             <Button
               type="button"

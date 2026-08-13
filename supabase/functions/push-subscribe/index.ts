@@ -5,6 +5,7 @@
 //
 // Body: POST { endpoint: string, keys: { p256dh: string, auth: string } }
 //   (PushSubscription.toJSON() shape; flat { endpoint, p256dh, auth } also accepted)
+// POST { action: 'unsubscribe', endpoint: string }  (preferred; avoids browser CORS on DELETE)
 // DELETE { endpoint: string }
 // - Auth: user JWT required; caller must have an `org_members` row
 // - 200: { ok: true }
@@ -16,6 +17,7 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
 }
 
 function jsonResponse(body: unknown, status: number) {
@@ -28,6 +30,7 @@ function jsonResponse(body: unknown, status: number) {
 const unauthorized = () => jsonResponse({ error: 'Unauthorized' }, 401)
 
 type SubscribeBody = {
+  action?: string
   endpoint?: string
   p256dh?: string
   auth?: string
@@ -91,7 +94,13 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'endpoint is required' }, 400)
     }
 
-    if (req.method === 'DELETE') {
+    const action = body.action?.trim().toLowerCase()
+    const isUnsubscribe =
+      req.method === 'DELETE' ||
+      action === 'unsubscribe' ||
+      action === 'delete'
+
+    if (isUnsubscribe) {
       const { error: deleteError } = await admin
         .from('push_subscriptions')
         .delete()
