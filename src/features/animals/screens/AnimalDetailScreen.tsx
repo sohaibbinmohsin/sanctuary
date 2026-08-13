@@ -610,27 +610,29 @@ export function AnimalDetailScreen() {
                 )}
               </div>
             </div>
-            <div className="list-item__actions">
-              <Button
-                type="button"
-                variant="ghost"
-                className="btn--icon"
-                aria-label="Edit care note"
-                title="Edit"
-                onClick={() => openEditCareForm(t)}
-              >
-                <PencilSimple size={18} weight="bold" aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                variant="danger-ghost"
-                className="btn--icon"
-                aria-label="Delete care note"
-                onClick={() => void onDeleteTreatment(t.id)}
-              >
-                <Trash size={18} weight="bold" aria-hidden />
-              </Button>
-            </div>
+            {type === 'status' ? null : (
+              <div className="list-item__actions">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="btn--icon"
+                  aria-label="Edit care note"
+                  title="Edit"
+                  onClick={() => openEditCareForm(t)}
+                >
+                  <PencilSimple size={18} weight="bold" aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger-ghost"
+                  className="btn--icon"
+                  aria-label="Delete care note"
+                  onClick={() => void onDeleteTreatment(t.id)}
+                >
+                  <Trash size={18} weight="bold" aria-hidden />
+                </Button>
+              </div>
+            )}
           </div>
           )
         })}
