@@ -8,7 +8,6 @@ import {
   serializeAnimalFilterParams,
 } from '@/shared/lib/animals/filterParams'
 import { Button } from '@/shared/ui/Button'
-import { TextField } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { SelectField } from '@/shared/ui/SelectField'
 
@@ -55,7 +54,11 @@ export function AnimalsFiltersScreen() {
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    navigate(`/animals${serializeAnimalFilterParams(filters)}`)
+    // Keep list-page search (`q`); filters screen does not edit it.
+    const query = parseAnimalFilterParams(location.search).query
+    navigate(
+      `/animals${serializeAnimalFilterParams({ ...filters, query })}`,
+    )
   }
 
   return (
@@ -68,19 +71,6 @@ export function AnimalsFiltersScreen() {
       />
 
       <form className="panel stack stack--loose" onSubmit={applyFilters}>
-        <TextField
-          label="Search"
-          type="search"
-          value={filters.query}
-          placeholder="Search by ID or name"
-          onChange={(event) =>
-            setFilters((current) => ({
-              ...current,
-              query: event.target.value,
-            }))
-          }
-        />
-
         <fieldset className="status-multi-select">
           <legend>Status</legend>
           <div
