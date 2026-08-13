@@ -90,6 +90,11 @@ export function StatusMultiSelect({
     applyDraft(draftRef.current)
   }
 
+  function closeAndDiscard() {
+    setOpen(false)
+    setDraft(valueRef.current)
+  }
+
   function remove(statusId: string) {
     if (value.length === 1) return
     onChange(value.filter((id) => id !== statusId))
@@ -110,14 +115,15 @@ export function StatusMultiSelect({
     if (!open) return
 
     function onPointer(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) {
-        applyDraft(draftRef.current)
-      }
+      const target = e.target as Node
+      // Ignore clicks inside the picker (Add control + panel).
+      if (rootRef.current?.contains(target)) return
+      closeAndDiscard()
     }
 
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        applyDraft(draftRef.current)
+        closeAndDiscard()
       }
     }
 
