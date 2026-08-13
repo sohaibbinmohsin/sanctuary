@@ -8,9 +8,13 @@ import {
   listStatuses,
   renameStatus,
   reorderStatuses,
-  setStatusInCare,
   type AnimalStatus,
 } from '@/features/statuses/domain/statuses'
+import {
+  applyCountsAsInCareChange,
+  countAnimalsWithStatusAndOthers,
+  setStatusOutOfCareWithStrip,
+} from '@/features/settings/domain/statusInCare'
 import {
   archiveLedgerCategory,
   createLedgerCategory,
@@ -21,9 +25,6 @@ import {
 } from '@/features/ledger/domain/ledger'
 import type { LedgerCategoryRecord } from '@/features/sync/powersync/schema'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
-import { getSupportEmail } from '@/shared/lib/supabase'
-import { supabaseConnector } from '@/features/sync/powersync/connector'
-import { disconnectPowerSync } from '@/features/sync/powersync/database'
 import { animalsToCsv, ledgerToCsv, treatmentsToCsv } from '@/shared/lib/export/csv'
 import { buildExportZip } from '@/shared/lib/export/zipImages'
 import {
@@ -49,15 +50,18 @@ import { SelectField } from '@/shared/ui/SelectField'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import { InstallAppCard } from '@/shared/ui/InstallAppCard'
 import { isPlaygroundMode } from '@/features/playground/mode'
-import { resetPlaygroundSeed } from '@/features/playground/seed'
-import { getPowerSyncDb } from '@/features/sync/powersync/database'
+import { ChecklistRemindersControl } from '@/features/checklist/components/ChecklistRemindersControl'
 import { SortableStatusList } from '@/features/settings/components/SortableStatusList'
+import {
+  SettingsCardHead,
+  SettingsCatalog,
+} from '@/features/settings/components/SettingsCardHead'
+import { HelpAndAccount } from '@/features/settings/components/HelpAndAccount'
 
 export function SettingsScreen() {
   const db = useDb()
   const { member } = useCurrentMember()
   const confirm = useConfirm()
-  const supportEmail = getSupportEmail()
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
   const [categories, setCategories] = useState<LedgerCategoryRecord[]>([])
   const [newStatus, setNewStatus] = useState('')
@@ -72,6 +76,8 @@ export function SettingsScreen() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoBusy, setLogoBusy] = useState(false)
   const [logoError, setLogoError] = useState<string | null>(null)
+  const [partnerName, setPartnerName] = useState('')
+  const [partnerNameError, setPartnerNameError] = useState<string | null>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
   const [publicBusy, setPublicBusy] = useState(false)
   const [publicError, setPublicError] = useState<string | null>(null)
@@ -80,6 +86,9 @@ export function SettingsScreen() {
   const [slugError, setSlugError] = useState<string | null>(null)
   const [slugEditorOpen, setSlugEditorOpen] = useState(false)
   const [copyMessage, setCopyMessage] = useState<string | null>(null)
+  const [editingBranding, setEditingBranding] = useState(false)
+  const [editingStatuses, setEditingStatuses] = useState(false)
+  const [editingCategories, setEditingCategories] = useState(false)
 
   const { data: orgRows } = useQuery<{
     logo_r2_key: string | null
@@ -142,6 +151,26 @@ export function SettingsScreen() {
       })
     }
   }, [member?.orgId, logoR2Key])
+
+  useEffect(() => {
+    if (member?.orgName) setPartnerName(member.orgName)
+  }, [member?.orgName])
+
+  async function onSavePartnerName() {
+    if (!db || !member) return
+    const next = partnerName.trim()
+    if (!next) {
+      setPartnerNameError('Enter a partner name.')
+      setPartnerName(member.orgName)
+      return
+    }
+    setPartnerNameError(null)
+    if (next === member.orgName) return
+    await db.execute(`UPDATE organizations SET name = ? WHERE id = ?`, [
+      next,
+      member.orgId,
+    ])
+  }
 
   async function onPickLogo(file: File | undefined) {
     if (!db || !member || !file) return
@@ -444,25 +473,14 @@ export function SettingsScreen() {
   }
 
   const playground = isPlaygroundMode()
-
-  async function onLogout() {
-    await disconnectPowerSync()
-    await supabaseConnector.logout()
-    window.location.assign('/')
-  }
-
-  async function onResetPlayground() {
-    const ok = await confirm({
-      title: 'Reset playground?',
-      body: 'Demo animals and ledger entries will be restored. Your playground edits on this device will be cleared.',
-      confirmLabel: 'Reset',
-      tone: 'danger',
-    })
-    if (!ok) return
-    const powerSync = getPowerSyncDb({ playground: true })
-    await resetPlaygroundSeed(powerSync)
-    window.location.assign('/playground/animals')
-  }
+  const activeStatuses = statuses.filter((s) => !s.archived)
+  const activeCategories = categories.filter((c) => !c.archived)
+  const partnerDisplayName = partnerName.trim()
+  const partnerMark = (
+    member?.orgInitials ||
+    partnerDisplayName.slice(0, 2) ||
+    '?'
+  ).slice(0, 3)
 
   return (
     <section className="screen">
@@ -470,19 +488,132 @@ export function SettingsScreen() {
         title="Settings"
         subtitle={
           member
-            ? `${member.orgName} · ${member.role}`
+            ? 'Partner branding, statuses, and reminders for your team.'
             : 'Waiting for your shelter info to load…'
         }
+        backTo="/dashboard"
+        backLabel="Overview"
+        hideBackOnDesktop
       />
+
+      <div className="panel stack" style={{ marginBottom: '1.25rem' }}>
+        <SettingsCardHead
+          title="Partner name and logo"
+          description="Used on share images and your public page."
+          editing={editingBranding}
+          onToggle={() => {
+            if (editingBranding) void onSavePartnerName()
+            setEditingBranding((open) => !open)
+          }}
+        />
+        <input
+          ref={logoInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => void onPickLogo(e.target.files?.[0])}
+        />
+        {editingBranding ? (
+          <>
+            <label className="stack" style={{ gap: '0.35rem' }}>
+              <span className="muted" style={{ fontSize: '0.875rem' }}>
+                Partner name
+              </span>
+              <input
+                value={partnerName}
+                disabled={!member}
+                onChange={(e) => {
+                  setPartnerName(e.target.value)
+                  if (partnerNameError) setPartnerNameError(null)
+                }}
+                onBlur={() => void onSavePartnerName()}
+                aria-label="Partner name"
+              />
+            </label>
+            {partnerNameError ? (
+              <p className="form-error">{partnerNameError}</p>
+            ) : null}
+            {logoUrl ? (
+              <img
+                className="partner-logo-preview"
+                src={logoUrl}
+                alt="Partner logo"
+              />
+            ) : (
+              <p className="muted" style={{ margin: 0 }}>
+                No logo yet.
+              </p>
+            )}
+            <div className="row">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!member || logoBusy}
+                onClick={() => logoInputRef.current?.click()}
+              >
+                {logoBusy ? 'Saving…' : logoUrl ? 'Replace logo' : 'Add logo'}
+              </Button>
+              {logoUrl ? (
+                <Button
+                  type="button"
+                  variant="danger-ghost"
+                  disabled={logoBusy}
+                  onClick={() => void onRemoveLogo()}
+                >
+                  Remove
+                </Button>
+              ) : null}
+            </div>
+            {logoError ? <p className="form-error">{logoError}</p> : null}
+          </>
+        ) : (
+          <div className="settings-identity">
+            {logoUrl ? (
+              <img
+                className="settings-identity__mark"
+                src={logoUrl}
+                alt=""
+              />
+            ) : (
+              <div
+                className="settings-identity__mark settings-identity__mark--fallback"
+                aria-hidden
+              >
+                {partnerMark}
+              </div>
+            )}
+            <div className="settings-identity__copy">
+              <p
+                className={
+                  partnerDisplayName
+                    ? 'settings-identity__name'
+                    : 'settings-identity__name settings-identity__name--empty'
+                }
+              >
+                {partnerDisplayName || 'No partner name yet'}
+              </p>
+              {logoUrl ? null : (
+                <p className="muted settings-identity__hint">No logo yet.</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="settings-grid">
         <div className="panel stack">
-          <div className="section-copy">
-            <p className="section-label">Animal statuses</p>
-            <p className="muted" style={{ margin: 0 }}>
-              Labels like Quarantine or Adopted. Drag to reorder; mark in care or not.
-            </p>
-          </div>
+          <SettingsCardHead
+            title="Animal statuses"
+          description={
+            editingStatuses
+              ? 'Labels like Quarantine or Adopted. Drag to reorder; mark in care or not.'
+              : 'Labels like Quarantine or Adopted.'
+          }
+            editing={editingStatuses}
+            onToggle={() => setEditingStatuses((open) => !open)}
+          />
+          {editingStatuses ? (
+            <>
           <form className="stack" onSubmit={onAddStatus}>
             <div className="row">
               <input
@@ -526,6 +657,10 @@ export function SettingsScreen() {
               void renameStatus(db, id, label)
             }}
             onInCareChange={(id, countsAsInCare) => {
+              const previousInCare =
+                statuses.find((s) => s.id === id)?.counts_as_in_care ?? 1
+              const statusLabel =
+                statuses.find((s) => s.id === id)?.label ?? 'status'
               setStatuses((prev) =>
                 prev.map((x) =>
                   x.id === id
@@ -534,7 +669,35 @@ export function SettingsScreen() {
                 ),
               )
               if (!db) return
-              void setStatusInCare(db, id, countsAsInCare)
+              void (async () => {
+                const result = await applyCountsAsInCareChange(db, {
+                  statusId: id,
+                  countsAsInCare,
+                })
+                if (result !== 'needs_strip_confirm') return
+
+                const count = await countAnimalsWithStatusAndOthers(db, id)
+                const ok = await confirm({
+                  title: `Save “${statusLabel}” as out of care?`,
+                  body: `${count} animals also have other statuses. Save as out of care and remove those other statuses?`,
+                  confirmLabel: 'Save and remove',
+                  tone: 'danger',
+                })
+                if (!ok) {
+                  setStatuses((prev) =>
+                    prev.map((x) =>
+                      x.id === id
+                        ? { ...x, counts_as_in_care: previousInCare }
+                        : x,
+                    ),
+                  )
+                  return
+                }
+                await setStatusOutOfCareWithStrip(db, {
+                  statusId: id,
+                  stripOthers: true,
+                })
+              })()
             }}
             onHide={(s) => {
               if (!db) return
@@ -551,15 +714,41 @@ export function SettingsScreen() {
               })()
             }}
           />
+            </>
+          ) : (
+            <SettingsCatalog
+              empty="No statuses yet."
+              groups={[
+                {
+                  label: 'In care',
+                  items: activeStatuses
+                    .filter((s) => s.counts_as_in_care)
+                    .map((s) => ({ id: s.id, name: s.label })),
+                },
+                {
+                  label: 'Not in care',
+                  items: activeStatuses
+                    .filter((s) => !s.counts_as_in_care)
+                    .map((s) => ({ id: s.id, name: s.label })),
+                },
+              ]}
+            />
+          )}
         </div>
 
         <div className="panel stack">
-          <div className="section-copy">
-            <p className="section-label">Ledger categories</p>
-            <p className="muted" style={{ margin: 0 }}>
-              Labels like Donation or Food. Mark each as money in or out.
-            </p>
-          </div>
+          <SettingsCardHead
+            title="Ledger categories"
+          description={
+            editingCategories
+              ? 'Labels like Donation or Food. Mark each as money in or out.'
+              : 'Labels like Donation or Food.'
+          }
+            editing={editingCategories}
+            onToggle={() => setEditingCategories((open) => !open)}
+          />
+          {editingCategories ? (
+            <>
           <form className="stack" onSubmit={onAddCategory}>
             <div className="row">
               <input
@@ -658,59 +847,31 @@ export function SettingsScreen() {
                 </div>
               ))}
           </div>
+            </>
+          ) : (
+            <SettingsCatalog
+              empty="No categories yet."
+              groups={[
+                {
+                  label: 'Money in',
+                  items: activeCategories
+                    .filter((c) => c.direction === 'in')
+                    .map((c) => ({ id: c.id, name: c.label ?? 'Category' })),
+                },
+                {
+                  label: 'Money out',
+                  items: activeCategories
+                    .filter((c) => c.direction !== 'in')
+                    .map((c) => ({ id: c.id, name: c.label ?? 'Category' })),
+                },
+              ]}
+            />
+          )}
         </div>
       </div>
 
       <div style={{ marginTop: '1.25rem' }}>
         <InstallAppCard />
-      </div>
-
-      <div className="panel stack" style={{ marginTop: '1.25rem' }}>
-        <div className="section-copy">
-          <p className="section-label">Partner logo</p>
-          <p className="muted" style={{ margin: 0 }}>
-            Optional. Shows on Overview share images for your shelter.
-          </p>
-        </div>
-        {logoUrl ? (
-          <img
-            className="partner-logo-preview"
-            src={logoUrl}
-            alt="Partner logo"
-          />
-        ) : (
-          <p className="muted" style={{ margin: 0 }}>
-            No logo yet.
-          </p>
-        )}
-        <input
-          ref={logoInputRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={(e) => void onPickLogo(e.target.files?.[0])}
-        />
-        <div className="row">
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={!member || logoBusy}
-            onClick={() => logoInputRef.current?.click()}
-          >
-            {logoBusy ? 'Saving…' : logoUrl ? 'Replace logo' : 'Add logo'}
-          </Button>
-          {logoUrl ? (
-            <Button
-              type="button"
-              variant="danger-ghost"
-              disabled={logoBusy}
-              onClick={() => void onRemoveLogo()}
-            >
-              Remove
-            </Button>
-          ) : null}
-        </div>
-        {logoError ? <p className="form-error">{logoError}</p> : null}
       </div>
 
       <div className="panel stack" style={{ marginTop: '1.25rem' }}>
@@ -733,15 +894,6 @@ export function SettingsScreen() {
         </div>
         {playground ? null : (
           <>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={publicEnabled}
-                disabled={!member || publicBusy}
-                onChange={(e) => void onTogglePublicPage(e.target.checked)}
-              />
-              <span>Enable public page</span>
-            </label>
             {publicEnabled ? (
               <div className="public-link">
                 <div className="row public-link__actions">
@@ -761,12 +913,30 @@ export function SettingsScreen() {
                   >
                     Edit link
                   </Button>
+                  <Button
+                    type="button"
+                    variant="danger-outline"
+                    disabled={!member || publicBusy}
+                    onClick={() => void onTogglePublicPage(false)}
+                  >
+                    {publicBusy ? 'Turning off…' : 'Turn off'}
+                  </Button>
                 </div>
                 {copyMessage && copyMessage !== 'Link copied' ? (
                   <p className="muted public-link__status">{copyMessage}</p>
                 ) : null}
               </div>
-            ) : null}
+            ) : (
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={false}
+                  disabled={!member || publicBusy}
+                  onChange={(e) => void onTogglePublicPage(e.target.checked)}
+                />
+                <span>Enable public page</span>
+              </label>
+            )}
             {publicError ? <p className="form-error">{publicError}</p> : null}
           </>
         )}
@@ -806,40 +976,17 @@ export function SettingsScreen() {
       </div>
 
       <div className="panel stack" style={{ marginTop: '1.25rem' }}>
-        <p className="section-label">Help</p>
-        <p style={{ margin: 0 }}>
-          <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
-        </p>
+        <div className="section-copy">
+          <p className="section-label">Checklist reminders</p>
+          <p className="muted" style={{ margin: 0 }}>
+            Choose whether this device gets evening and morning nudges. You can
+            change this anytime.
+          </p>
+        </div>
+        <ChecklistRemindersControl />
       </div>
 
-      <div className="panel stack" style={{ marginTop: '1.25rem' }}>
-        <p className="section-label">{playground ? 'Playground' : 'Account'}</p>
-        {playground ? (
-          <>
-            <p className="muted" style={{ margin: 0 }}>
-              Demo data stays on this device. Reset anytime, or leave to sign in to your shelter.
-            </p>
-            <a
-              className="btn btn--primary"
-              href="https://www.themohsinproject.org/#apply?type=partner"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Request access
-            </a>
-            <Button type="button" variant="secondary" onClick={() => void onResetPlayground()}>
-              Reset
-            </Button>
-            <Button type="button" variant="danger-outline" onClick={() => window.location.assign('/')}>
-              Exit playground
-            </Button>
-          </>
-        ) : (
-          <Button type="button" variant="danger-outline" onClick={() => void onLogout()}>
-            Sign out
-          </Button>
-        )}
-      </div>
+      <HelpAndAccount variant="cards" />
     </section>
   )
 }

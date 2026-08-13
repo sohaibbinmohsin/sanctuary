@@ -346,7 +346,7 @@ export function PublicShelterScreen({
           target="_blank"
           rel="noopener noreferrer"
         >
-          <span>Nonprofit software by The Mohsin Project</span>
+          <span>Free software by The Mohsin Project</span>
           <img
             src="/mohsin-project-logo.svg"
             alt=""

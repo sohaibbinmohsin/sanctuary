@@ -1,5 +1,13 @@
-import { useEffect, useState, useDeferredValue } from 'react'
-import { MagnifyingGlass, PawPrint } from '@phosphor-icons/react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import {
+  Funnel,
+  List,
+  MagnifyingGlass,
+  PawPrint,
+  SquaresFour,
+  X,
+} from '@phosphor-icons/react'
+import { useSearchParams } from 'react-router-dom'
 import { useDb } from '@/shared/hooks/useDb'
 import { useSyncStatus } from '@/shared/hooks/useSyncStatus'
 import { AnimalCard } from '@/features/animals/components/AnimalCard'
@@ -7,7 +15,6 @@ import {
   searchAnimals,
   type AnimalWithStatus,
 } from '@/features/animals/domain/animals'
-import { listStatuses, type AnimalStatus } from '@/features/statuses/domain/statuses'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
   getLocalPhoto,
@@ -18,44 +25,41 @@ import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
-import { FilterMenu } from '@/shared/ui/FilterMenu'
+import {
+  parseAnimalFilterParams,
+  serializeAnimalFilterParams,
+} from '@/shared/lib/animals/filterParams'
 
-const SPECIES_OPTIONS = [
-  { value: 'Dog', label: 'Dog' },
-  { value: 'Cat', label: 'Cat' },
-  { value: 'Horse', label: 'Horse' },
-  { value: 'Donkey', label: 'Donkey' },
-  { value: 'Bird', label: 'Bird' },
-  { value: 'Other', label: 'Other' },
-]
+type AnimalsView = 'grid' | 'list'
 
-const SEX_OPTIONS = [
-  { value: 'Female', label: 'Female' },
-  { value: 'Male', label: 'Male' },
-  { value: '__unknown__', label: 'Unknown' },
-]
+const VIEW_STORAGE_KEY = 'sanctuary.animals.view'
+
+function readStoredView(): AnimalsView {
+  try {
+    const raw = localStorage.getItem(VIEW_STORAGE_KEY)
+    return raw === 'list' ? 'list' : 'grid'
+  } catch {
+    return 'grid'
+  }
+}
 
 export function AnimalsListScreen() {
   const db = useDb()
   const { member, loading: memberLoading } = useCurrentMember()
   const sync = useSyncStatus()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filters = useMemo(
+    () => parseAnimalFilterParams(searchParams.toString()),
+    [searchParams],
+  )
   const [animals, setAnimals] = useState<AnimalWithStatus[]>([])
-  const [statuses, setStatuses] = useState<AnimalStatus[]>([])
-  const [query, setQuery] = useState('')
-  const deferredQuery = useDeferredValue(query)
-  const [statusId, setStatusId] = useState('')
-  const [species, setSpecies] = useState('')
-  const [sex, setSex] = useState('')
+  const deferredQuery = useDeferredValue(filters.query)
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
   const [verifiedAnimalIds, setVerifiedAnimalIds] = useState<
     Record<string, boolean>
   >({})
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!db || !member) return
-    void listStatuses(db, member.orgId).then(setStatuses)
-  }, [db, member])
+  const [view, setView] = useState<AnimalsView>(() => readStoredView())
 
   useEffect(() => {
     if (!db || !member) return
@@ -65,9 +69,10 @@ export function AnimalsListScreen() {
       try {
         const rows = await searchAnimals(db, member.orgId, {
           query: deferredQuery,
-          statusId: statusId || undefined,
-          species: species || undefined,
-          sex: sex || undefined,
+          statusIds: filters.statusIds,
+          statusMode: filters.statusMode,
+          species: filters.species || undefined,
+          sex: filters.sex || undefined,
         })
         if (cancelled) return
         setAnimals(rows)
@@ -107,12 +112,30 @@ export function AnimalsListScreen() {
     }
     // Re-run after the first PowerSync download fills an empty local DB
     // (common on a fresh tunnel origin / new browser profile).
-  }, [db, member, deferredQuery, statusId, species, sex, sync.hasSynced])
+  }, [
+    db,
+    member,
+    deferredQuery,
+    filters.statusIds,
+    filters.statusMode,
+    filters.species,
+    filters.sex,
+    sync.hasSynced,
+  ])
 
-  const hasFilters = Boolean(query || statusId || species || sex)
+  const hasFilters = Boolean(
+    filters.query ||
+      filters.statusIds.length ||
+      filters.species ||
+      filters.sex,
+  )
+  const hasAdvancedFilters = Boolean(
+    filters.statusIds.length || filters.species || filters.sex,
+  )
   const awaitingFirstSync =
     !hasFilters && animals.length === 0 && !sync.hasSynced && sync.kind !== 'failed'
   const showLoading = memberLoading || loading || awaitingFirstSync
+  const isListView = view === 'list'
 
   const subtitle = !member?.orgName
     ? awaitingFirstSync
@@ -124,10 +147,40 @@ export function AnimalsListScreen() {
         ? `Loading animals at ${member.orgName}…`
         : `${animals.length} in care at ${member.orgName}`
 
-  const statusOptions = statuses.map((s) => ({
-    value: s.id,
-    label: s.label,
-  }))
+  const filterSearch = serializeAnimalFilterParams(filters)
+  const listClassName = isListView ? 'animal-list' : 'animal-grid'
+
+  function updateQuery(query: string) {
+    const nextSearch = serializeAnimalFilterParams({ ...filters, query })
+    setSearchParams(nextSearch.startsWith('?') ? nextSearch.slice(1) : nextSearch, {
+      replace: true,
+    })
+  }
+
+  function clearAdvancedFilters() {
+    const nextSearch = serializeAnimalFilterParams({
+      ...filters,
+      statusIds: [],
+      statusMode: 'any',
+      species: '',
+      sex: '',
+    })
+    setSearchParams(nextSearch.startsWith('?') ? nextSearch.slice(1) : nextSearch, {
+      replace: true,
+    })
+  }
+
+  function toggleView() {
+    setView((current) => {
+      const next: AnimalsView = current === 'grid' ? 'list' : 'grid'
+      try {
+        localStorage.setItem(VIEW_STORAGE_KEY, next)
+      } catch {
+        /* ignore quota / private mode */
+      }
+      return next
+    })
+  }
 
   return (
     <section className="screen">
@@ -143,46 +196,66 @@ export function AnimalsListScreen() {
         }
       />
 
-      <div className="filter-bar">
+      <div className="filter-bar filter-bar--chrome filter-bar--chrome-3">
         <div className="filter-bar__search">
           <MagnifyingGlass size={18} weight="bold" aria-hidden />
           <input
             type="search"
             placeholder="Search by ID or name"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={filters.query}
+            onChange={(event) => updateQuery(event.target.value)}
             aria-label="Search animals"
           />
         </div>
-        <div className="filter-menus" role="group" aria-label="List filters">
-          <FilterMenu
-            label="Status"
-            value={statusId}
-            options={statusOptions}
-            onChange={setStatusId}
-          />
-          <FilterMenu
-            label="Type"
-            value={species}
-            options={SPECIES_OPTIONS}
-            onChange={setSpecies}
-          />
-          <FilterMenu
-            label="Gender"
-            value={sex}
-            options={SEX_OPTIONS}
-            onChange={setSex}
-          />
+        <div className="filter-button-wrap">
+          <Button
+            to={`/animals/filters${filterSearch}`}
+            variant="secondary"
+            className={`btn--icon filter-button${hasAdvancedFilters ? ' filter-button--active' : ''}`}
+            aria-label="Filter animals"
+            title="Filter animals"
+          >
+            <Funnel size={20} weight={hasAdvancedFilters ? 'fill' : 'bold'} aria-hidden />
+          </Button>
+          {hasAdvancedFilters ? (
+            <button
+              type="button"
+              className="filter-button__clear"
+              aria-label="Clear filters"
+              title="Clear filters"
+              onClick={clearAdvancedFilters}
+            >
+              <X size={12} weight="bold" aria-hidden />
+            </button>
+          ) : null}
         </div>
+        <Button
+          type="button"
+          variant="secondary"
+          className="btn--icon"
+          onClick={toggleView}
+          aria-label={isListView ? 'Switch to grid view' : 'Switch to list view'}
+          title={isListView ? 'Grid view' : 'List view'}
+        >
+          {isListView ? (
+            <SquaresFour size={20} weight="bold" aria-hidden />
+          ) : (
+            <List size={20} weight="bold" aria-hidden />
+          )}
+        </Button>
       </div>
 
       {showLoading ? (
-        <div className="animal-grid">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className={listClassName}>
+          {Array.from({ length: isListView ? 8 : 6 }).map((_, i) => (
             <div
               key={i}
-              className="skeleton"
-              style={{ aspectRatio: '1', height: 'auto' }}
+              className={
+                isListView ? 'skeleton animal-list__skeleton' : 'skeleton'
+              }
+              style={
+                isListView ? undefined : { aspectRatio: '1', height: 'auto' }
+              }
             />
           ))}
         </div>
@@ -199,14 +272,16 @@ export function AnimalsListScreen() {
           actionTo={hasFilters ? undefined : '/animals/new'}
         />
       ) : (
-        <div className="animal-grid">
+        <div className={listClassName}>
           {animals.map((animal) => (
-            <AnimalCard
-              key={animal.id}
-              animal={animal}
-              photoUrl={photoUrls[animal.id]}
-              hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
-            />
+            <div key={animal.id} className="animal-card-selectable">
+              <AnimalCard
+                animal={animal}
+                photoUrl={photoUrls[animal.id]}
+                hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
+                variant={view}
+              />
+            </div>
           ))}
         </div>
       )}

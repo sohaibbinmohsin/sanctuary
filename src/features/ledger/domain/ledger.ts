@@ -35,11 +35,15 @@ export function pkrToCents(amount: number): number {
   return Math.round(amount * 100)
 }
 
-export function formatPkr(cents: number): string {
-  return `PKR ${(cents / 100).toLocaleString(undefined, {
+export function formatPkrAmount(cents: number): string {
+  return (cents / 100).toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
-  })}`
+  })
+}
+
+export function formatPkr(cents: number): string {
+  return `PKR ${formatPkrAmount(cents)}`
 }
 
 export async function listLedgerCategories(

@@ -6,6 +6,7 @@ export const RESERVED_PUBLIC_SLUGS = new Set([
   'ledger',
   'dashboard',
   'settings',
+  'checklist',
   'playground',
   'api',
   'assets',

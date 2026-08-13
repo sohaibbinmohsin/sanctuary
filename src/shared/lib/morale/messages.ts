@@ -24,6 +24,39 @@ export const DASHBOARD_GREETINGS = [
   'Here’s today’s snapshot. You’ve earned the pause.',
 ]
 
+export const CHECKLIST_MESSAGES = [
+  'Checked. Wonderful humans make sanctuaries work.',
+  'Care marked. The animals are lucky you’re here.',
+  'Done. Quiet kindness, real impact.',
+  'Tick saved. You’re one of the good ones.',
+  'Logged. Another life felt your care today.',
+  'Nice work. Showing up for them matters.',
+]
+
+export function checklistTickMessage(animalLabel?: string): string {
+  const name = animalLabel?.trim()
+  if (name) {
+    return pickMessage([
+      `${name} is sorted. You’re wonderful for showing up.`,
+      `${name} checked. Soft hearts run this place.`,
+      `Care noted for ${name}. Thank you for being here.`,
+      `${name} felt that. Keep going, good human.`,
+      ...CHECKLIST_MESSAGES,
+    ])
+  }
+  return pickMessage(CHECKLIST_MESSAGES)
+}
+
+/** True when checking this row finishes today’s full checklist. */
+export function willCompleteChecklist(
+  rows: { id: string; checkedToday: boolean }[],
+  row: { id: string; checkedToday: boolean },
+  checked: boolean,
+): boolean {
+  if (!checked || row.checkedToday || rows.length === 0) return false
+  return rows.every((item) => item.id === row.id || item.checkedToday)
+}
+
 export function pickMessage(messages: string[]): string {
   return messages[Math.floor(Math.random() * messages.length)]!
 }

@@ -3,6 +3,7 @@ import { CurrencyCircleDollar, PencilSimple } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   formatPkr,
+  formatPkrAmount,
   listLedgerEntries,
   sumLedger,
 } from '@/features/ledger/domain/ledger'
@@ -249,25 +250,28 @@ export function LedgerScreen() {
         </div>
       ) : null}
 
-      <div className="summary-strip">
+      <div className="summary-strip" aria-label={`Ledger totals · ${netHint}`}>
         <div className="summary-strip__cell">
           <span className="summary-strip__label">{inLabel}</span>
           <span className="summary-strip__value money-in">
-            {formatPkr(totals.inCents)}
+            <span className="summary-strip__currency">PKR</span>
+            <span className="summary-strip__amount">{formatPkrAmount(totals.inCents)}</span>
           </span>
         </div>
         <div className="summary-strip__cell">
           <span className="summary-strip__label">{outLabel}</span>
           <span className="summary-strip__value money-out">
-            {formatPkr(totals.outCents)}
+            <span className="summary-strip__currency">PKR</span>
+            <span className="summary-strip__amount">{formatPkrAmount(totals.outCents)}</span>
           </span>
         </div>
-        <div className="summary-strip__cell">
+        <div className="summary-strip__cell summary-strip__cell--net">
           <span className="summary-strip__label">Net · {netHint}</span>
           <span
             className={`summary-strip__value ${net >= 0 ? 'money-in' : 'money-out'}`}
           >
-            {formatPkr(net)}
+            <span className="summary-strip__currency">PKR</span>
+            <span className="summary-strip__amount">{formatPkrAmount(net)}</span>
           </span>
         </div>
       </div>
@@ -298,9 +302,9 @@ export function LedgerScreen() {
                 <div className="list-item list-item--row" key={e.id}>
                   <div className="list-item__body">
                     <strong
-                      className={
+                      className={`list-item__amount ${
                         e.direction === 'in' ? 'money-in' : 'money-out'
-                      }
+                      }`}
                     >
                       {e.direction === 'in' ? '+' : '−'}
                       {formatPkr(e.amount_cents ?? 0)}

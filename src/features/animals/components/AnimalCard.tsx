@@ -8,15 +8,27 @@ type AnimalCardProps = {
   photoUrl?: string | null
   /** True when at least one photo was taken with a verified camera session. */
   hasVerifiedPhoto?: boolean
+  variant?: 'grid' | 'list'
 }
 
 export function AnimalCard({
   animal,
   photoUrl,
   hasVerifiedPhoto = false,
+  variant = 'grid',
 }: AnimalCardProps) {
+  const labels = animal.status_labels?.length
+    ? animal.status_labels
+    : animal.status_label
+      ? [animal.status_label]
+      : []
+  const isList = variant === 'list'
+
   return (
-    <Link className="animal-card" to={`/animals/${animal.id}`}>
+    <Link
+      className={isList ? 'animal-card animal-card--list' : 'animal-card'}
+      to={`/animals/${animal.id}`}
+    >
       <div
         className="animal-card__photo"
         style={
@@ -29,7 +41,11 @@ export function AnimalCard({
         role={photoUrl ? 'img' : undefined}
         aria-label={photoUrl ? `Photo of ${animal.name || animal.shelter_code}` : undefined}
       >
-        {photoUrl ? null : 'No photo yet'}
+        {photoUrl ? null : (
+          <span className="animal-card__photo-empty">
+            {isList ? 'No photo' : 'No photo yet'}
+          </span>
+        )}
         {hasVerifiedPhoto ? (
           <span
             className="animal-card__verified"
@@ -50,9 +66,18 @@ export function AnimalCard({
         >
           {animal.name?.trim() || animal.shelter_code}
         </div>
-        {animal.status_label ? (
-          <StatusBadge label={animal.status_label} />
+        {animal.name?.trim() && isList ? (
+          <div className="animal-card__code shelter-code">{animal.shelter_code}</div>
         ) : null}
+        {labels.length > 0 ? (
+          <div className="status-badge-row" aria-label={`Status: ${labels.join(', ')}`}>
+            {labels.map((label) => (
+              <StatusBadge key={label} label={label} />
+            ))}
+          </div>
+        ) : (
+          <div className="status-badge-row status-badge-row--empty" aria-hidden />
+        )}
       </div>
     </Link>
   )

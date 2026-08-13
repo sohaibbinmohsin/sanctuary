@@ -1,6 +1,7 @@
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import {
   Cat,
+  CheckSquare,
   CurrencyCircleDollar,
   ChartBar,
   GearSix,
@@ -9,26 +10,66 @@ import { SyncBanner } from '@/shared/ui/SyncBanner'
 import { PlaygroundBanner } from '@/features/playground/PlaygroundBanner'
 import { isPlaygroundMode } from '@/features/playground/mode'
 import { AnimalsListScreen } from '@/features/animals/screens/AnimalsListScreen'
+import { AnimalsFiltersScreen } from '@/features/animals/screens/AnimalsFiltersScreen'
+import { AddToChecklistScreen } from '@/features/animals/screens/AddToChecklistScreen'
 import { AnimalIntakeScreen } from '@/features/animals/screens/AnimalIntakeScreen'
 import { AnimalDetailScreen } from '@/features/animals/screens/AnimalDetailScreen'
 import { LedgerScreen } from '@/features/ledger/screens/LedgerScreen'
 import { LedgerEntryScreen } from '@/features/ledger/screens/LedgerEntryScreen'
 import { DashboardScreen } from '@/features/dashboard/screens/DashboardScreen'
+import { ChecklistScreen } from '@/features/checklist/screens/ChecklistScreen'
 import { SettingsScreen } from '@/features/settings/screens/SettingsScreen'
+import { HelpAndAccount } from '@/features/settings/components/HelpAndAccount'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 
-const NAV = [
+const SIDEBAR_NAV = [
   { to: '/animals', label: 'Animals', icon: Cat },
   { to: '/ledger', label: 'Ledger', icon: CurrencyCircleDollar },
+  { to: '/checklist', label: 'Checklist', icon: CheckSquare },
   { to: '/dashboard', label: 'Overview', icon: ChartBar },
   { to: '/settings', label: 'Settings', icon: GearSix },
 ] as const
 
-function NavItems({ className }: { className: string }) {
+/** Mobile bottom bar: Checklist replaces Settings. */
+const BOTTOM_NAV = [
+  { to: '/animals', label: 'Animals', icon: Cat },
+  { to: '/ledger', label: 'Ledger', icon: CurrencyCircleDollar },
+  { to: '/dashboard', label: 'Overview', icon: ChartBar },
+  { to: '/checklist', label: 'Checklist', icon: CheckSquare },
+] as const
+
+const PRIMARY_PATHS = new Set<string>([
+  ...BOTTOM_NAV.map((item) => item.to),
+  '/settings',
+])
+
+function isPrimaryPath(pathname: string): boolean {
+  const normalized =
+    pathname.length > 1 && pathname.endsWith('/')
+      ? pathname.slice(0, -1)
+      : pathname
+  return PRIMARY_PATHS.has(normalized)
+}
+
+function NavItems({
+  className,
+  items,
+}: {
+  className: string
+  items: readonly {
+    to: string
+    label: string
+    icon: typeof Cat
+  }[]
+}) {
   return (
     <nav className={className} aria-label="Main">
-      {NAV.map(({ to, label, icon: Icon }) => (
-        <NavLink key={to} to={to} end={to === '/animals' || to === '/ledger' ? false : undefined}>
+      {items.map(({ to, label, icon: Icon }) => (
+        <NavLink
+          key={to}
+          to={to}
+          end={to === '/animals' || to === '/ledger' ? false : undefined}
+        >
           <Icon weight="duotone" aria-hidden />
           <span className="app-nav__label">{label}</span>
         </NavLink>
@@ -40,9 +81,15 @@ function NavItems({ className }: { className: string }) {
 export function AppShell() {
   const { member } = useCurrentMember()
   const playground = isPlaygroundMode()
+  const { pathname } = useLocation()
+  const showBottomNav = isPrimaryPath(pathname)
 
   return (
-    <div className="app-shell">
+    <div
+      className={
+        showBottomNav ? 'app-shell' : 'app-shell app-shell--no-bottom-nav'
+      }
+    >
       {playground ? null : <SyncBanner />}
       <aside className="app-sidebar" aria-label="Sidebar">
         <div>
@@ -51,7 +98,8 @@ export function AppShell() {
             <div className="app-sidebar__org">{member.orgName}</div>
           ) : null}
         </div>
-        <NavItems className="app-sidebar__nav" />
+        <NavItems className="app-sidebar__nav" items={SIDEBAR_NAV} />
+        <HelpAndAccount variant="sidebar" />
       </aside>
       <div className="app-shell__body">
         {playground ? <PlaygroundBanner /> : null}
@@ -59,6 +107,11 @@ export function AppShell() {
           <Routes>
             <Route path="/" element={<Navigate to="/animals" replace />} />
             <Route path="/animals" element={<AnimalsListScreen />} />
+            <Route path="/animals/filters" element={<AnimalsFiltersScreen />} />
+            <Route
+              path="/animals/add-to-checklist"
+              element={<AddToChecklistScreen />}
+            />
             <Route path="/animals/new" element={<AnimalIntakeScreen />} />
             <Route path="/animals/:id/edit" element={<AnimalIntakeScreen />} />
             <Route path="/animals/:id" element={<AnimalDetailScreen />} />
@@ -66,10 +119,11 @@ export function AppShell() {
             <Route path="/ledger/new" element={<LedgerEntryScreen />} />
             <Route path="/ledger/:id" element={<LedgerEntryScreen />} />
             <Route path="/dashboard" element={<DashboardScreen />} />
+            <Route path="/checklist" element={<ChecklistScreen />} />
             <Route path="/settings" element={<SettingsScreen />} />
           </Routes>
         </main>
-        <NavItems className="app-nav" />
+        {showBottomNav ? <NavItems className="app-nav" items={BOTTOM_NAV} /> : null}
       </div>
     </div>
   )

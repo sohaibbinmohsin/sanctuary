@@ -155,5 +155,9 @@ export async function deleteTreatment(
   db: SanctuaryDb,
   id: string,
 ): Promise<void> {
+  const existing = await getTreatment(db, id)
+  if (existing && isArrivalTreatmentType(existing.treatment_type)) {
+    throw new Error('Arrival notes can be edited but not deleted.')
+  }
   await db.execute(`DELETE FROM treatments WHERE id = ?`, [id])
 }

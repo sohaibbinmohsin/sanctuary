@@ -275,7 +275,7 @@ export function LedgerEntryScreen() {
   }
 
   return (
-    <section className="screen">
+    <section className="screen screen--sticky-footer">
       <PageHeader
         title={isEdit ? 'Edit ledger entry' : 'Add ledger entry'}
         subtitle={
@@ -434,15 +434,20 @@ export function LedgerEntryScreen() {
 
       {isEdit ? (
         <div className="danger-zone">
-          <p className="muted">Remove this entry and any attached proof.</p>
-          <Button
-            type="button"
-            variant="danger-outline"
-            disabled={busy}
-            onClick={() => void onDelete()}
-          >
-            Delete entry
-          </Button>
+          <div className="danger-zone__row">
+            <p className="detail-section-heading">Delete entry</p>
+            <Button
+              type="button"
+              variant="danger-outline"
+              disabled={busy}
+              onClick={() => void onDelete()}
+            >
+              Delete entry
+            </Button>
+          </div>
+          <p className="muted danger-zone__copy">
+            Remove this entry and any attached proof.
+          </p>
         </div>
       ) : null}
 

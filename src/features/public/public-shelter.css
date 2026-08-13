@@ -335,6 +335,28 @@
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ps-forest) var(--ps-forest-soft);
+}
+
+.public-shelter__scroll::-webkit-scrollbar {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+.public-shelter__scroll::-webkit-scrollbar-track {
+  background: var(--ps-forest-soft);
+  border-radius: 999px;
+  margin: 0.25rem 0;
+}
+
+.public-shelter__scroll::-webkit-scrollbar-thumb {
+  background: var(--ps-forest);
+  border-radius: 999px;
+}
+
+.public-shelter__scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-forest-hover, #264d30);
 }
 
 .public-shelter__virtual {
@@ -595,6 +617,21 @@
   gap: 0.4rem;
   overflow-x: auto;
   scrollbar-width: thin;
+  scrollbar-color: var(--ps-forest) var(--ps-forest-soft);
+}
+
+.public-shelter__photo-strip::-webkit-scrollbar {
+  height: 0.35rem;
+}
+
+.public-shelter__photo-strip::-webkit-scrollbar-track {
+  background: var(--ps-forest-soft);
+  border-radius: 999px;
+}
+
+.public-shelter__photo-strip::-webkit-scrollbar-thumb {
+  background: var(--ps-forest);
+  border-radius: 999px;
 }
 
 .public-shelter__photo-thumb {
@@ -747,9 +784,11 @@
 
 .public-shelter__mohsin {
   display: inline-flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
+  justify-content: center;
+  gap: 0.5rem;
   color: inherit;
   text-decoration: none;
 }
@@ -851,6 +890,26 @@
   padding: 0.85rem 1rem 1.15rem;
   align-content: start;
   background: var(--ps-mist);
+  scrollbar-width: thin;
+  scrollbar-color: var(--ps-forest) var(--ps-forest-soft);
+}
+
+.ps-animal-highlight__scroll::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+.ps-animal-highlight__scroll::-webkit-scrollbar-track {
+  background: var(--ps-forest-soft);
+  border-radius: 999px;
+}
+
+.ps-animal-highlight__scroll::-webkit-scrollbar-thumb {
+  background: var(--ps-forest);
+  border-radius: 999px;
+}
+
+.ps-animal-highlight__scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-forest-hover, #264d30);
 }
 
 .ps-animal-highlight__stage {

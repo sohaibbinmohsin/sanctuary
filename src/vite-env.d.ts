@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string
@@ -11,6 +12,8 @@ interface ImportMetaEnv {
   /** Fixed public site origin for donor links (e.g. https://sanctuary.themohsinproject.org). */
   readonly VITE_DOMAIN?: string
   readonly VITE_SUPPORT_EMAIL: string
+  /** Web Push VAPID public key for checklist reminders (optional; UI soft-fails if unset). */
+  readonly VITE_VAPID_PUBLIC_KEY?: string
 }
 
 interface ImportMeta {

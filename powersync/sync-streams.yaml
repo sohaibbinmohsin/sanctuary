@@ -14,9 +14,12 @@ streams:
       - SELECT * FROM organizations WHERE id IN user_orgs
       - SELECT * FROM org_members WHERE org_id IN user_orgs
       - SELECT * FROM animal_statuses WHERE org_id IN user_orgs
+      - SELECT * FROM animal_status_assignments WHERE org_id IN user_orgs
       - SELECT * FROM animals WHERE org_id IN user_orgs
       - SELECT * FROM treatments WHERE org_id IN user_orgs
       - SELECT * FROM ledger_categories WHERE org_id IN user_orgs
       - SELECT * FROM ledger_entries WHERE org_id IN user_orgs
       - SELECT * FROM photos WHERE org_id IN user_orgs
       - SELECT * FROM ledger_attachments WHERE org_id IN user_orgs
+      - SELECT * FROM checklist_items WHERE org_id IN user_orgs
+      - SELECT * FROM checklist_checks WHERE org_id IN user_orgs

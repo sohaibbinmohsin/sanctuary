@@ -31,6 +31,22 @@ const animal_statuses = new Table(
   { indexes: { by_org: ['org_id'] } },
 )
 
+const animal_status_assignments = new Table(
+  {
+    org_id: column.text,
+    animal_id: column.text,
+    status_id: column.text,
+    created_at: column.text,
+  },
+  {
+    indexes: {
+      by_org: ['org_id'],
+      by_animal: ['animal_id'],
+      by_status: ['status_id'],
+    },
+  },
+)
+
 const animals = new Table(
   {
     org_id: column.text,
@@ -121,25 +137,57 @@ const ledger_attachments = new Table(
   },
 )
 
+const checklist_items = new Table(
+  {
+    org_id: column.text,
+    animal_id: column.text,
+    added_at: column.text,
+    added_by: column.text,
+  },
+  { indexes: { by_org: ['org_id'], by_animal: ['animal_id'] } },
+)
+
+const checklist_checks = new Table(
+  {
+    org_id: column.text,
+    animal_id: column.text,
+    check_date: column.text,
+    checked_at: column.text,
+    checked_by: column.text,
+  },
+  {
+    indexes: {
+      by_org: ['org_id'],
+      by_animal_date: ['animal_id', 'check_date'],
+    },
+  },
+)
+
 export const AppSchema = new Schema({
   organizations,
   org_members,
   animal_statuses,
+  animal_status_assignments,
   animals,
   treatments,
   ledger_categories,
   ledger_entries,
   photos,
   ledger_attachments,
+  checklist_items,
+  checklist_checks,
 })
 
 export type Database = (typeof AppSchema)['types']
 export type OrganizationRecord = Database['organizations']
 export type OrgMemberRecord = Database['org_members']
 export type AnimalStatusRecord = Database['animal_statuses']
+export type AnimalStatusAssignmentRecord = Database['animal_status_assignments']
 export type AnimalRecord = Database['animals']
 export type TreatmentRecord = Database['treatments']
 export type LedgerCategoryRecord = Database['ledger_categories']
 export type LedgerEntryRecord = Database['ledger_entries']
 export type PhotoRecord = Database['photos']
 export type LedgerAttachmentRecord = Database['ledger_attachments']
+export type ChecklistItemRecord = Database['checklist_items']
+export type ChecklistCheckRecord = Database['checklist_checks']
