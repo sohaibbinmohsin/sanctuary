@@ -19,7 +19,7 @@ export async function listAssignmentsForAnimal(
   db: SanctuaryDb,
   animalId: string,
 ): Promise<AssignedStatus[]> {
-  const rows = await db.getAll<AssignedStatus>(
+  return db.getAll<AssignedStatus>(
     `SELECT asa.status_id, s.label, s.sort_order, s.counts_as_in_care
      FROM animal_status_assignments asa
      JOIN animal_statuses s ON s.id = asa.status_id
@@ -27,48 +27,6 @@ export async function listAssignmentsForAnimal(
      ORDER BY s.sort_order ASC, s.label ASC`,
     [animalId],
   )
-  if (rows.length > 0) return rows
-
-  // Pre-migration / unsynced clients still have denormalized animals.status_id.
-  const animal = await db.getOptional<{
-    org_id: string
-    status_id: string | null
-  }>(`SELECT org_id, status_id FROM animals WHERE id = ?`, [animalId])
-  if (!animal?.status_id) return []
-
-  const status = await db.getOptional<{
-    id: string
-    label: string
-    sort_order: number
-    counts_as_in_care: number
-  }>(
-    `SELECT id, label, sort_order, counts_as_in_care
-     FROM animal_statuses WHERE id = ?`,
-    [animal.status_id],
-  )
-  if (!status) return []
-
-  await db.execute(
-    `INSERT OR IGNORE INTO animal_status_assignments (
-      id, org_id, animal_id, status_id, created_at
-    ) VALUES (?, ?, ?, ?, ?)`,
-    [
-      crypto.randomUUID(),
-      animal.org_id,
-      animalId,
-      status.id,
-      new Date().toISOString(),
-    ],
-  )
-
-  return [
-    {
-      status_id: status.id,
-      label: status.label,
-      sort_order: status.sort_order,
-      counts_as_in_care: status.counts_as_in_care,
-    },
-  ]
 }
 
 export function resolvePrimaryStatusId(
