@@ -25,7 +25,6 @@ import type { PhotoRecord, TreatmentRecord } from '@/features/sync/powersync/sch
 import { PhotoCapture } from '@/features/animals/components/PhotoCapture'
 import { VerifiedPhotoBadge } from '@/features/public/components/VerifiedPhotoBadge'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
-import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { MoraleToast } from '@/shared/ui/MoraleToast'
 import { pickMessage, TREATMENT_MESSAGES } from '@/shared/lib/morale/messages'
 import { Button } from '@/shared/ui/Button'
@@ -500,13 +499,6 @@ export function AnimalDetailScreen() {
                 ? animal.shelter_code
                 : animal.species}
             </p>
-            {animal.status_labels.length > 0 ? (
-              <div className="status-badge-row" style={{ marginTop: '0.65rem' }}>
-                {animal.status_labels.map((label) => (
-                  <StatusBadge key={label} label={label} />
-                ))}
-              </div>
-            ) : null}
           </div>
 
           <p className="muted" style={{ margin: 0 }}>
