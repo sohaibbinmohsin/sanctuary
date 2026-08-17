@@ -2,6 +2,7 @@ import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import {
   Cat,
   CheckSquare,
+  CloudArrowUp,
   CurrencyCircleDollar,
   ChartBar,
   GearSix,
@@ -19,29 +20,31 @@ import { LedgerEntryScreen } from '@/features/ledger/screens/LedgerEntryScreen'
 import { DashboardScreen } from '@/features/dashboard/screens/DashboardScreen'
 import { ChecklistScreen } from '@/features/checklist/screens/ChecklistScreen'
 import { SettingsScreen } from '@/features/settings/screens/SettingsScreen'
+import { UploadsScreen } from '@/features/uploads/screens/UploadsScreen'
 import { HelpAndAccount } from '@/features/settings/components/HelpAndAccount'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
+import { useDb } from '@/shared/hooks/useDb'
+import { useMediaUploadRunner } from '@/features/uploads/hooks/useMediaUploadRunner'
+import { usePendingMedia } from '@/features/uploads/hooks/usePendingMedia'
 
 const SIDEBAR_NAV = [
   { to: '/animals', label: 'Animals', icon: Cat },
   { to: '/ledger', label: 'Ledger', icon: CurrencyCircleDollar },
   { to: '/checklist', label: 'Checklist', icon: CheckSquare },
   { to: '/dashboard', label: 'Overview', icon: ChartBar },
+  { to: '/uploads', label: 'Uploads', icon: CloudArrowUp },
   { to: '/settings', label: 'Settings', icon: GearSix },
 ] as const
 
-/** Mobile bottom bar: Checklist replaces Settings. */
 const BOTTOM_NAV = [
   { to: '/animals', label: 'Animals', icon: Cat },
   { to: '/ledger', label: 'Ledger', icon: CurrencyCircleDollar },
   { to: '/dashboard', label: 'Overview', icon: ChartBar },
   { to: '/checklist', label: 'Checklist', icon: CheckSquare },
+  { to: '/settings', label: 'Settings', icon: GearSix },
 ] as const
 
-const PRIMARY_PATHS = new Set<string>([
-  ...BOTTOM_NAV.map((item) => item.to),
-  '/settings',
-])
+const PRIMARY_PATHS = new Set<string>(BOTTOM_NAV.map((item) => item.to))
 
 function isPrimaryPath(pathname: string): boolean {
   const normalized =
@@ -54,6 +57,7 @@ function isPrimaryPath(pathname: string): boolean {
 function NavItems({
   className,
   items,
+  badges,
 }: {
   className: string
   items: readonly {
@@ -61,28 +65,43 @@ function NavItems({
     label: string
     icon: typeof Cat
   }[]
+  badges?: Partial<Record<string, number>>
 }) {
   return (
     <nav className={className} aria-label="Main">
-      {items.map(({ to, label, icon: Icon }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={to === '/animals' || to === '/ledger' ? false : undefined}
-        >
-          <Icon weight="duotone" aria-hidden />
-          <span className="app-nav__label">{label}</span>
-        </NavLink>
-      ))}
+      {items.map(({ to, label, icon: Icon }) => {
+        const count = badges?.[to] ?? 0
+        return (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/animals' || to === '/ledger' ? false : undefined}
+          >
+            <Icon weight="duotone" aria-hidden />
+            <span className="app-nav__label">{label}</span>
+            {count > 0 ? (
+              <span className="app-nav__badge" aria-label={`${count} waiting`}>
+                {count > 99 ? '99+' : count}
+              </span>
+            ) : null}
+          </NavLink>
+        )
+      })}
     </nav>
   )
 }
 
 export function AppShell() {
+  const db = useDb()
   const { member } = useCurrentMember()
   const playground = isPlaygroundMode()
   const { pathname } = useLocation()
   const showBottomNav = isPrimaryPath(pathname)
+  useMediaUploadRunner(playground ? null : db)
+  const { items: pendingUploads } = usePendingMedia(
+    playground ? undefined : member?.orgId,
+  )
+  const uploadBadge = pendingUploads.length
 
   return (
     <div
@@ -98,7 +117,11 @@ export function AppShell() {
             <div className="app-sidebar__org">{member.orgName}</div>
           ) : null}
         </div>
-        <NavItems className="app-sidebar__nav" items={SIDEBAR_NAV} />
+        <NavItems
+          className="app-sidebar__nav"
+          items={SIDEBAR_NAV}
+          badges={{ '/uploads': uploadBadge }}
+        />
         <HelpAndAccount variant="sidebar" />
       </aside>
       <div className="app-shell__body">
@@ -119,6 +142,7 @@ export function AppShell() {
             <Route path="/ledger/new" element={<LedgerEntryScreen />} />
             <Route path="/ledger/:id" element={<LedgerEntryScreen />} />
             <Route path="/dashboard" element={<DashboardScreen />} />
+            <Route path="/uploads" element={<UploadsScreen />} />
             <Route path="/checklist" element={<ChecklistScreen />} />
             <Route path="/settings" element={<SettingsScreen />} />
           </Routes>

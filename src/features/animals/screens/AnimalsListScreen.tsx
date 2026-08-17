@@ -195,7 +195,7 @@ export function AnimalsListScreen() {
   }
 
   return (
-    <section className="screen">
+    <section className={showLoading || animals.length > 0 ? 'screen' : 'screen screen--empty'}>
       <PageHeader
         title="Animals"
         subtitle={subtitle}

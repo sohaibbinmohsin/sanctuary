@@ -491,9 +491,6 @@ export function SettingsScreen() {
             ? 'Partner branding, statuses, and reminders for your team.'
             : 'Waiting for your shelter info to load…'
         }
-        backTo="/dashboard"
-        backLabel="Overview"
-        hideBackOnDesktop
       />
 
       <div className="panel stack" style={{ marginBottom: '1.25rem' }}>

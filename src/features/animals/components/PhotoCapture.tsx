@@ -82,12 +82,8 @@ export function PhotoCapture({
       }
     }
     tick()
-    // Failed browser→R2 uploads (e.g. tunnel CORS) need a quicker retry once
-    // the edge proxy path is available.
-    const id = window.setInterval(tick, 10_000)
     window.addEventListener('online', tick)
     return () => {
-      window.clearInterval(id)
       window.removeEventListener('online', tick)
     }
   }, [db, orgId, animalId])

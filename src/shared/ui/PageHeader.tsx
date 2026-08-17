@@ -11,6 +11,8 @@ type PageHeaderProps = {
   backLabel?: string
   /** Hide the back control at the desktop sidebar breakpoint. */
   hideBackOnDesktop?: boolean
+  /** Sit actions on the back-link row on mobile. */
+  actionsOnBackRow?: boolean
 }
 
 export function PageHeader({
@@ -20,9 +22,18 @@ export function PageHeader({
   backTo,
   backLabel = 'Back',
   hideBackOnDesktop = false,
+  actionsOnBackRow = false,
 }: PageHeaderProps) {
+  const headerClass =
+    actions && actionsOnBackRow
+      ? 'page-header page-header--actions-on-back'
+      : 'page-header'
+  const actionsEl = actions ? (
+    <div className="page-header__actions">{actions}</div>
+  ) : null
+
   return (
-    <header className="page-header">
+    <header className={headerClass}>
       {backTo ? (
         <Link
           className={
@@ -41,8 +52,9 @@ export function PageHeader({
           <h1>{title}</h1>
           {subtitle ? <p className="page-header__sub">{subtitle}</p> : null}
         </div>
-        {actions ? <div className="page-header__actions">{actions}</div> : null}
+        {actionsOnBackRow ? null : actionsEl}
       </div>
+      {actionsOnBackRow ? actionsEl : null}
     </header>
   )
 }

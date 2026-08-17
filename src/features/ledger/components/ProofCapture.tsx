@@ -113,10 +113,8 @@ export function ProofCapture({
       }
     }
     tick()
-    const id = window.setInterval(tick, 30_000)
     window.addEventListener('online', tick)
     return () => {
-      window.clearInterval(id)
       window.removeEventListener('online', tick)
     }
   }, [db, orgId, entryId])

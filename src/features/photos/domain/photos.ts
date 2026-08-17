@@ -5,6 +5,7 @@ import {
   requestR2Delete,
   r2ObjectKey,
 } from '@/shared/lib/r2/upload'
+import { notifyPendingMediaChanged } from '@/shared/lib/pendingMedia'
 
 const PHOTO_CACHE = 'sanctuary-photos-v1'
 
@@ -143,6 +144,8 @@ export async function queuePhoto(
   if (input.captureSource === 'camera' && input.captureToken) {
     rememberCaptureToken(id, input.captureToken)
   }
+
+  notifyPendingMediaChanged()
 
   return {
     id,
@@ -315,5 +318,6 @@ export async function processPhotoQueue(
     return await photoQueueRunning
   } finally {
     photoQueueRunning = null
+    notifyPendingMediaChanged()
   }
 }

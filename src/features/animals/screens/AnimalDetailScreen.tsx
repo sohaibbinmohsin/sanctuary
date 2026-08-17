@@ -406,7 +406,7 @@ export function AnimalDetailScreen() {
                     <AnimalLoader
                       label={
                         activePhoto.photo.upload_state === 'failed'
-                          ? 'Upload failed. Keep the phone that took this photo online…'
+                          ? 'Upload failed. Keep this phone online with the app open to retry.'
                           : 'Photo uploading…'
                       }
                       fill={false}
