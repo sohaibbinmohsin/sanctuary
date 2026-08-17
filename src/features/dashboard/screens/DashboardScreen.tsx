@@ -256,15 +256,6 @@ export function DashboardScreen() {
       <PageHeader
         title="Overview"
         subtitle={greeting ?? 'Checklist and shelter numbers for your team.'}
-        actions={
-          <Button
-            to="/settings"
-            variant="accent"
-            className="page-header__settings"
-          >
-            Settings
-          </Button>
-        }
       />
 
       <OverviewChecklistCard />

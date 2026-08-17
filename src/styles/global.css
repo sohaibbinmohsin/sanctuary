@@ -754,7 +754,7 @@ a.primary {
   right: 0;
   z-index: var(--z-nav);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-1);
   padding: var(--space-2) var(--space-2) calc(var(--space-2) + var(--safe-bottom));
   background: rgba(247, 250, 248, 0.94);
@@ -3862,6 +3862,9 @@ a.primary {
   .app-shell {
     grid-template-columns: var(--sidebar-width) 1fr;
     grid-template-rows: 1fr;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
   }
 
   .app-sidebar {
@@ -3952,14 +3955,6 @@ a.primary {
   }
 
   .back-link--desktop-hidden {
-    display: none;
-  }
-
-  .page-header__settings {
-    display: none;
-  }
-
-  .page-header__actions:has(> .page-header__settings:only-child) {
     display: none;
   }
 

@@ -30,18 +30,15 @@ const SIDEBAR_NAV = [
   { to: '/settings', label: 'Settings', icon: GearSix },
 ] as const
 
-/** Mobile bottom bar: Checklist replaces Settings. */
 const BOTTOM_NAV = [
   { to: '/animals', label: 'Animals', icon: Cat },
   { to: '/ledger', label: 'Ledger', icon: CurrencyCircleDollar },
   { to: '/dashboard', label: 'Overview', icon: ChartBar },
   { to: '/checklist', label: 'Checklist', icon: CheckSquare },
+  { to: '/settings', label: 'Settings', icon: GearSix },
 ] as const
 
-const PRIMARY_PATHS = new Set<string>([
-  ...BOTTOM_NAV.map((item) => item.to),
-  '/settings',
-])
+const PRIMARY_PATHS = new Set<string>(BOTTOM_NAV.map((item) => item.to))
 
 function isPrimaryPath(pathname: string): boolean {
   const normalized =
