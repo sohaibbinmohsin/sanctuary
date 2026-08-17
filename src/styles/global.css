@@ -1228,6 +1228,28 @@ a.primary {
   color: var(--color-ink);
 }
 
+.sync-banner--update {
+  z-index: calc(var(--z-banner) + 1);
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.35rem var(--space-4);
+  padding-top: max(0.35rem, env(safe-area-inset-top, 0px));
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-forest) 70%, black);
+  background: var(--color-forest);
+  color: var(--color-white);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.sync-banner--update:disabled {
+  opacity: 0.8;
+  cursor: wait;
+}
+
 @keyframes sync-banner-in {
   from {
     opacity: 0;

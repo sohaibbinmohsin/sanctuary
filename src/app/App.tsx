@@ -8,6 +8,7 @@ import { PublicShelterScreen } from '@/features/public/screens/PublicShelterScre
 import { isPlaygroundPath } from '@/features/playground/mode'
 import { isReservedPublicSlug } from '@/shared/lib/public/slug'
 import { supabase, supabaseConfigured } from '@/shared/lib/supabase'
+import { PwaUpdateBanner } from '@/shared/ui/PwaUpdateBanner'
 
 const playground = isPlaygroundPath(window.location.pathname)
 
@@ -62,8 +63,9 @@ export default function App() {
     }
   }, [])
 
+  let tree
   if (!ready) {
-    return (
+    tree = (
       <main className="boot-screen" aria-busy="true" aria-live="polite">
         <div className="boot-screen__content">
           <h1 className="brand">Sanctuary</h1>
@@ -71,38 +73,43 @@ export default function App() {
         </div>
       </main>
     )
-  }
-
-  if (playground) {
-    return (
+  } else if (playground) {
+    tree = (
       <Providers sessionReady={false} playground>
         <BrowserRouter basename="/playground">
           <AppShell />
         </BrowserRouter>
       </Providers>
     )
+  } else {
+    tree = (
+      <Providers sessionReady={signedIn}>
+        <BrowserRouter>
+          {signedIn ? (
+            <Routes>
+              <Route path="/login" element={<Navigate to="/animals" replace />} />
+              <Route path="/*" element={<PublicSlugOrApp />} />
+            </Routes>
+          ) : (
+            <Routes>
+              <Route path="/" element={<LandingScreen />} />
+              <Route
+                path="/login"
+                element={<LoginScreen onSuccess={() => setSignedIn(true)} />}
+              />
+              <Route path="/:slug" element={<PublicShelterScreen />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          )}
+        </BrowserRouter>
+      </Providers>
+    )
   }
 
   return (
-    <Providers sessionReady={signedIn}>
-      <BrowserRouter>
-        {signedIn ? (
-          <Routes>
-            <Route path="/login" element={<Navigate to="/animals" replace />} />
-            <Route path="/*" element={<PublicSlugOrApp />} />
-          </Routes>
-        ) : (
-          <Routes>
-            <Route path="/" element={<LandingScreen />} />
-            <Route
-              path="/login"
-              element={<LoginScreen onSuccess={() => setSignedIn(true)} />}
-            />
-            <Route path="/:slug" element={<PublicShelterScreen />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        )}
-      </BrowserRouter>
-    </Providers>
+    <>
+      <PwaUpdateBanner />
+      {tree}
+    </>
   )
 }
