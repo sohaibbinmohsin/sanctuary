@@ -1,15 +1,19 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import {
+  CloudSlash,
   Funnel,
   List,
   MagnifyingGlass,
   PawPrint,
   SquaresFour,
+  WifiSlash,
   X,
 } from '@phosphor-icons/react'
+import { useQuery } from '@powersync/react'
 import { useSearchParams } from 'react-router-dom'
 import { useDb } from '@/shared/hooks/useDb'
 import { useSyncStatus } from '@/shared/hooks/useSyncStatus'
+import { emptyAnimalListState } from '@/shared/lib/animals/emptyAnimalListState'
 import { AnimalCard } from '@/features/animals/components/AnimalCard'
 import {
   searchAnimals,
@@ -60,6 +64,13 @@ export function AnimalsListScreen() {
   >({})
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<AnimalsView>(() => readStoredView())
+  const { data: animalCountRows } = useQuery<{ n: number }>(
+    member?.orgId
+      ? `SELECT COUNT(*) as n FROM animals WHERE org_id = ? AND archived = 0`
+      : `SELECT COUNT(*) as n FROM animals WHERE 0`,
+    member?.orgId ? [member.orgId] : [],
+  )
+  const localAnimalCount = Number(animalCountRows?.[0]?.n ?? 0)
 
   useEffect(() => {
     if (!db || !member) return
@@ -110,8 +121,7 @@ export function AnimalsListScreen() {
     return () => {
       cancelled = true
     }
-    // Re-run after the first PowerSync download fills an empty local DB
-    // (common on a fresh tunnel origin / new browser profile).
+    // Re-run when PowerSync inserts rows (hasSynced can already be true).
   }, [
     db,
     member,
@@ -121,6 +131,8 @@ export function AnimalsListScreen() {
     filters.species,
     filters.sex,
     sync.hasSynced,
+    sync.kind,
+    localAnimalCount,
   ])
 
   const hasFilters = Boolean(
@@ -132,18 +144,18 @@ export function AnimalsListScreen() {
   const hasAdvancedFilters = Boolean(
     filters.statusIds.length || filters.species || filters.sex,
   )
-  const awaitingFirstSync =
-    !hasFilters && animals.length === 0 && !sync.hasSynced && sync.kind !== 'failed'
-  const showLoading = memberLoading || loading || awaitingFirstSync
+  const emptyState =
+    animals.length === 0 ? emptyAnimalListState(sync) : 'ready'
+  const showLoading = memberLoading || loading || emptyState === 'loading'
   const isListView = view === 'list'
 
   const subtitle = !member?.orgName
-    ? awaitingFirstSync
+    ? emptyState === 'loading'
       ? 'Loading animals…'
       : 'Everyone currently in your care'
     : hasFilters
       ? `${animals.length} match${animals.length === 1 ? '' : 'es'}`
-      : awaitingFirstSync
+      : emptyState === 'loading'
         ? `Loading animals at ${member.orgName}…`
         : `${animals.length} in care at ${member.orgName}`
 
@@ -259,6 +271,22 @@ export function AnimalsListScreen() {
             />
           ))}
         </div>
+      ) : emptyState === 'offline' ? (
+        <EmptyState
+          icon={<WifiSlash size={28} weight="duotone" />}
+          title="No internet"
+          body="Can't load animals right now. Check your connection and try again."
+          actionLabel="Try again"
+          onAction={() => window.location.reload()}
+        />
+      ) : emptyState === 'failed' ? (
+        <EmptyState
+          icon={<CloudSlash size={28} weight="duotone" />}
+          title="Can't reach Sanctuary"
+          body="Your records are safe. Check your connection and try again."
+          actionLabel="Try again"
+          onAction={() => window.location.reload()}
+        />
       ) : animals.length === 0 ? (
         <EmptyState
           icon={<PawPrint size={28} weight="duotone" />}
