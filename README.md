@@ -1,6 +1,6 @@
 # Sanctuary
 
-Shelter management PWA for animal rescues and sanctuaries. Offline-first via PowerSync + Supabase; photos on Cloudflare R2.
+Shelter management PWA for animal rescues and sanctuaries. Offline-first via PowerSync + Supabase; photos and ledger proofs on Cloudflare R2. Media queued on the phone sends in the background while the app is open.
 
 ## Development
 
@@ -60,6 +60,7 @@ Copy `.env.example` to `.env.local`. Do not commit `.env.local`.
 | `VITE_R2_PUBLIC_BASE_URL` | Public base URL for uploaded photos |
 | `VITE_DOMAIN` | Fixed public site origin for donor “copy link” (optional; falls back to current origin) |
 | `VITE_SUPPORT_EMAIL` | Support contact (default `support@themohsinproject.org`) |
+| `VITE_VAPID_PUBLIC_KEY` | Web Push public key for checklist reminders (optional; UI soft-fails if unset) |
 | `DATABASE_URL` | Postgres URI for `npm run db:setup` only (not used by the Vite app) |
 | `SEED_USER_ID` | Auth user UUID to attach as TOSC admin during seed |
 
@@ -174,6 +175,8 @@ Add every origin you open the PWA from (preview URLs, Cloudflare tunnels) to `Al
 
 Photo deletes call the `r2-sign` edge function with `action: "delete"` (server-side). Uploads use a short-lived signed URL and a browser PUT, so R2 CORS must allow your app origins.
 
+Photos and ledger receipts are queued on the device. They send while Sanctuary is open (not only while an animal or ledger screen is mounted). **Uploads** lists anything still waiting; on a phone, Overview also shows a card when the queue is not empty.
+
 6. Redeploy after secret or function changes:
 
 ```bash
@@ -183,24 +186,31 @@ npm run functions:deploy
 # PROD — merge to main (GitHub Action). Do not deploy prod from your laptop.
 ```
 
+## Home-screen updates
+
+Installed PWAs keep a cached build until the page reloads. Each production build writes an uncached `/version.json` (git SHA). When the app opens or comes back to the foreground, it compares that file to the build already running. If they differ, a short **Refresh to update** bar appears at the top.
+
+Staff on an older install will not see that bar until they have loaded a build that includes it (fully close the PWA and reopen, or refresh in the browser). After that, later deploys prompt from the bar.
+
 ## Pilot runbook (Android Chrome)
 
 Automated tests cover IDs, CSV export escaping (including Urdu), and support copy. The following must still be verified on a real device with live credentials:
 
 1. Install PWA (Add to Home Screen).
 2. Airplane mode: intake animal + photo + expense + treatment with Urdu notes — UI stays usable; SyncBanner shows offline.
-3. Reconnect: rows appear in Supabase; photo lands in R2; banner returns toward synced.
-4. Dashboard → Share / Download PNG; share image to WhatsApp when Web Share is available.
-5. Settings → Export my data — ZIP opens with `animals.csv`, `treatments.csv`, `ledger.csv`, and `images/`.
-6. Simulate cloud failure (network off while app expects sync, or pause Free project): failed banner shows exactly:
+3. Leave the animal screen: **Uploads** still lists the queued photo; it should send after reconnect without staying on that animal.
+4. Reconnect: rows appear in Supabase; photo lands in R2; banner returns toward synced.
+5. Dashboard → Share / Download PNG; share image to WhatsApp when Web Share is available.
+6. Settings → Export my data — ZIP opens with `animals.csv`, `treatments.csv`, `ledger.csv`, and `images/`.
+7. Simulate cloud failure (network off while app expects sync, or pause Free project): failed banner shows exactly:
 
    `Can't reach Sanctuary cloud right now. Your data is safe on this phone. Please contact support.`
 
 ## Project layout
 
 - `src/app` — shell, router, providers
-- `src/features/*` — auth, animals, treatments, ledger, statuses, photos, dashboard, settings, sync
-- `src/shared/*` — UI, hooks, export, IDs, R2 helpers
+- `src/features/*` — auth, animals, treatments, ledger, statuses, photos, checklist, uploads, dashboard, settings, sync
+- `src/shared/*` — UI, hooks, export, IDs, R2 helpers, PWA version check
 - `tests/` — unit/integration only (never under `src/`)
 - `supabase/` — migrations, seed, edge functions
 - `powersync/` — sync rules
