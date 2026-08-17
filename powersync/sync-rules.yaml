@@ -9,6 +9,7 @@ bucket_definitions:
       - SELECT * FROM organizations WHERE id = bucket.org_id
       - SELECT * FROM org_members WHERE org_id = bucket.org_id
       - SELECT * FROM animal_statuses WHERE org_id = bucket.org_id
+      - SELECT * FROM animal_status_assignments WHERE org_id = bucket.org_id
       - SELECT * FROM animals WHERE org_id = bucket.org_id
       - SELECT * FROM treatments WHERE org_id = bucket.org_id
       - SELECT * FROM ledger_categories WHERE org_id = bucket.org_id
