@@ -160,7 +160,7 @@ export function ChecklistScreen() {
   return (
     <section
       className={`screen${remindersDock === 'show' ? ' screen--sticky-footer' : ''}${
-        !showLoading && rows.length === 0 ? ' screen--checklist-empty' : ''
+        !showLoading && rows.length === 0 ? ' screen--empty screen--checklist-empty' : ''
       }`}
     >
       <PageHeader

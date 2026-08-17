@@ -6,6 +6,7 @@ import {
   requestR2Delete,
   r2ObjectKey,
 } from '@/shared/lib/r2/upload'
+import { notifyPendingMediaChanged } from '@/shared/lib/pendingMedia'
 
 const ATTACHMENT_CACHE = 'sanctuary-ledger-attachments-v1'
 
@@ -139,6 +140,8 @@ export async function queueLedgerAttachment(
     ) VALUES (?, ?, ?, NULL, 1, 'pending', ?)`,
     [id, input.orgId, input.entryId, created_at],
   )
+
+  notifyPendingMediaChanged()
 
   return {
     id,
@@ -302,5 +305,6 @@ export async function processLedgerAttachmentQueue(
     return await attachmentQueueRunning
   } finally {
     attachmentQueueRunning = null
+    notifyPendingMediaChanged()
   }
 }

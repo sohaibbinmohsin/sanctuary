@@ -844,6 +844,31 @@ a.primary {
   margin-bottom: var(--space-2);
 }
 
+.page-header--actions-on-back {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+}
+
+.page-header--actions-on-back .back-link {
+  grid-column: 1;
+  grid-row: 1;
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.page-header--actions-on-back .page-header__actions {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.page-header--actions-on-back .page-header__main {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin-top: var(--space-2);
+}
+
 .screen h1 {
   font-family: var(--font-display);
   font-size: var(--text-xl);
@@ -2071,6 +2096,7 @@ a.primary {
   color: var(--color-ink-muted);
 }
 
+.screen--empty,
 .screen--checklist-empty {
   display: flex;
   flex-direction: column;
@@ -2079,16 +2105,24 @@ a.primary {
   );
 }
 
-.screen--checklist-empty .page-header {
+.screen--empty .page-header,
+.screen--checklist-empty .page-header,
+.screen--empty .filter-bar,
+.screen--empty .filter-chips,
+.screen--empty .summary-strip,
+.screen--empty .money-range {
   flex: 0 0 auto;
 }
 
+.screen--empty .empty-state,
 .screen--checklist-empty .empty-state {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  margin-inline: auto;
   padding-block: var(--space-6);
   min-height: 0;
 }
@@ -2113,6 +2147,11 @@ a.primary {
   font-family: var(--font-display);
   font-size: var(--text-lg);
   color: var(--color-ink);
+  margin: 0 0 var(--space-2);
+}
+
+.screen--empty .empty-state h2,
+.screen--checklist-empty .empty-state h2 {
   margin: 0 0 var(--space-2);
 }
 
@@ -2929,6 +2968,105 @@ a.primary {
   margin: 0;
   color: var(--color-ink-muted);
   font-size: var(--text-sm);
+}
+
+.upload-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.upload-summary--failed {
+  border-color: color-mix(in srgb, var(--color-amber) 45%, var(--color-border));
+}
+
+.upload-summary__icon {
+  flex-shrink: 0;
+  color: var(--color-forest);
+}
+
+.upload-summary--failed .upload-summary__icon {
+  color: var(--color-amber);
+}
+
+.upload-summary__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-summary__value {
+  margin: 0 0 var(--space-1);
+  font-weight: 600;
+}
+
+.upload-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.upload-list__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  text-decoration: none;
+  color: inherit;
+}
+
+.upload-list__row--failed {
+  border-color: color-mix(in srgb, var(--color-amber) 45%, var(--color-border));
+}
+
+.upload-list__icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  background: var(--color-forest-soft);
+  color: var(--color-forest);
+  flex-shrink: 0;
+}
+
+.upload-list__row--failed .upload-list__icon {
+  background: color-mix(in srgb, var(--color-amber) 16%, var(--color-white));
+  color: var(--color-amber);
+}
+
+.upload-list__copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.upload-list__copy strong {
+  font-weight: 600;
+}
+
+.upload-list__hint {
+  margin-top: var(--space-4);
+}
+
+.app-nav__badge {
+  margin-left: auto;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--color-amber);
+  color: var(--color-white);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  text-align: center;
 }
 
 .overview-panel__lede {
@@ -3859,6 +3997,14 @@ a.primary {
 }
 
 @media (min-width: 1024px) {
+  .overview-uploads {
+    display: none;
+  }
+
+  .page-header + .overview-uploads + .overview-panel {
+    margin-top: 0;
+  }
+
   .app-shell {
     grid-template-columns: var(--sidebar-width) 1fr;
     grid-template-rows: 1fr;
@@ -3958,11 +4104,31 @@ a.primary {
     display: none;
   }
 
+  .page-header--actions-on-back .page-header__main {
+    grid-column: 1;
+    grid-row: 1;
+    margin-top: 0;
+  }
+
+  .page-header--actions-on-back .page-header__actions {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+  }
+
   .app-shell__body {
     grid-column: 2;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
   }
 
   .app-content {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
     padding: var(--space-8) var(--space-8) var(--space-10);
     padding-bottom: var(--space-10);
   }
@@ -4018,13 +4184,44 @@ a.primary {
     padding-bottom: 16rem;
   }
 
-  .screen--checklist-empty {
+  /* Empty screens fill the pane. Do not reserve dock space — that padding
+     recenters the cluster when the reminder card is shown or dismissed. */
+  .app-content:has(.screen--empty),
+  .app-content:has(.screen--checklist-empty) {
+    flex: 1 1 auto;
     min-height: 0;
+    height: 100%;
   }
 
+  .screen--empty,
+  .screen--checklist-empty,
+  .screen--empty.screen--sticky-footer,
+  .screen--checklist-empty.screen--sticky-footer,
+  .screen--empty.screen--sticky-footer:has(.sticky-actions--reminders),
+  .screen--checklist-empty.screen--sticky-footer:has(.sticky-actions--reminders),
+  .screen--empty.screen--sticky-footer:has(.checklist-reminders-dock),
+  .screen--checklist-empty.screen--sticky-footer:has(.checklist-reminders-dock) {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    padding-bottom: 0;
+  }
+
+  .screen--empty .empty-state,
   .screen--checklist-empty .empty-state {
-    flex: 0 0 auto;
-    padding-block: var(--space-10);
+    position: absolute;
+    inset: 0;
+    flex: none;
+    min-height: 0;
+    justify-content: center;
+    padding-block: 0;
+    pointer-events: none;
+  }
+
+  .screen--empty .empty-state > *,
+  .screen--checklist-empty .empty-state > * {
+    pointer-events: auto;
   }
 
   .animal-selection-actions--top {

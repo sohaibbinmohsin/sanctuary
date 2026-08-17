@@ -8,6 +8,7 @@ import {
   type StatusCount,
 } from '@/features/animals/domain/animals'
 import { OverviewChecklistCard } from '@/features/checklist/components/OverviewChecklistCard'
+import { OverviewUploadsCard } from '@/features/uploads/components/OverviewUploadsCard'
 import {
   formatPkr,
   sumLedger,
@@ -258,6 +259,7 @@ export function DashboardScreen() {
         subtitle={greeting ?? 'Checklist and shelter numbers for your team.'}
       />
 
+      <OverviewUploadsCard />
       <OverviewChecklistCard />
 
       <section
