@@ -1,10 +1,22 @@
 import { useEffect, useState } from 'react'
 import { X } from '@phosphor-icons/react'
-import { useSyncStatus, type SyncStatusKind } from '@/shared/hooks/useSyncStatus'
+import {
+  useSyncStatus,
+  type SyncStatus,
+  type SyncStatusKind,
+} from '@/shared/hooks/useSyncStatus'
 import { getSupportEmail } from '@/shared/lib/supabase'
 
 const FAILED_COPY =
   "Can't reach Sanctuary right now. Your data is safe on this phone. Please contact support."
+
+export function pendingSyncMessage(
+  status: Pick<SyncStatus, 'hasSynced' | 'downloading' | 'uploading'>,
+): string {
+  if (status.downloading || !status.hasSynced) return 'Loading your records…'
+  if (status.uploading) return 'Saving your updates…'
+  return 'Connecting to Sanctuary…'
+}
 
 export function SyncBanner() {
   const status = useSyncStatus()
@@ -36,7 +48,7 @@ export function SyncBanner() {
   if (status.kind === 'pending') {
     return (
       <div className="sync-banner sync-banner--pending" role="status">
-        <span className="sync-banner__text">Saving your updates…</span>
+        <span className="sync-banner__text">{pendingSyncMessage(status)}</span>
         {dismissControl}
       </div>
     )
