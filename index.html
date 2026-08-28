@@ -165,10 +165,36 @@
         gap: 1rem;
         margin: 0;
       }
+      .boot-screen__logo-wrap {
+        position: relative;
+        width: 6.5rem;
+        height: 6.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .boot-screen__spinner-ring {
+        position: absolute;
+        inset: -0.35rem;
+        border-radius: 50%;
+        border: 2.5px solid rgba(212, 229, 208, 0.18);
+        border-top-color: #D4E5D0;
+        border-right-color: rgba(212, 229, 208, 0.75);
+        animation: boot-spin 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        pointer-events: none;
+      }
+      @keyframes boot-spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
       .boot-screen__logo {
         display: block;
-        width: 5.5rem;
-        height: 5.5rem;
+        width: 5rem;
+        height: 5rem;
       }
       .boot-screen__brand-text {
         display: flex;
@@ -216,13 +242,16 @@
       <main class="boot-screen" aria-busy="true" aria-live="polite">
         <div class="boot-screen__content">
           <div class="boot-screen__brand-lockup">
-            <img
-              class="boot-screen__logo"
-              src="/sanctuary-mark.svg"
-              alt=""
-              width="88"
-              height="88"
-            />
+            <div class="boot-screen__logo-wrap">
+              <div class="boot-screen__spinner-ring" aria-hidden="true"></div>
+              <img
+                class="boot-screen__logo"
+                src="/sanctuary-mark.svg"
+                alt=""
+                width="80"
+                height="80"
+              />
+            </div>
             <div class="boot-screen__brand-text">
               <h1 class="brand">Sanctuary</h1>
               <p class="subheading">Animal welfare platform</p>

@@ -595,10 +595,39 @@ a.primary {
   margin: 0;
 }
 
+.boot-screen__logo-wrap {
+  position: relative;
+  width: 6.5rem;
+  height: 6.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.boot-screen__spinner-ring {
+  position: absolute;
+  inset: -0.35rem;
+  border-radius: 50%;
+  border: 2.5px solid rgba(212, 229, 208, 0.18);
+  border-top-color: #d4e5d0;
+  border-right-color: rgba(212, 229, 208, 0.75);
+  animation: boot-spin 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes boot-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 .boot-screen__logo {
   display: block;
-  width: 5.5rem;
-  height: 5.5rem;
+  width: 5rem;
+  height: 5rem;
   margin: 0;
   flex-shrink: 0;
 }
