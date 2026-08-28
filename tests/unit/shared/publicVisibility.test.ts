@@ -123,7 +123,9 @@ describe('buildPublicShelterDto', () => {
       'status',
       'arrived',
     ])
-    expect(dto.animals[0]!.care[1]!.treatedAt).toBe('2026-01-01T12:00:00.000Z')
+    expect(dto.animals[0]!.care[1]!.treatedAt).toBe(
+      new Date('2026-01-01T12:00:00').toISOString(),
+    )
   })
 
   it('does not synthesize Arrived when an arrival care row already exists', () => {

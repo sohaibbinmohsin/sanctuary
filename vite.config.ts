@@ -121,6 +121,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        clientsClaim: true,
+        skipWaiting: false,
         // Checklist Web Push: push + notificationclick live in public/push-sw.js
         importScripts: ['/push-sw.js'],
         // Keep the installable SW lean; wasm loads on demand via runtime cache.
