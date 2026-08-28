@@ -15,7 +15,7 @@ guard let mohsinImage = NSImage(contentsOf: mohsinUrl) else {
     exit(1)
 }
 
-let bgColor = NSColor(srgbRed: 27/255.0, green: 67/255.0, blue: 50/255.0, alpha: 1.0)
+let bgColor = NSColor(srgbRed: 47/255.0, green: 93/255.0, blue: 58/255.0, alpha: 1.0)
 let titleColor = NSColor(srgbRed: 232/255.0, green: 238/255.0, blue: 233/255.0, alpha: 1.0)
 let subColor = NSColor(srgbRed: 212/255.0, green: 229/255.0, blue: 208/255.0, alpha: 0.90)
 let footerColor = NSColor(srgbRed: 212/255.0, green: 229/255.0, blue: 208/255.0, alpha: 0.85)

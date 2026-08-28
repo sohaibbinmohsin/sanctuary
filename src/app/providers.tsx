@@ -59,10 +59,10 @@ export function Providers({
           <div className="boot-screen__brand-lockup">
             <img
               className="boot-screen__logo"
-              src="/sanctuary-logo.svg"
+              src="/sanctuary-mark.svg"
               alt=""
-              width={52}
-              height={52}
+              width={88}
+              height={88}
             />
             <div className="boot-screen__brand-text">
               <h1 className="brand">Sanctuary</h1>
@@ -70,6 +70,10 @@ export function Providers({
             </div>
           </div>
           <p className="muted">Loading playground…</p>
+        </div>
+        <div className="boot-screen__footer">
+          <span>Free software by The Mohsin Project</span>
+          <img src="/mohsin-project-logo-white.svg" alt="" height={18} />
         </div>
       </main>
     )
