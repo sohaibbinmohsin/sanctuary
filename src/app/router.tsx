@@ -111,11 +111,22 @@ export function AppShell() {
     >
       {playground ? null : <SyncBanner />}
       <aside className="app-sidebar" aria-label="Sidebar">
-        <div>
-          <div className="app-sidebar__brand">Sanctuary</div>
-          {member?.orgName ? (
-            <div className="app-sidebar__org">{member.orgName}</div>
-          ) : null}
+        <div className="app-sidebar__header">
+          <div className="app-sidebar__brand-lockup">
+            <img
+              className="app-sidebar__logo"
+              src="/sanctuary-logo.svg"
+              alt=""
+              width={36}
+              height={36}
+            />
+            <div className="app-sidebar__brand-text">
+              <div className="app-sidebar__brand">Sanctuary</div>
+              {member?.orgName ? (
+                <div className="app-sidebar__org">{member.orgName}</div>
+              ) : null}
+            </div>
+          </div>
         </div>
         <NavItems
           className="app-sidebar__nav"

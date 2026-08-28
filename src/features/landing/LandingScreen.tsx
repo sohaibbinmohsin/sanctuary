@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowSquareOut } from '@phosphor-icons/react'
 import './landing.css'
 
 export function LandingScreen() {
@@ -40,7 +41,21 @@ export function LandingScreen() {
 
         <header className="topbar">
           <div className="wrap">
-            <div className="brand">Sanctuary</div>
+            <div className="topbar__brand-lockup">
+              <img
+                className="topbar__logo"
+                src="/sanctuary-logo.svg"
+                alt=""
+                width={48}
+                height={48}
+              />
+              <div className="topbar__brand-text">
+                <div className="brand">Sanctuary</div>
+                <span className="topbar__subheading">
+                  Animal welfare platform
+                </span>
+              </div>
+            </div>
             <Link className="topbar__signin" to="/login">
               Sign in
             </Link>
@@ -186,7 +201,21 @@ export function LandingScreen() {
           <article className="mohsin__panel reveal">
             <div className="mohsin__main">
               <h2 className="mohsin__heading" id="mohsin-heading">
-                Built by The Mohsin Project
+                Built by{' '}
+                <a
+                  className="mohsin__heading-link"
+                  href="https://themohsinproject.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  The Mohsin Project
+                  <ArrowSquareOut
+                    className="mohsin__link-icon"
+                    size={24}
+                    weight="bold"
+                    aria-hidden
+                  />
+                </a>
                 <img
                   className="mohsin__logo mohsin__logo--mark"
                   src="/mohsin-project-logo.svg"
@@ -205,14 +234,6 @@ export function LandingScreen() {
                   Sanctuary is one of those tools: offline-first shelter management for rescues that
                   work where signal fails.
                 </p>
-                <a
-                  className="btn btn--solid"
-                  href="https://themohsinproject.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Visit site
-                </a>
               </div>
             </div>
             <img
@@ -228,7 +249,16 @@ export function LandingScreen() {
 
       <footer className="footer">
         <div className="wrap">
-          <p className="footer__brand">Sanctuary</p>
+          <div className="footer__brand-lockup">
+            <img
+              className="footer__logo"
+              src="/sanctuary-logo-light.svg"
+              alt=""
+              width={36}
+              height={36}
+            />
+            <p className="footer__brand">Sanctuary</p>
+          </div>
           <p className="footer__tag">
             Shelter records, offline and on the go. Built for rescues that work in the field.
           </p>

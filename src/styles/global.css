@@ -567,24 +567,67 @@ a.primary {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: stretch;
+  align-items: center;
   padding: var(--space-6);
   padding-top: calc(var(--space-6) + var(--safe-top));
   padding-bottom: calc(var(--space-6) + var(--safe-bottom));
 }
 
 .boot-screen__content {
-  width: min(100%, 26rem);
+  width: auto;
+  max-width: min(100%, 28rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.boot-screen__brand-lockup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+}
+
+.boot-screen__logo {
+  display: block;
+  width: 3.25rem;
+  height: 3.25rem;
+  margin: 0;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.boot-screen__brand-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
 }
 
 .boot-screen .brand {
-  font-size: var(--text-hero);
-  margin: 0 0 var(--space-2);
-  line-height: var(--leading-tight);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-forest);
+  margin: 0;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.boot-screen .subheading {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-ink-muted);
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .boot-screen .muted {
   margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
 }
 
 /* ——— Login ——— */
@@ -634,12 +677,25 @@ a.primary {
   color: var(--color-ink);
 }
 
+.login-screen__brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+}
+
 .login-screen__logo {
   display: block;
-  width: 2.5rem;
-  height: 2.5rem;
-  margin: 0 0 var(--space-3);
-  border-radius: var(--radius-sm);
+  width: 3.25rem;
+  height: 3.25rem;
+  margin: 0;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.login-screen__brand-text {
+  display: flex;
+  flex-direction: column;
 }
 
 .login-screen__foot {
@@ -682,9 +738,22 @@ a.primary {
 }
 
 .login-screen .brand {
-  font-size: var(--text-hero);
-  margin: 0 0 var(--space-2);
-  line-height: var(--leading-tight);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-forest);
+  margin: 0;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.login-screen .subheading {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-ink-muted);
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .login-screen .lede {
@@ -4048,18 +4117,51 @@ a.primary {
     height: 100dvh;
   }
 
+  .app-sidebar__header {
+    display: flex;
+    flex-direction: column;
+    padding: 0 var(--space-2);
+  }
+
+  .app-sidebar__brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .app-sidebar__logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: block;
+  }
+
+  .app-sidebar__brand-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
   .app-sidebar__brand {
     font-family: var(--font-display);
     font-size: var(--text-lg);
     font-weight: 700;
     letter-spacing: -0.02em;
-    padding: 0 var(--space-2);
+    color: var(--color-forest);
+    line-height: 1.15;
+    padding: 0;
   }
 
   .app-sidebar__org {
-    padding: 0 var(--space-2);
-    font-size: var(--text-sm);
+    padding: 0;
+    font-size: var(--text-xs);
+    font-weight: 500;
     color: var(--color-ink-muted);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .app-sidebar__nav {
@@ -4312,11 +4414,15 @@ a.primary {
   }
 
   .boot-screen {
+    justify-content: center;
     align-items: center;
   }
 
   .boot-screen__content {
     width: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
   }
 }
