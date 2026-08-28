@@ -68,7 +68,19 @@ export default function App() {
     tree = (
       <main className="boot-screen" aria-busy="true" aria-live="polite">
         <div className="boot-screen__content">
-          <h1 className="brand">Sanctuary</h1>
+          <div className="boot-screen__brand-lockup">
+            <img
+              className="boot-screen__logo"
+              src="/sanctuary-logo.svg"
+              alt=""
+              width={48}
+              height={48}
+            />
+            <div className="boot-screen__brand-text">
+              <h1 className="brand">Sanctuary</h1>
+              <p className="subheading">Animal welfare platform</p>
+            </div>
+          </div>
           <p className="muted">Getting things ready…</p>
         </div>
       </main>

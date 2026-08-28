@@ -55,7 +55,19 @@ export function Providers({
   if (playground && !playgroundReady) {
     return (
       <main className="login-screen">
-        <h1 className="brand">Sanctuary</h1>
+        <div className="login-screen__brand-lockup">
+          <img
+            className="login-screen__logo"
+            src="/sanctuary-logo.svg"
+            alt=""
+            width={52}
+            height={52}
+          />
+          <div className="login-screen__brand-text">
+            <h1 className="brand">Sanctuary</h1>
+            <p className="subheading">Animal welfare platform</p>
+          </div>
+        </div>
         <p className="muted">Loading playground…</p>
       </main>
     )

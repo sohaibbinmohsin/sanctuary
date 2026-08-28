@@ -235,7 +235,7 @@ export function PublicShelterScreen({
             <div className="public-shelter__partner-text">
               <h1 className="public-shelter__org-name">{data.orgName}</h1>
               <p className="public-shelter__powered public-shelter__powered--mobile">
-                <img src="/favicon.svg" alt="" width={16} height={16} />
+                <img src="/sanctuary-logo.svg" alt="" width={16} height={16} />
                 Powered by{' '}
                 <a href="/" className="public-shelter__powered-link">
                   Sanctuary
@@ -244,7 +244,7 @@ export function PublicShelterScreen({
             </div>
           </div>
           <div className="public-shelter__powered public-shelter__powered--desktop">
-            <img src="/favicon.svg" alt="" width={22} height={22} />
+            <img src="/sanctuary-logo.svg" alt="" width={22} height={22} />
             <span>
               Powered by{' '}
               <a href="/" className="public-shelter__powered-link">

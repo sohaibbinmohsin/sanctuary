@@ -106,13 +106,40 @@
         width: min(100% - (var(--gutter) * 2), var(--max));
       }
 
+      .landing .topbar__brand-lockup {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+      }
+
+      .landing .topbar__logo {
+        width: clamp(46px, 5.5vw, 54px);
+        height: clamp(46px, 5.5vw, 54px);
+        border-radius: 50%;
+        display: block;
+        flex-shrink: 0;
+      }
+
+      .landing .topbar__brand-text {
+        display: flex;
+        flex-direction: column;
+      }
+
       .landing .brand {
         font-family: var(--font-display);
         font-weight: 700;
-        font-size: clamp(1.85rem, 3.5vw, 2.35rem);
+        font-size: clamp(1.4rem, 2.5vw, 1.85rem);
         letter-spacing: -0.03em;
-        line-height: 1;
+        line-height: 1.1;
         color: var(--white);
+      }
+
+      .landing .topbar__subheading {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.82);
+        line-height: 1.2;
+        letter-spacing: -0.01em;
       }
 
       .landing .topbar__signin {
@@ -488,6 +515,34 @@
         max-width: 100%;
       }
 
+      .landing .mohsin__heading-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        color: inherit;
+        text-decoration: underline;
+        text-decoration-color: var(--forest);
+        text-underline-offset: 0.18em;
+        text-decoration-thickness: 2.5px;
+        transition: color 160ms var(--ease), text-decoration-color 160ms var(--ease);
+      }
+
+      .landing .mohsin__heading-link:hover {
+        color: var(--forest);
+        text-decoration-color: var(--forest-hover);
+      }
+
+      .landing .mohsin__link-icon {
+        flex-shrink: 0;
+        opacity: 0.75;
+        transition: transform 160ms var(--ease), opacity 160ms var(--ease);
+      }
+
+      .landing .mohsin__heading-link:hover .mohsin__link-icon {
+        opacity: 1;
+        transform: translate(2px, -2px);
+      }
+
       .landing .mohsin__logo--mark {
         width: 4.5rem;
         height: auto;
@@ -524,12 +579,33 @@
         text-align: left;
       }
 
+      .landing .footer__brand-lockup {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .landing .footer__logo {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: block;
+        flex-shrink: 0;
+      }
+
       .landing .footer__brand {
         font-family: var(--font-display);
         font-weight: 700;
         font-size: 1.65rem;
         letter-spacing: -0.02em;
         color: var(--white);
+        margin: 0;
+      }
+
+      .landing .footer__subheading {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: rgba(247, 250, 248, 0.85);
         margin: 0;
       }
 
