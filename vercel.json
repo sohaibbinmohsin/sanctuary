@@ -2,8 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "headers": [
     {
-      "source": "/version.json",
-      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+      "source": "/(sw\\.js|push-sw\\.js|version\\.json)",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+    },
+    {
+      "source": "/workbox-(.*)\\.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     }
   ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
