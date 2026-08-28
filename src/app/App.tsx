@@ -71,17 +71,20 @@ export default function App() {
           <div className="boot-screen__brand-lockup">
             <img
               className="boot-screen__logo"
-              src="/sanctuary-logo.svg"
+              src="/sanctuary-mark.svg"
               alt=""
-              width={48}
-              height={48}
+              width={88}
+              height={88}
             />
             <div className="boot-screen__brand-text">
               <h1 className="brand">Sanctuary</h1>
               <p className="subheading">Animal welfare platform</p>
             </div>
           </div>
-          <p className="muted">Getting things ready…</p>
+        </div>
+        <div className="boot-screen__footer">
+          <span>Free software by The Mohsin Project</span>
+          <img src="/mohsin-project-logo-white.svg" alt="" height={18} />
         </div>
       </main>
     )
