@@ -9,6 +9,7 @@ import { isPlaygroundPath } from '@/features/playground/mode'
 import { isReservedPublicSlug } from '@/shared/lib/public/slug'
 import { supabase, supabaseConfigured } from '@/shared/lib/supabase'
 import { PwaUpdateBanner } from '@/shared/ui/PwaUpdateBanner'
+import { SplashScreen } from '@/shared/ui/SplashScreen'
 
 const playground = isPlaygroundPath(window.location.pathname)
 
@@ -65,29 +66,7 @@ export default function App() {
 
   let tree
   if (!ready) {
-    tree = (
-      <main className="boot-screen" aria-busy="true" aria-live="polite">
-        <div className="boot-screen__content">
-          <div className="boot-screen__brand-lockup">
-            <img
-              className="boot-screen__logo"
-              src="/sanctuary-mark.svg"
-              alt=""
-              width={88}
-              height={88}
-            />
-            <div className="boot-screen__brand-text">
-              <h1 className="brand">Sanctuary</h1>
-              <p className="subheading">Animal welfare platform</p>
-            </div>
-          </div>
-        </div>
-        <div className="boot-screen__footer">
-          <span>Free software by The Mohsin Project</span>
-          <img src="/mohsin-project-logo-white.svg" alt="" height={18} />
-        </div>
-      </main>
-    )
+    tree = <SplashScreen />
   } else if (playground) {
     tree = (
       <Providers sessionReady={false} playground>

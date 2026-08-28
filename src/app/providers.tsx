@@ -8,6 +8,7 @@ import { ensurePlaygroundSeed } from '@/features/playground/seed'
 import { setPlaygroundMode } from '@/features/playground/mode'
 import { supabase, supabaseConfigured } from '@/shared/lib/supabase'
 import { ConfirmProvider } from '@/shared/ui/ConfirmDialog'
+import { SplashScreen } from '@/shared/ui/SplashScreen'
 
 type ProvidersProps = {
   children: ReactNode
@@ -53,30 +54,7 @@ export function Providers({
   }, [sessionReady, playground])
 
   if (playground && !playgroundReady) {
-    return (
-      <main className="boot-screen" aria-busy="true" aria-live="polite">
-        <div className="boot-screen__content">
-          <div className="boot-screen__brand-lockup">
-            <img
-              className="boot-screen__logo"
-              src="/sanctuary-mark.svg"
-              alt=""
-              width={88}
-              height={88}
-            />
-            <div className="boot-screen__brand-text">
-              <h1 className="brand">Sanctuary</h1>
-              <p className="subheading">Animal welfare platform</p>
-            </div>
-          </div>
-          <p className="muted">Loading playground…</p>
-        </div>
-        <div className="boot-screen__footer">
-          <span>Free software by The Mohsin Project</span>
-          <img src="/mohsin-project-logo-white.svg" alt="" height={18} />
-        </div>
-      </main>
-    )
+    return <SplashScreen message="Loading playground…" />
   }
 
   return (
