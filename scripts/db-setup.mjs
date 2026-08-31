@@ -143,6 +143,20 @@ async function migrate() {
   } else {
     console.log('✓ treatment_type check already allows status/arrived')
   }
+
+  const setupCompletedCol = await sql`
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'organizations'
+      and column_name = 'setup_completed'
+    limit 1
+  `
+  if (setupCompletedCol.length === 0) {
+    await applyMigration('20260831120000_organization_setup_completed.sql')
+  } else {
+    console.log('✓ setup_completed already present — skipping setup_completed migration')
+  }
 }
 
 async function seed() {

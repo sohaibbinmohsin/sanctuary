@@ -6,6 +6,7 @@ const organizations = new Table({
   logo_r2_key: column.text,
   public_enabled: column.integer, // 0/1
   public_slug: column.text,
+  setup_completed: column.integer, // 0/1
   created_at: column.text,
 })
 
@@ -177,6 +178,8 @@ export const AppSchema = new Schema({
   checklist_items,
   checklist_checks,
 })
+
+export const schema = AppSchema
 
 export type Database = (typeof AppSchema)['types']
 export type OrganizationRecord = Database['organizations']
