@@ -25,7 +25,7 @@ describe('Onboarding domain', () => {
       getAll: vi.fn(async () => []),
       getOptional: vi.fn(async () => null),
       writeTransaction: vi.fn(async (fn) => {
-        await fn({
+        return await fn({
           execute: vi.fn(async (sql, params) => {
             executedSql.push({ sql, params })
           }),
@@ -75,7 +75,7 @@ describe('Onboarding domain', () => {
       getAll: vi.fn(async () => []),
       getOptional: vi.fn(async () => null),
       writeTransaction: vi.fn(async (fn) => {
-        await fn({
+        return await fn({
           execute: vi.fn(async (sql, params) => {
             executedSql.push({ sql, params })
           }),
@@ -112,7 +112,7 @@ describe('Onboarding domain', () => {
       getAll: vi.fn(async () => []),
       getOptional: vi.fn(async () => null),
       writeTransaction: vi.fn(async (fn) => {
-        await fn(mockDb)
+        return await fn(mockDb)
       }),
     }
 
