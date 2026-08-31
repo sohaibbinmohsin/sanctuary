@@ -18,6 +18,35 @@ export type CurrentMember = {
   orgLogoR2Key: string | null
   publicEnabled: boolean
   publicSlug: string | null
+  setupCompleted: boolean
+}
+
+export type MemberRow = {
+  id: string
+  org_id: string
+  user_id: string
+  role: string
+  org_name: string
+  org_initials: string
+  org_logo_r2_key: string | null
+  org_public_enabled: number | null
+  org_public_slug: string | null
+  org_setup_completed: number | null
+}
+
+export function mapMemberRow(row: MemberRow): CurrentMember {
+  return {
+    id: row.id,
+    orgId: row.org_id,
+    userId: row.user_id,
+    role: row.role as CurrentMember['role'],
+    orgName: row.org_name,
+    orgInitials: row.org_initials,
+    orgLogoR2Key: row.org_logo_r2_key ?? null,
+    publicEnabled: row.org_public_enabled === 1,
+    publicSlug: row.org_public_slug ?? null,
+    setupCompleted: row.org_setup_completed === 1,
+  }
 }
 
 export function useCurrentMember(): {
@@ -56,20 +85,11 @@ export function useCurrentMember(): {
         }
 
         const readMember = () =>
-          db.getOptional<{
-            id: string
-            org_id: string
-            user_id: string
-            role: string
-            org_name: string
-            org_initials: string
-            org_logo_r2_key: string | null
-            org_public_enabled: number | null
-            org_public_slug: string | null
-          }>(
+          db.getOptional<MemberRow>(
             `SELECT m.id, m.org_id, m.user_id, m.role, o.name as org_name,
                     o.initials as org_initials, o.logo_r2_key as org_logo_r2_key,
-                    o.public_enabled as org_public_enabled, o.public_slug as org_public_slug
+                    o.public_enabled as org_public_enabled, o.public_slug as org_public_slug,
+                    o.setup_completed as org_setup_completed
              FROM org_members m
              JOIN organizations o ON o.id = m.org_id
              WHERE m.user_id = ?
@@ -91,21 +111,7 @@ export function useCurrentMember(): {
         }
 
         if (!cancelled) {
-          setMember(
-            row
-              ? {
-                  id: row.id,
-                  orgId: row.org_id,
-                  userId: row.user_id,
-                  role: row.role as CurrentMember['role'],
-                  orgName: row.org_name,
-                  orgInitials: row.org_initials,
-                  orgLogoR2Key: row.org_logo_r2_key ?? null,
-                  publicEnabled: row.org_public_enabled === 1,
-                  publicSlug: row.org_public_slug ?? null,
-                }
-              : null,
-          )
+          setMember(row ? mapMemberRow(row) : null)
         }
       } finally {
         if (!cancelled) setLoading(false)
