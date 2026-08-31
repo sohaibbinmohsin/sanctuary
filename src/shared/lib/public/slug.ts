@@ -2,6 +2,7 @@
 export const RESERVED_PUBLIC_SLUGS = new Set([
   '',
   'login',
+  'onboarding',
   'animals',
   'ledger',
   'dashboard',

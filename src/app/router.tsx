@@ -22,6 +22,9 @@ import { ChecklistScreen } from '@/features/checklist/screens/ChecklistScreen'
 import { SettingsScreen } from '@/features/settings/screens/SettingsScreen'
 import { UploadsScreen } from '@/features/uploads/screens/UploadsScreen'
 import { HelpAndAccount } from '@/features/settings/components/HelpAndAccount'
+import { SplashScreen } from '@/shared/ui/SplashScreen'
+import { OnboardingScreen } from '@/features/onboarding/screens/OnboardingScreen'
+import { SetupWaitingScreen } from '@/features/onboarding/screens/SetupWaitingScreen'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { useDb } from '@/shared/hooks/useDb'
 import { useMediaUploadRunner } from '@/features/uploads/hooks/useMediaUploadRunner'
@@ -93,7 +96,7 @@ function NavItems({
 
 export function AppShell() {
   const db = useDb()
-  const { member } = useCurrentMember()
+  const { member, loading } = useCurrentMember()
   const playground = isPlaygroundMode()
   const { pathname } = useLocation()
   const showBottomNav = isPrimaryPath(pathname)
@@ -102,6 +105,24 @@ export function AppShell() {
     playground ? undefined : member?.orgId,
   )
   const uploadBadge = pendingUploads.length
+
+  if (!playground) {
+    if (loading) {
+      return <SplashScreen />
+    }
+
+    if (member && !member.setupCompleted) {
+      if (member.role === 'admin') {
+        return (
+          <Routes>
+            <Route path="/onboarding" element={<OnboardingScreen />} />
+            <Route path="*" element={<Navigate to="/onboarding" replace />} />
+          </Routes>
+        )
+      }
+      return <SetupWaitingScreen />
+    }
+  }
 
   return (
     <div
@@ -156,6 +177,7 @@ export function AppShell() {
             <Route path="/uploads" element={<UploadsScreen />} />
             <Route path="/checklist" element={<ChecklistScreen />} />
             <Route path="/settings" element={<SettingsScreen />} />
+            <Route path="/onboarding" element={<Navigate to="/animals" replace />} />
           </Routes>
         </main>
         {showBottomNav ? <NavItems className="app-nav" items={BOTTOM_NAV} /> : null}
