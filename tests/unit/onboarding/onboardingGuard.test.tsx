@@ -77,11 +77,15 @@ describe('OnboardingScreen', () => {
       .spyOn(onboardingDomainModule, 'commitOnboarding')
       .mockResolvedValue()
 
+    const scrollToSpy = vi.spyOn(window, 'scrollTo')
+
     render(
       <MemoryRouter initialEntries={['/onboarding']}>
         <OnboardingScreen />
       </MemoryRouter>,
     )
+
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0)
 
     // Brand header
     expect(screen.getByText('Sanctuary')).toBeInTheDocument()
@@ -93,6 +97,7 @@ describe('OnboardingScreen', () => {
 
     // Move to Step 2
     fireEvent.click(screen.getByRole('button', { name: /Continue to animal statuses/i }))
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0)
 
     // Step 2: Statuses
     expect(screen.getByRole('heading', { name: /Animal statuses/i })).toBeInTheDocument()
@@ -100,6 +105,7 @@ describe('OnboardingScreen', () => {
 
     // Move to Step 3
     fireEvent.click(screen.getByRole('button', { name: /Continue to ledger categories/i }))
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0)
 
     // Step 3: Ledger
     expect(screen.getByRole('heading', { name: /Ledger & currency/i })).toBeInTheDocument()

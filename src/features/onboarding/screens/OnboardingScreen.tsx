@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SignOut } from '@phosphor-icons/react'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
@@ -40,6 +40,10 @@ export function OnboardingScreen() {
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [currentStep])
 
   async function handleSignOut() {
     await disconnectPowerSync()
@@ -148,11 +152,9 @@ export function OnboardingScreen() {
               <StepIdentity
                 name={name}
                 initials={initials}
-                currency={currency}
                 logoFile={logoFile}
                 onNameChange={setName}
                 onInitialsChange={setInitials}
-                onCurrencyChange={setCurrency}
                 onLogoFileChange={setLogoFile}
                 onNext={() => setCurrentStep(2)}
               />
