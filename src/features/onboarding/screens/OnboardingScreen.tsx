@@ -5,6 +5,7 @@ import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { useDb } from '@/shared/hooks/useDb'
 import { disconnectPowerSync } from '@/features/sync/powersync/database'
 import { supabaseConnector } from '@/features/sync/powersync/connector'
+import { supabase } from '@/shared/lib/supabase'
 import {
   DEFAULT_ONBOARDING_STATUSES,
   DEFAULT_ONBOARDING_CATEGORIES,
@@ -31,10 +32,10 @@ export function OnboardingScreen() {
   const [initials, setInitials] = useState(member?.orgInitials ?? '')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [statuses, setStatuses] = useState<StatusDraft[]>(() =>
-    DEFAULT_ONBOARDING_STATUSES.map((s) => ({ ...s })),
+    DEFAULT_ONBOARDING_STATUSES.map((s) => ({ ...s, id: crypto.randomUUID() })),
   )
   const [categories, setCategories] = useState<CategoryDraft[]>(() =>
-    DEFAULT_ONBOARDING_CATEGORIES.map((c) => ({ ...c })),
+    DEFAULT_ONBOARDING_CATEGORIES.map((c) => ({ ...c, id: crypto.randomUUID() })),
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,12 +47,28 @@ export function OnboardingScreen() {
   }
 
   async function handleFinish() {
-    if (!db || !member) return
+    if (!db) return
+    let targetOrgId = member?.orgId
+    let targetUserId = member?.userId
+
+    if (!targetOrgId || !targetUserId) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      targetUserId = session?.user?.id
+      if (!targetUserId) {
+        setError('You are not signed in.')
+        return
+      }
+      targetOrgId = targetOrgId || crypto.randomUUID()
+    }
+
     setBusy(true)
     setError(null)
     try {
       await commitOnboarding(db, {
-        orgId: member.orgId,
+        orgId: targetOrgId,
+        userId: targetUserId,
         name,
         initials,
         logoFile,
@@ -96,6 +113,32 @@ export function OnboardingScreen() {
 
       <main className="onboarding-screen__main">
         <div className="onboarding-screen__container">
+          <div className="onboarding-screen__welcome">
+            <h1>Welcome to Sanctuary</h1>
+            <p>
+              On behalf of{' '}
+              <a
+                href="https://themohsinproject.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  whiteSpace: 'nowrap',
+                  textDecoration: 'underline',
+                  color: 'inherit',
+                  textUnderlineOffset: '3px',
+                }}
+              >
+                The Mohsin Project Global{' '}
+                <img
+                  src="/mohsin-project-logo.svg"
+                  alt="The Mohsin Project"
+                  style={{ height: '1.2em', verticalAlign: '-0.18em', display: 'inline-block' }}
+                />
+              </a>
+              , we are thrilled to have you here. Let's get your shelter set up.
+            </p>
+          </div>
+
           <OnboardingProgress currentStep={currentStep} />
 
           <div className="onboarding-card">

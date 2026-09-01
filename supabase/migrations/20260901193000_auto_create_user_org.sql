@@ -43,3 +43,13 @@ begin
     values (new_org_id, u.id, 'admin');
   end loop;
 end $$;
+
+-- Allow authenticated users to insert organizations and members
+drop policy if exists org_insert on organizations;
+create policy org_insert on organizations for insert
+  with check (auth.uid() is not null);
+
+drop policy if exists members_insert on org_members;
+create policy members_insert on org_members for insert
+  with check (user_id = auth.uid());
+
