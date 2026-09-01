@@ -172,7 +172,11 @@ export function LedgerScreen() {
               : 'Custom range'
 
   return (
-    <section className={hasEntries ? 'screen' : 'screen screen--empty'}>
+    <section
+      className={
+        hasEntries ? 'screen' : 'screen screen--empty screen--ledger-empty'
+      }
+    >
       <PageHeader
         title="Ledger"
         subtitle="Track donations and expenses for your shelter."
