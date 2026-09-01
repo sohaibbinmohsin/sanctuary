@@ -1,12 +1,10 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import {
-  CloudSlash,
   Funnel,
   List,
   MagnifyingGlass,
   PawPrint,
   SquaresFour,
-  WifiSlash,
   X,
 } from '@phosphor-icons/react'
 import { useQuery } from '@powersync/react'
@@ -124,7 +122,7 @@ export function AnimalsListScreen() {
     // Re-run when PowerSync inserts rows (hasSynced can already be true).
   }, [
     db,
-    member,
+    member?.orgId,
     deferredQuery,
     filters.statusIds,
     filters.statusMode,
@@ -218,6 +216,16 @@ export function AnimalsListScreen() {
             onChange={(event) => updateQuery(event.target.value)}
             aria-label="Search animals"
           />
+          {filters.query ? (
+            <button
+              type="button"
+              className="filter-bar__clear"
+              onClick={() => updateQuery('')}
+              aria-label="Clear search"
+            >
+              <X size={14} weight="bold" aria-hidden />
+            </button>
+          ) : null}
         </div>
         <div className="filter-button-wrap">
           <Button
@@ -271,22 +279,6 @@ export function AnimalsListScreen() {
             />
           ))}
         </div>
-      ) : emptyState === 'offline' ? (
-        <EmptyState
-          icon={<WifiSlash size={28} weight="duotone" />}
-          title="No internet"
-          body="Can't load animals right now. Check your connection and try again."
-          actionLabel="Try again"
-          onAction={() => window.location.reload()}
-        />
-      ) : emptyState === 'failed' ? (
-        <EmptyState
-          icon={<CloudSlash size={28} weight="duotone" />}
-          title="Can't reach Sanctuary"
-          body="Your records are safe. Check your connection and try again."
-          actionLabel="Try again"
-          onAction={() => window.location.reload()}
-        />
       ) : animals.length === 0 ? (
         <EmptyState
           icon={<PawPrint size={28} weight="duotone" />}

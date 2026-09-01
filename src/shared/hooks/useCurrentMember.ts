@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { usePowerSync } from '@powersync/react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { usePowerSync, useQuery } from '@powersync/react'
 import { supabase } from '@/shared/lib/supabase'
 import { asDb } from '@/shared/lib/db'
 import { hydrateOrgBootstrap } from '@/features/sync/hydrateOrgBootstrap'
@@ -18,6 +18,35 @@ export type CurrentMember = {
   orgLogoR2Key: string | null
   publicEnabled: boolean
   publicSlug: string | null
+  setupCompleted: boolean
+}
+
+export type MemberRow = {
+  id: string
+  org_id: string
+  user_id: string
+  role: string
+  org_name: string
+  org_initials: string
+  org_logo_r2_key: string | null
+  org_public_enabled: number | null
+  org_public_slug: string | null
+  org_setup_completed: number | null
+}
+
+export function mapMemberRow(row: MemberRow): CurrentMember {
+  return {
+    id: row.id,
+    orgId: row.org_id,
+    userId: row.user_id,
+    role: row.role as CurrentMember['role'],
+    orgName: row.org_name,
+    orgInitials: row.org_initials,
+    orgLogoR2Key: row.org_logo_r2_key ?? null,
+    publicEnabled: row.org_public_enabled === 1,
+    publicSlug: row.org_public_slug ?? null,
+    setupCompleted: row.org_setup_completed === 1,
+  }
 }
 
 export function useCurrentMember(): {
@@ -26,97 +55,73 @@ export function useCurrentMember(): {
 } {
   const powerSync = usePowerSync()
   const db = powerSync ? asDb(powerSync) : null
-  const [member, setMember] = useState<CurrentMember | null>(null)
-  const [loading, setLoading] = useState(true)
+  const playground = isPlaygroundMode()
+  const hydratedRef = useRef(false)
+
+  const [userId, setUserId] = useState<string | undefined>(
+    playground ? PLAYGROUND_USER_ID : undefined,
+  )
+  const [authLoading, setAuthLoading] = useState(!playground)
 
   useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      setLoading(true)
+    if (playground) return
+    let mounted = true
+    void (async () => {
       try {
-        if (!db) {
-          if (!cancelled) setMember(null)
-          return
-        }
-
-        const playground = isPlaygroundMode()
-        let userId: string | undefined
-
-        if (playground) {
-          userId = PLAYGROUND_USER_ID
-        } else {
-          const { data } = await supabase.auth.getSession()
-          userId = data.session?.user?.id
-        }
-
-        if (!userId) {
-          if (!cancelled) setMember(null)
-          return
-        }
-
-        const readMember = () =>
-          db.getOptional<{
-            id: string
-            org_id: string
-            user_id: string
-            role: string
-            org_name: string
-            org_initials: string
-            org_logo_r2_key: string | null
-            org_public_enabled: number | null
-            org_public_slug: string | null
-          }>(
-            `SELECT m.id, m.org_id, m.user_id, m.role, o.name as org_name,
-                    o.initials as org_initials, o.logo_r2_key as org_logo_r2_key,
-                    o.public_enabled as org_public_enabled, o.public_slug as org_public_slug
-             FROM org_members m
-             JOIN organizations o ON o.id = m.org_id
-             WHERE m.user_id = ?
-             LIMIT 1`,
-            [userId],
-          )
-
-        let row = await readMember()
-
-        if (!playground) {
-          const statusCount = await db.getOptional<{ c: number }>(
-            `SELECT COUNT(*) as c FROM animal_statuses`,
-          )
-
-          if (!row || (statusCount?.c ?? 0) === 0) {
-            await hydrateOrgBootstrap(db)
-            row = await readMember()
-          }
-        }
-
-        if (!cancelled) {
-          setMember(
-            row
-              ? {
-                  id: row.id,
-                  orgId: row.org_id,
-                  userId: row.user_id,
-                  role: row.role as CurrentMember['role'],
-                  orgName: row.org_name,
-                  orgInitials: row.org_initials,
-                  orgLogoR2Key: row.org_logo_r2_key ?? null,
-                  publicEnabled: row.org_public_enabled === 1,
-                  publicSlug: row.org_public_slug ?? null,
-                }
-              : null,
-          )
+        const { data } = await supabase.auth.getSession()
+        if (mounted) {
+          setUserId(data.session?.user?.id)
         }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (mounted) setAuthLoading(false)
       }
-    }
-
-    void load()
+    })()
     return () => {
-      cancelled = true
+      mounted = false
     }
-  }, [db])
+  }, [playground])
+
+  const query = userId
+    ? `SELECT m.id, m.org_id, m.user_id, m.role, o.name as org_name,
+              o.initials as org_initials, o.logo_r2_key as org_logo_r2_key,
+              o.public_enabled as org_public_enabled, o.public_slug as org_public_slug,
+              o.setup_completed as org_setup_completed
+       FROM org_members m
+       JOIN organizations o ON o.id = m.org_id
+       WHERE m.user_id = ?
+       LIMIT 1`
+    : `SELECT 1 WHERE 0`
+
+  const { data: memberRows = [], isLoading: queryLoading } = useQuery<MemberRow>(
+    query,
+    userId ? [userId] : [],
+  )
+
+  useEffect(() => {
+    if (!db || playground || !userId || authLoading || queryLoading) return
+    if (memberRows.length === 0 && !hydratedRef.current) {
+      hydratedRef.current = true
+      void hydrateOrgBootstrap(db)
+    }
+  }, [db, playground, userId, authLoading, queryLoading, memberRows.length])
+
+  const row = memberRows[0]
+  const member = useMemo(
+    () => (row ? mapMemberRow(row) : null),
+    [
+      row?.id,
+      row?.org_id,
+      row?.user_id,
+      row?.role,
+      row?.org_name,
+      row?.org_initials,
+      row?.org_logo_r2_key,
+      row?.org_public_enabled,
+      row?.org_public_slug,
+      row?.org_setup_completed,
+    ],
+  )
+  const loading = authLoading || (userId ? queryLoading : false)
 
   return { member, loading }
 }

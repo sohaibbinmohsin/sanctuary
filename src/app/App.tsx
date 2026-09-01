@@ -13,8 +13,15 @@ import { SplashScreen } from '@/shared/ui/SplashScreen'
 
 const playground = isPlaygroundPath(window.location.pathname)
 
-/** First path segments owned by the signed-in app shell, so /:slug can still resolve to it. */
-const APP_ROOTS = new Set(['animals', 'ledger', 'dashboard', 'settings', 'checklist', 'uploads'])
+const APP_ROOTS = new Set([
+  'animals',
+  'ledger',
+  'dashboard',
+  'settings',
+  'checklist',
+  'uploads',
+  'onboarding',
+])
 
 /**
  * Signed-in staff may still want to preview a donor-facing `/{slug}` page.
