@@ -217,54 +217,38 @@ describe('StepStatuses', () => {
     ])
   })
 
-  it('allows reordering statuses up and down', () => {
-    const onStatusesChange = vi.fn()
+  it('renders drag handles for reordering statuses', () => {
     render(
       <StepStatuses
         statuses={[
-          { label: 'First', countsAsInCare: true },
-          { label: 'Second', countsAsInCare: true },
-          { label: 'Third', countsAsInCare: false },
+          { id: '1', label: 'First', countsAsInCare: true },
+          { id: '2', label: 'Second', countsAsInCare: true },
+          { id: '3', label: 'Third', countsAsInCare: false },
         ]}
-        onStatusesChange={onStatusesChange}
+        onStatusesChange={vi.fn()}
         onBack={vi.fn()}
         onNext={vi.fn()}
       />,
     )
-    const moveDownButtons = screen.getAllByRole('button', { name: /Move down/i })
-    // Move First down
-    fireEvent.click(moveDownButtons[0]!)
-    expect(onStatusesChange).toHaveBeenCalledWith([
-      { label: 'Second', countsAsInCare: true },
-      { label: 'First', countsAsInCare: true },
-      { label: 'Third', countsAsInCare: false },
-    ])
-
-    const moveUpButtons = screen.getAllByRole('button', { name: /Move up/i })
-    // Move Second (index 1 in initial render) up
-    fireEvent.click(moveUpButtons[1]!)
-    expect(onStatusesChange).toHaveBeenCalledWith([
-      { label: 'Second', countsAsInCare: true },
-      { label: 'First', countsAsInCare: true },
-      { label: 'Third', countsAsInCare: false },
-    ])
+    const dragHandles = screen.getAllByLabelText(/Drag to reorder/i)
+    expect(dragHandles).toHaveLength(3)
   })
 
   it('allows adding a new status', () => {
     const onStatusesChange = vi.fn()
     render(
       <StepStatuses
-        statuses={[{ label: 'Intake', countsAsInCare: true }]}
+        statuses={[{ id: '1', label: 'Intake', countsAsInCare: true }]}
         onStatusesChange={onStatusesChange}
         onBack={vi.fn()}
         onNext={vi.fn()}
       />,
     )
-    const addBtn = screen.getByRole('button', { name: /Add status/i })
+    const addBtn = screen.getByRole('button', { name: /Add new status/i })
     fireEvent.click(addBtn)
     expect(onStatusesChange).toHaveBeenCalledWith([
-      { label: 'Intake', countsAsInCare: true },
-      { label: '', countsAsInCare: true },
+      { id: '1', label: 'Intake', countsAsInCare: true },
+      expect.objectContaining({ label: '', countsAsInCare: true }),
     ])
   })
 
@@ -402,7 +386,7 @@ describe('StepLedger', () => {
     const onCategoriesChange = vi.fn()
     render(
       <StepLedger
-        categories={[{ label: 'Donation', direction: 'in' }]}
+        categories={[{ id: '1', label: 'Donation', direction: 'in' }]}
         onCategoriesChange={onCategoriesChange}
         onBack={vi.fn()}
         onFinish={vi.fn()}
@@ -410,11 +394,11 @@ describe('StepLedger', () => {
         error={null}
       />,
     )
-    const addBtn = screen.getByRole('button', { name: /Add category/i })
+    const addBtn = screen.getByRole('button', { name: /Add new category/i })
     fireEvent.click(addBtn)
     expect(onCategoriesChange).toHaveBeenCalledWith([
-      { label: 'Donation', direction: 'in' },
-      { label: '', direction: 'out' },
+      { id: '1', label: 'Donation', direction: 'in' },
+      expect.objectContaining({ label: '', direction: 'out' }),
     ])
   })
 

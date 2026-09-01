@@ -188,7 +188,7 @@ npm run functions:deploy
 
 ## Home-screen updates
 
-Installed PWAs keep a cached build until the page reloads. Each production build writes an uncached `/version.json` (git SHA). When the app opens or comes back to the foreground, it compares that file to the build already running. If they differ, a short **Refresh to update** bar appears at the top.
+Installed PWAs keep a cached build until the page reloads. Each production build writes an uncached `/version.json` (git SHA). When the app opens or comes back to the foreground, it compares that file to the build already running. If they differ, a short **Click to update** bar appears at the top.
 
 Staff on an older install will not see that bar until they have loaded a build that includes it (fully close the PWA and reopen, or refresh in the browser). After that, later deploys prompt from the bar.
 

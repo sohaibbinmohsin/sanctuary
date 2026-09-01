@@ -21,10 +21,7 @@ export async function hydrateOrgBootstrap(db: SanctuaryDb): Promise<boolean> {
     `SELECT id FROM org_members WHERE user_id = ? LIMIT 1`,
     [userId],
   )
-  const localStatusCount = await db.getOptional<{ c: number }>(
-    `SELECT COUNT(*) as c FROM animal_statuses`,
-  )
-  if (localMember && (localStatusCount?.c ?? 0) > 0) {
+  if (localMember) {
     return false
   }
 

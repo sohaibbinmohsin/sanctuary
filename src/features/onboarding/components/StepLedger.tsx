@@ -1,8 +1,24 @@
 import { Plus, Trash } from '@phosphor-icons/react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 import type { CategoryDraft } from '@/features/onboarding/domain/onboarding'
 import type { LedgerDirection } from '@/features/ledger/domain/ledger'
 import { Button } from '@/shared/ui/Button'
 import { SelectField } from '@/shared/ui/SelectField'
+import { SortableListItem } from './SortableListItem'
 
 export type StepLedgerProps = {
   categories: CategoryDraft[]
@@ -21,6 +37,17 @@ export function StepLedger({
   busy = false,
   error = null,
 }: StepLedgerProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
+
   function handleLabelChange(index: number, label: string) {
     const updated = categories.map((c, i) => (i === index ? { ...c, label } : c))
     onCategoriesChange(updated)
@@ -32,12 +59,21 @@ export function StepLedger({
   }
 
   function handleAddCategory() {
-    onCategoriesChange([...categories, { label: '', direction: 'out' }])
+    onCategoriesChange([...categories, { id: crypto.randomUUID(), label: '', direction: 'out' }])
   }
 
   function handleRemoveCategory(index: number) {
     if (categories.length <= 1) return
     onCategoriesChange(categories.filter((_, i) => i !== index))
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      const oldIndex = categories.findIndex((c) => c.id === active.id)
+      const newIndex = categories.findIndex((c) => c.id === over.id)
+      onCategoriesChange(arrayMove(categories, oldIndex, newIndex))
+    }
   }
 
   const hasValidCategory = categories.some((c) => c.label.trim().length > 0)
@@ -47,7 +83,7 @@ export function StepLedger({
       <div className="onboarding-step__header">
         <h2>Ledger categories</h2>
         <p className="muted">
-          Review and customize your shelter’s income and expense categories. These help keep your financial ledger organized from day one.
+          How do you categorize your shelter's finances? Add your categories below to track where your money comes from (Money in) and where it goes (Money out).
         </p>
       </div>
 
@@ -59,57 +95,70 @@ export function StepLedger({
         </div>
       ) : null}
 
-      <div className="stack onboarding-list" style={{ gap: '0.75rem' }}>
-        {categories.map((category, index) => (
-          <div
-            key={category.id ?? `category-${index}`}
-            className="onboarding-list-item"
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="stack onboarding-list" style={{ gap: '0.75rem' }}>
+          <SortableContext
+            items={categories.map((c, i) => c.id ?? c.label ?? `cat-${i}`)}
+            strategy={verticalListSortingStrategy}
           >
-            <input
-              type="text"
-              value={category.label}
-              onChange={(e) => handleLabelChange(index, e.target.value)}
-              placeholder="Category name"
-              aria-label="Category name"
-              className="onboarding-item-input"
-            />
+            {categories.map((category, index) => {
+              const itemId = category.id ?? category.label ?? `cat-${index}`
+              return (
+                <SortableListItem key={itemId} id={itemId}>
+                <input
+                  type="text"
+                  value={category.label}
+                  onChange={(e) => handleLabelChange(index, e.target.value)}
+                  placeholder="Category name"
+                  aria-label="Category name"
+                  className="onboarding-item-input"
+                />
 
-            <div className="onboarding-select-wrapper">
-              <SelectField
-                label="Direction"
-                hideLabel
-                value={category.direction}
-                options={[
-                  { value: 'in', label: 'Money in' },
-                  { value: 'out', label: 'Money out' },
-                ]}
-                onChange={(val) =>
-                  handleDirectionChange(index, val as LedgerDirection)
-                }
-              />
-            </div>
+                <div className="onboarding-select-wrapper">
+                  <SelectField
+                    label="Direction"
+                    hideLabel
+                    value={category.direction}
+                    options={[
+                      { value: 'in', label: 'Money in' },
+                      { value: 'out', label: 'Money out' },
+                    ]}
+                    onChange={(val) =>
+                      handleDirectionChange(index, val as LedgerDirection)
+                    }
+                  />
+                </div>
 
-            <Button
-              type="button"
-              variant="danger-ghost"
-              aria-label={`Remove category ${category.label || index + 1}`}
-              disabled={categories.length <= 1}
-              onClick={() => handleRemoveCategory(index)}
-            >
-              <Trash size={16} weight="bold" aria-hidden />
-            </Button>
-          </div>
-        ))}
-      </div>
+                <Button
+                  type="button"
+                  variant="danger-ghost"
+                  className="onboarding-item-remove-btn"
+                  aria-label={`Remove category ${category.label || index + 1}`}
+                  disabled={categories.length <= 1}
+                  onClick={() => handleRemoveCategory(index)}
+                >
+                  <Trash size={16} weight="bold" aria-hidden />
+                </Button>
+                </SortableListItem>
+              )
+            })}
+          </SortableContext>
+        </div>
+      </DndContext>
 
       <div>
         <Button
           type="button"
           variant="secondary"
+          className="onboarding-btn-add"
           onClick={handleAddCategory}
           disabled={busy}
         >
-          <Plus size={16} weight="bold" aria-hidden /> Add category
+          <Plus size={16} weight="bold" aria-hidden /> Add new category
         </Button>
       </div>
 
@@ -120,7 +169,7 @@ export function StepLedger({
           onClick={onBack}
           disabled={busy}
         >
-          ← Back
+          Back
         </Button>
         <Button
           type="button"

@@ -1,7 +1,23 @@
-import { CaretDown, CaretUp, Plus, Trash } from '@phosphor-icons/react'
+import { Plus, Trash } from '@phosphor-icons/react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 import type { StatusDraft } from '@/features/onboarding/domain/onboarding'
 import { Button } from '@/shared/ui/Button'
 import { SelectField } from '@/shared/ui/SelectField'
+import { SortableListItem } from './SortableListItem'
 
 export type StepStatusesProps = {
   statuses: StatusDraft[]
@@ -16,6 +32,17 @@ export function StepStatuses({
   onBack,
   onNext,
 }: StepStatusesProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
+
   function handleLabelChange(index: number, label: string) {
     const updated = statuses.map((s, i) => (i === index ? { ...s, label } : s))
     onStatusesChange(updated)
@@ -26,31 +53,22 @@ export function StepStatuses({
     onStatusesChange(updated)
   }
 
-  function handleMoveUp(index: number) {
-    if (index <= 0) return
-    const next = [...statuses]
-    const temp = next[index - 1]!
-    next[index - 1] = next[index]!
-    next[index] = temp
-    onStatusesChange(next)
-  }
-
-  function handleMoveDown(index: number) {
-    if (index >= statuses.length - 1) return
-    const next = [...statuses]
-    const temp = next[index + 1]!
-    next[index + 1] = next[index]!
-    next[index] = temp
-    onStatusesChange(next)
-  }
-
   function handleAddStatus() {
-    onStatusesChange([...statuses, { label: '', countsAsInCare: true }])
+    onStatusesChange([...statuses, { id: crypto.randomUUID(), label: '', countsAsInCare: true }])
   }
 
   function handleRemoveStatus(index: number) {
     if (statuses.length <= 1) return
     onStatusesChange(statuses.filter((_, i) => i !== index))
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      const oldIndex = statuses.findIndex((s) => s.id === active.id)
+      const newIndex = statuses.findIndex((s) => s.id === over.id)
+      onStatusesChange(arrayMove(statuses, oldIndex, newIndex))
+    }
   }
 
   const hasValidStatus = statuses.some((s) => s.label.trim().length > 0)
@@ -60,89 +78,77 @@ export function StepStatuses({
       <div className="onboarding-step__header">
         <h2>Animal statuses</h2>
         <p className="muted">
-          Review and customize your shelter’s animal care stages. Mark stages as “In care” if animals in that stage should count toward your active animal census.
+          What stages do animals go through at your shelter? Add them below. Check "In care" if the animal is physically staying with you during that stage.
         </p>
       </div>
 
-      <div className="stack onboarding-list" style={{ gap: '0.75rem' }}>
-        {statuses.map((status, index) => {
-          const isFirst = index === 0
-          const isLast = index === statuses.length - 1
-          return (
-            <div
-              key={status.id ?? `status-${index}`}
-              className="onboarding-list-item"
-            >
-              <div className="onboarding-reorder-group" aria-label="Reorder">
-                <button
-                  type="button"
-                  className="btn-icon"
-                  aria-label={`Move up ${status.label || index + 1}`}
-                  disabled={isFirst}
-                  onClick={() => handleMoveUp(index)}
-                >
-                  <CaretUp size={16} weight="bold" />
-                </button>
-                <button
-                  type="button"
-                  className="btn-icon"
-                  aria-label={`Move down ${status.label || index + 1}`}
-                  disabled={isLast}
-                  onClick={() => handleMoveDown(index)}
-                >
-                  <CaretDown size={16} weight="bold" />
-                </button>
-              </div>
-
-              <input
-                type="text"
-                value={status.label}
-                onChange={(e) => handleLabelChange(index, e.target.value)}
-                placeholder="Status name"
-                aria-label="Status name"
-                className="onboarding-item-input"
-              />
-
-              <div className="onboarding-select-wrapper">
-                <SelectField
-                  label="In care status"
-                  hideLabel
-                  value={status.countsAsInCare ? '1' : '0'}
-                  options={[
-                    { value: '1', label: 'In care' },
-                    { value: '0', label: 'Not in care' },
-                  ]}
-                  onChange={(val) => handleInCareChange(index, val === '1')}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="stack onboarding-list" style={{ gap: '0.75rem' }}>
+          <SortableContext
+            items={statuses.map((s, i) => s.id ?? s.label ?? `status-${i}`)}
+            strategy={verticalListSortingStrategy}
+          >
+            {statuses.map((status, index) => {
+              const itemId = status.id ?? status.label ?? `status-${index}`
+              return (
+                <SortableListItem key={itemId} id={itemId}>
+                <input
+                  type="text"
+                  value={status.label}
+                  onChange={(e) => handleLabelChange(index, e.target.value)}
+                  placeholder="Status name"
+                  aria-label="Status name"
+                  className="onboarding-item-input"
                 />
-              </div>
 
-              <Button
-                type="button"
-                variant="danger-ghost"
-                aria-label={`Remove status ${status.label || index + 1}`}
-                disabled={statuses.length <= 1}
-                onClick={() => handleRemoveStatus(index)}
-              >
-                <Trash size={16} weight="bold" aria-hidden />
-              </Button>
-            </div>
-          )
-        })}
-      </div>
+                <div className="onboarding-select-wrapper">
+                  <SelectField
+                    label="In care status"
+                    hideLabel
+                    value={status.countsAsInCare ? '1' : '0'}
+                    options={[
+                      { value: '1', label: 'In care' },
+                      { value: '0', label: 'Not in care' },
+                    ]}
+                    onChange={(val) => handleInCareChange(index, val === '1')}
+                  />
+                </div>
+
+                <Button
+                  type="button"
+                  variant="danger-ghost"
+                  className="onboarding-item-remove-btn"
+                  aria-label={`Remove status ${status.label || index + 1}`}
+                  disabled={statuses.length <= 1}
+                  onClick={() => handleRemoveStatus(index)}
+                >
+                  <Trash size={16} weight="bold" aria-hidden />
+                </Button>
+                </SortableListItem>
+              )
+            })}
+          </SortableContext>
+        </div>
+      </DndContext>
 
       <div>
         <Button
           type="button"
           variant="secondary"
+          className="onboarding-btn-add"
           onClick={handleAddStatus}
         >
-          <Plus size={16} weight="bold" aria-hidden /> Add status
+          <Plus size={16} weight="bold" aria-hidden /> Add new status
         </Button>
       </div>
 
       <div className="onboarding-actions-row">
         <Button type="button" variant="secondary" onClick={onBack}>
-          ← Back
+          Back
         </Button>
         <Button
           type="button"
@@ -150,7 +156,7 @@ export function StepStatuses({
           onClick={onNext}
           disabled={!hasValidStatus}
         >
-          Continue to ledger categories →
+          Continue to ledger categories
         </Button>
       </div>
     </div>

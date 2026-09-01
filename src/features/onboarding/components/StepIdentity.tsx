@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react'
-import { UploadSimple } from '@phosphor-icons/react'
+import { UploadSimple, Trash } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/Button'
 import { Field } from '@/shared/ui/Field'
 import { orgInitials } from '@/shared/lib/ids/orgInitials'
@@ -85,7 +85,7 @@ export function StepIdentity({
       <div className="onboarding-step__header">
         <h2>Shelter identity</h2>
         <p className="muted">
-          Enter your shelter name and animal code prefix. You can also upload a logo now or customize it later in Settings.
+          Enter your shelter's name and choose a short code for your animal IDs (for example, 'GAR' for Gaza Animal Rescues). You can also upload your logo now or add it later.
         </p>
       </div>
 
@@ -136,7 +136,7 @@ export function StepIdentity({
                 alt="Shelter logo preview"
                 className="onboarding-logo-preview"
               />
-              <div className="row" style={{ gap: '0.75rem' }}>
+              <div className="onboarding-logo-actions">
                 <Button
                   type="button"
                   variant="secondary"
@@ -148,8 +148,11 @@ export function StepIdentity({
                   type="button"
                   variant="danger-ghost"
                   onClick={() => onLogoFileChange(null)}
+                  aria-label="Remove logo"
+                  className="onboarding-logo-remove-btn"
                 >
-                  Remove
+                  <Trash size={20} className="onboarding-logo-trash-icon" />
+                  <span className="onboarding-logo-remove-text">Remove</span>
                 </Button>
               </div>
             </div>
@@ -195,7 +198,7 @@ export function StepIdentity({
           block
           disabled={isContinueDisabled}
         >
-          Continue to animal statuses →
+          Continue to animal statuses
         </Button>
       </div>
     </form>
