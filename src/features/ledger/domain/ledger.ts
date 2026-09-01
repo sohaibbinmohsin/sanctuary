@@ -11,6 +11,7 @@ export type AddLedgerEntryInput = {
   categoryId: string
   direction: LedgerDirection
   amountCents: number
+  currency?: CurrencyCode
   entryDate?: string
   notes?: string
   animalId?: string
@@ -24,6 +25,7 @@ export type UpdateLedgerEntryInput = {
   categoryId: string
   direction: LedgerDirection
   amountCents: number
+  currency?: CurrencyCode
   entryDate: string
   notes?: string
   animalId?: string | null
@@ -31,19 +33,48 @@ export type UpdateLedgerEntryInput = {
   hideFromPublic?: boolean
 }
 
-export function pkrToCents(amount: number): number {
+export type CurrencyCode = 'PKR' | 'USD'
+
+export function toCents(amount: number): number {
   return Math.round(amount * 100)
 }
 
-export function formatPkrAmount(cents: number): string {
-  return (cents / 100).toLocaleString(undefined, {
-    minimumFractionDigits: 0,
+export function pkrToCents(amount: number): number {
+  return toCents(amount)
+}
+
+export function currencySymbol(currency: CurrencyCode = 'PKR'): string {
+  return currency === 'USD' ? 'USD' : 'PKR'
+}
+
+export function formatCurrencyAmount(
+  cents: number,
+  currency: CurrencyCode = 'PKR',
+): string {
+  const absVal = Math.abs(cents) / 100
+  return absVal.toLocaleString(undefined, {
+    minimumFractionDigits: currency === 'USD' ? 2 : 0,
     maximumFractionDigits: 2,
   })
 }
 
+export function formatCurrency(
+  cents: number,
+  currency: CurrencyCode = 'PKR',
+): string {
+  const isNegative = cents < 0
+  const formattedAmount = formatCurrencyAmount(cents, currency)
+  const prefix = isNegative ? '-' : ''
+  const code = currency === 'USD' ? 'USD' : 'PKR'
+  return `${prefix}${code} ${formattedAmount}`
+}
+
+export function formatPkrAmount(cents: number): string {
+  return formatCurrencyAmount(cents, 'PKR')
+}
+
 export function formatPkr(cents: number): string {
-  return `PKR ${formatPkrAmount(cents)}`
+  return formatCurrency(cents, 'PKR')
 }
 
 export async function listLedgerCategories(
@@ -133,20 +164,22 @@ export async function addLedgerEntry(
   const id = crypto.randomUUID()
   const created_at = new Date().toISOString()
   const entry_date = input.entryDate ?? created_at.slice(0, 10)
+  const currency: CurrencyCode = input.currency === 'USD' ? 'USD' : 'PKR'
   const isAnonymous =
     input.direction === 'in' && input.isAnonymous ? 1 : 0
   const hideFromPublic = input.hideFromPublic ? 1 : 0
 
   await db.execute(
     `INSERT INTO ledger_entries (
-      id, org_id, category_id, direction, amount_cents, entry_date, notes, animal_id, is_anonymous, hide_from_public, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, org_id, category_id, direction, amount_cents, currency, entry_date, notes, animal_id, is_anonymous, hide_from_public, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.orgId,
       input.categoryId,
       input.direction,
       input.amountCents,
+      currency,
       entry_date,
       input.notes?.trim() || null,
       input.animalId ?? null,
@@ -162,6 +195,7 @@ export async function addLedgerEntry(
     category_id: input.categoryId,
     direction: input.direction,
     amount_cents: input.amountCents,
+    currency,
     entry_date,
     notes: input.notes?.trim() || null,
     animal_id: input.animalId ?? null,
@@ -194,6 +228,7 @@ export async function updateLedgerEntry(
   }
   const isAnonymous =
     input.direction === 'in' && input.isAnonymous ? 1 : 0
+  const currency: CurrencyCode = input.currency === 'USD' ? 'USD' : 'PKR'
   const hideFromPublic =
     input.hideFromPublic === undefined
       ? ((await getLedgerEntry(db, id))?.hide_from_public ?? 0)
@@ -205,6 +240,7 @@ export async function updateLedgerEntry(
       category_id = ?,
       direction = ?,
       amount_cents = ?,
+      currency = ?,
       entry_date = ?,
       notes = ?,
       animal_id = ?,
@@ -215,6 +251,7 @@ export async function updateLedgerEntry(
       input.categoryId,
       input.direction,
       input.amountCents,
+      currency,
       input.entryDate,
       input.notes?.trim() || null,
       input.animalId ?? null,

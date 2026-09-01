@@ -10,7 +10,7 @@ import {
 import { OverviewChecklistCard } from '@/features/checklist/components/OverviewChecklistCard'
 import { OverviewUploadsCard } from '@/features/uploads/components/OverviewUploadsCard'
 import {
-  formatPkr,
+  formatCurrency,
   sumLedger,
   sumLedgerByMonth,
   type MonthlyLedgerPoint,
@@ -207,9 +207,9 @@ export function DashboardScreen() {
   const summaryText = [
     member?.orgName ?? 'Sanctuary',
     `In care: ${headcount}`,
-    `Money in (${periodHint}): ${formatPkr(money.inCents)}`,
-    `Money out (${periodHint}): ${formatPkr(money.outCents)}`,
-    `Net (${periodHint}): ${formatPkr(net)}`,
+    `Money in (${periodHint}): ${formatCurrency(money.inCents, member?.currency)}`,
+    `Money out (${periodHint}): ${formatCurrency(money.outCents, member?.currency)}`,
+    `Net (${periodHint}): ${formatCurrency(net, member?.currency)}`,
   ].join('\n')
 
   async function copySummary() {
@@ -423,7 +423,7 @@ export function DashboardScreen() {
                   · {periodHint}
                 </span>
               </span>
-              <strong className="money-in">{formatPkr(money.inCents)}</strong>
+              <strong className="money-in">{formatCurrency(money.inCents, member?.currency)}</strong>
             </div>
             <div className="dashboard-card__metric">
               <span className="dashboard-card__metric-label">
@@ -433,7 +433,7 @@ export function DashboardScreen() {
                   · {periodHint}
                 </span>
               </span>
-              <strong className="money-out">{formatPkr(money.outCents)}</strong>
+              <strong className="money-out">{formatCurrency(money.outCents, member?.currency)}</strong>
             </div>
             <div className="dashboard-card__metric dashboard-card__metric--net">
               <span className="dashboard-card__metric-label">
@@ -444,7 +444,7 @@ export function DashboardScreen() {
                 </span>
               </span>
               <strong className={net >= 0 ? 'money-in' : 'money-out'}>
-                {formatPkr(net)}
+                {formatCurrency(net, member?.currency)}
               </strong>
             </div>
           </div>
@@ -504,12 +504,12 @@ export function DashboardScreen() {
                   <div
                     className="money-trend__bar money-trend__bar--in"
                     style={{ height: `${inH}%` }}
-                    title={`In ${formatPkr(point.inCents)}`}
+                    title={`In ${formatCurrency(point.inCents, member?.currency)}`}
                   />
                   <div
                     className="money-trend__bar money-trend__bar--out"
                     style={{ height: `${outH}%` }}
-                    title={`Out ${formatPkr(point.outCents)}`}
+                    title={`Out ${formatCurrency(point.outCents, member?.currency)}`}
                   />
                 </div>
                 <span className="money-trend__label">{shortMonth(point.month)}</span>

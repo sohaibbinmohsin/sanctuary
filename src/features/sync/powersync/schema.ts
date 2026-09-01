@@ -7,6 +7,7 @@ const organizations = new Table({
   public_enabled: column.integer, // 0/1
   public_slug: column.text,
   setup_completed: column.integer, // 0/1
+  currency: column.text, // 'PKR' | 'USD'
   created_at: column.text,
 })
 
@@ -97,6 +98,7 @@ const ledger_entries = new Table(
     category_id: column.text,
     direction: column.text,
     amount_cents: column.integer,
+    currency: column.text, // 'PKR' | 'USD'
     entry_date: column.text,
     notes: column.text,
     animal_id: column.text,

@@ -21,6 +21,7 @@ import {
   listLedgerCategories,
   renameLedgerCategory,
   setLedgerCategoryDirection,
+  type CurrencyCode,
   type LedgerDirection,
 } from '@/features/ledger/domain/ledger'
 import type { LedgerCategoryRecord } from '@/features/sync/powersync/schema'
@@ -78,6 +79,7 @@ export function SettingsScreen() {
   const [logoError, setLogoError] = useState<string | null>(null)
   const [partnerName, setPartnerName] = useState('')
   const [partnerNameError, setPartnerNameError] = useState<string | null>(null)
+  const [currency, setCurrency] = useState<CurrencyCode>(member?.currency ?? 'PKR')
   const logoInputRef = useRef<HTMLInputElement>(null)
   const [publicBusy, setPublicBusy] = useState(false)
   const [publicError, setPublicError] = useState<string | null>(null)
@@ -151,6 +153,19 @@ export function SettingsScreen() {
       })
     }
   }, [member?.orgId, logoR2Key])
+
+  useEffect(() => {
+    if (member?.currency) setCurrency(member.currency)
+  }, [member?.currency])
+
+  async function onSaveCurrency(next: CurrencyCode) {
+    if (!db || !member) return
+    setCurrency(next)
+    await db.execute(`UPDATE organizations SET currency = ? WHERE id = ?`, [
+      next,
+      member.orgId,
+    ])
+  }
 
   useEffect(() => {
     if (member?.orgName) setPartnerName(member.orgName)
@@ -396,10 +411,11 @@ export function SettingsScreen() {
         direction: string
         category: string | null
         amount_cents: number
+        currency: string | null
         notes: string | null
         shelter_code: string | null
       }>(
-        `SELECT e.entry_date, e.direction, c.label as category, e.amount_cents, e.notes, a.shelter_code
+        `SELECT e.entry_date, e.direction, c.label as category, e.amount_cents, e.currency, e.notes, a.shelter_code
          FROM ledger_entries e
          LEFT JOIN ledger_categories c ON c.id = e.category_id
          LEFT JOIN animals a ON a.id = e.animal_id
@@ -589,9 +605,9 @@ export function SettingsScreen() {
               >
                 {partnerDisplayName || 'No partner name yet'}
               </p>
-              {logoUrl ? null : (
-                <p className="muted settings-identity__hint">No logo yet.</p>
-              )}
+              <p className="muted settings-identity__hint">
+                {logoUrl ? 'Custom logo active.' : 'No logo yet.'}
+              </p>
             </div>
           </div>
         )}
@@ -735,120 +751,150 @@ export function SettingsScreen() {
 
         <div className="panel stack">
           <SettingsCardHead
-            title="Ledger categories"
-          description={
-            editingCategories
-              ? 'Labels like Donation or Food. Mark each as money in or out.'
-              : 'Labels like Donation or Food.'
-          }
+            title="Ledger & currency"
+            description={
+              editingCategories
+                ? 'Main shelter currency and category labels for money in or out.'
+                : 'Main shelter currency and category labels.'
+            }
             editing={editingCategories}
             onToggle={() => setEditingCategories((open) => !open)}
           />
           {editingCategories ? (
-            <>
-          <form className="stack" onSubmit={onAddCategory}>
-            <div className="row">
-              <input
-                placeholder="New category"
-                value={newCategory}
-                onChange={(e) => {
-                  setNewCategory(e.target.value)
-                  if (categoryError) setCategoryError(null)
-                }}
-                aria-label="New ledger category"
-                style={{ flex: 1, minWidth: '8rem' }}
-              />
-              <div style={{ minWidth: '8.5rem', flex: '0 0 auto' }}>
-                <SelectField
-                  label="Direction"
-                  hideLabel
-                  value={newCategoryDirection}
-                  options={[
-                    { value: 'in', label: 'Money in' },
-                    { value: 'out', label: 'Money out' },
-                  ]}
-                  onChange={(value) =>
-                    setNewCategoryDirection(value as LedgerDirection)
-                  }
-                />
-              </div>
-              <Button type="submit" variant="secondary">
-                Add
-              </Button>
-            </div>
-            {categoryError ? (
-              <p className="form-error">{categoryError}</p>
-            ) : null}
-          </form>
-          <div>
-            {categories
-              .filter((c) => !c.archived)
-              .map((c) => (
-                <div className="list-item row" key={c.id}>
-                  <input
-                    value={c.label ?? ''}
-                    onChange={(e) => {
-                      const label = e.target.value
-                      setCategories((prev) =>
-                        prev.map((x) => (x.id === c.id ? { ...x, label } : x)),
-                      )
-                    }}
-                    onBlur={(e) => {
-                      if (!db) return
-                      void renameLedgerCategory(db, c.id, e.target.value)
-                    }}
-                    aria-label="Category name"
-                    style={{ flex: 1, minWidth: '6rem' }}
+            <div className="stack" style={{ gap: '1.25rem' }}>
+              <div>
+                <p className="settings-group__label">Currency</p>
+                <div style={{ maxWidth: '16rem' }}>
+                  <SelectField
+                    label="Shelter currency"
+                    hideLabel
+                    value={currency}
+                    options={[
+                      { value: 'PKR', label: 'Pakistani Rupee' },
+                      { value: 'USD', label: 'US Dollar' },
+                    ]}
+                    onChange={(val) => void onSaveCurrency(val as CurrencyCode)}
                   />
-                  <div style={{ minWidth: '8.5rem', flex: '0 0 auto' }}>
-                    <SelectField
-                      label="Direction"
-                      hideLabel
-                      value={(c.direction as LedgerDirection) ?? 'out'}
-                      options={[
-                        { value: 'in', label: 'Money in' },
-                        { value: 'out', label: 'Money out' },
-                      ]}
-                      onChange={(value) => {
-                        const direction = value as LedgerDirection
-                        setCategories((prev) =>
-                          prev.map((x) =>
-                            x.id === c.id ? { ...x, direction } : x,
-                          ),
-                        )
-                        if (!db) return
-                        void setLedgerCategoryDirection(db, c.id, direction)
-                      }}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="danger-ghost"
-                    onClick={() => {
-                      if (!db) return
-                      void (async () => {
-                        const ok = await confirm({
-                          title: `Hide “${c.label}”?`,
-                          body: 'It will no longer show when adding ledger entries.',
-                          confirmLabel: 'Hide category',
-                          tone: 'danger',
-                        })
-                        if (!ok) return
-                        await archiveLedgerCategory(db, c.id)
-                        await reload()
-                      })()
-                    }}
-                  >
-                    Hide
-                  </Button>
                 </div>
-              ))}
-          </div>
-            </>
+              </div>
+
+              <div>
+                <p className="settings-group__label">Categories</p>
+                <form className="stack" onSubmit={onAddCategory}>
+                  <div className="row">
+                    <input
+                      placeholder="New category"
+                      value={newCategory}
+                      onChange={(e) => {
+                        setNewCategory(e.target.value)
+                        if (categoryError) setCategoryError(null)
+                      }}
+                      aria-label="New ledger category"
+                      style={{ flex: 1, minWidth: '8rem' }}
+                    />
+                    <div style={{ minWidth: '8.5rem', flex: '0 0 auto' }}>
+                      <SelectField
+                        label="Direction"
+                        hideLabel
+                        value={newCategoryDirection}
+                        options={[
+                          { value: 'in', label: 'Money in' },
+                          { value: 'out', label: 'Money out' },
+                        ]}
+                        onChange={(value) =>
+                          setNewCategoryDirection(value as LedgerDirection)
+                        }
+                      />
+                    </div>
+                    <Button type="submit" variant="secondary">
+                      Add
+                    </Button>
+                  </div>
+                  {categoryError ? (
+                    <p className="form-error">{categoryError}</p>
+                  ) : null}
+                </form>
+                <div>
+                  {categories
+                    .filter((c) => !c.archived)
+                    .map((c) => (
+                      <div className="list-item row" key={c.id}>
+                        <input
+                          value={c.label ?? ''}
+                          onChange={(e) => {
+                            const label = e.target.value
+                            setCategories((prev) =>
+                              prev.map((x) =>
+                                x.id === c.id ? { ...x, label } : x,
+                              ),
+                            )
+                          }}
+                          onBlur={(e) => {
+                            if (!db) return
+                            void renameLedgerCategory(db, c.id, e.target.value)
+                          }}
+                          aria-label="Category name"
+                          style={{ flex: 1, minWidth: '6rem' }}
+                        />
+                        <div style={{ minWidth: '8.5rem', flex: '0 0 auto' }}>
+                          <SelectField
+                            label="Direction"
+                            hideLabel
+                            value={(c.direction as LedgerDirection) ?? 'out'}
+                            options={[
+                              { value: 'in', label: 'Money in' },
+                              { value: 'out', label: 'Money out' },
+                            ]}
+                            onChange={(value) => {
+                              const direction = value as LedgerDirection
+                              setCategories((prev) =>
+                                prev.map((x) =>
+                                  x.id === c.id ? { ...x, direction } : x,
+                                ),
+                              )
+                              if (!db) return
+                              void setLedgerCategoryDirection(db, c.id, direction)
+                            }}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="danger-ghost"
+                          onClick={() => {
+                            if (!db) return
+                            void (async () => {
+                              const ok = await confirm({
+                                title: `Hide “${c.label}”?`,
+                                body: 'It will no longer show when adding ledger entries.',
+                                confirmLabel: 'Hide category',
+                                tone: 'danger',
+                              })
+                              if (!ok) return
+                              await archiveLedgerCategory(db, c.id)
+                              await reload()
+                            })()
+                          }}
+                        >
+                          Hide
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
           ) : (
             <SettingsCatalog
               empty="No categories yet."
               groups={[
+                {
+                  label: 'Currency',
+                  items: [
+                    {
+                      id: 'currency',
+                      name: currency === 'USD' ? 'US Dollar' : 'Pakistani Rupee',
+                    },
+                  ],
+                },
                 {
                   label: 'Money in',
                   items: activeCategories

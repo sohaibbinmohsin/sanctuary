@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { CurrencyCircleDollar, PencilSimple } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
-  formatPkr,
-  formatPkrAmount,
+  currencySymbol,
+  formatCurrency,
+  formatCurrencyAmount,
   listLedgerEntries,
   sumLedger,
 } from '@/features/ledger/domain/ledger'
@@ -171,7 +172,11 @@ export function LedgerScreen() {
               : 'Custom range'
 
   return (
-    <section className={hasEntries ? 'screen' : 'screen screen--empty'}>
+    <section
+      className={
+        hasEntries ? 'screen' : 'screen screen--empty screen--ledger-empty'
+      }
+    >
       <PageHeader
         title="Ledger"
         subtitle="Track donations and expenses for your shelter."
@@ -254,15 +259,15 @@ export function LedgerScreen() {
         <div className="summary-strip__cell">
           <span className="summary-strip__label">{inLabel}</span>
           <span className="summary-strip__value money-in">
-            <span className="summary-strip__currency">PKR</span>
-            <span className="summary-strip__amount">{formatPkrAmount(totals.inCents)}</span>
+            <span className="summary-strip__currency">{currencySymbol(member?.currency)}</span>
+            <span className="summary-strip__amount">{formatCurrencyAmount(totals.inCents, member?.currency)}</span>
           </span>
         </div>
         <div className="summary-strip__cell">
           <span className="summary-strip__label">{outLabel}</span>
           <span className="summary-strip__value money-out">
-            <span className="summary-strip__currency">PKR</span>
-            <span className="summary-strip__amount">{formatPkrAmount(totals.outCents)}</span>
+            <span className="summary-strip__currency">{currencySymbol(member?.currency)}</span>
+            <span className="summary-strip__amount">{formatCurrencyAmount(totals.outCents, member?.currency)}</span>
           </span>
         </div>
         <div className="summary-strip__cell summary-strip__cell--net">
@@ -270,8 +275,8 @@ export function LedgerScreen() {
           <span
             className={`summary-strip__value ${net >= 0 ? 'money-in' : 'money-out'}`}
           >
-            <span className="summary-strip__currency">PKR</span>
-            <span className="summary-strip__amount">{formatPkrAmount(net)}</span>
+            <span className="summary-strip__currency">{currencySymbol(member?.currency)}</span>
+            <span className="summary-strip__amount">{formatCurrencyAmount(net, member?.currency)}</span>
           </span>
         </div>
       </div>
@@ -307,7 +312,7 @@ export function LedgerScreen() {
                       }`}
                     >
                       {e.direction === 'in' ? '+' : '−'}
-                      {formatPkr(e.amount_cents ?? 0)}
+                      {formatCurrency(e.amount_cents ?? 0, member?.currency)}
                     </strong>{' '}
                     <span className="muted">
                       {e.category_label} · {e.entry_date}

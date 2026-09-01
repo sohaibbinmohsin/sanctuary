@@ -60,6 +60,7 @@ describe('OnboardingScreen', () => {
     publicEnabled: false,
     publicSlug: null,
     setupCompleted: false,
+    currency: 'PKR',
   }
 
   beforeEach(() => {
@@ -101,7 +102,7 @@ describe('OnboardingScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /Continue to ledger categories/i }))
 
     // Step 3: Ledger
-    expect(screen.getByRole('heading', { name: /Ledger categories/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Ledger & currency/i })).toBeInTheDocument()
     expect(screen.getByDisplayValue('Donation')).toBeInTheDocument()
 
     // Finish setup
@@ -182,6 +183,7 @@ describe('AppShell Route Guarding', () => {
         publicEnabled: false,
         publicSlug: null,
         setupCompleted: false,
+        currency: 'PKR',
       },
       loading: false,
     })
@@ -212,6 +214,7 @@ describe('AppShell Route Guarding', () => {
         publicEnabled: false,
         publicSlug: null,
         setupCompleted: false,
+        currency: 'PKR',
       },
       loading: false,
     })
@@ -243,6 +246,7 @@ describe('AppShell Route Guarding', () => {
         publicEnabled: false,
         publicSlug: null,
         setupCompleted: true,
+        currency: 'PKR',
       },
       loading: false,
     })

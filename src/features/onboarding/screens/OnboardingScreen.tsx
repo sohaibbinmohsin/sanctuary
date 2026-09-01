@@ -30,6 +30,7 @@ export function OnboardingScreen() {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>(1)
   const [name, setName] = useState(member?.orgName ?? '')
   const [initials, setInitials] = useState(member?.orgInitials ?? '')
+  const [currency, setCurrency] = useState(member?.currency ?? 'PKR')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [statuses, setStatuses] = useState<StatusDraft[]>(() =>
     DEFAULT_ONBOARDING_STATUSES.map((s) => ({ ...s, id: crypto.randomUUID() })),
@@ -71,6 +72,7 @@ export function OnboardingScreen() {
         userId: targetUserId,
         name,
         initials,
+        currency,
         logoFile,
         statuses,
         categories,
@@ -146,9 +148,11 @@ export function OnboardingScreen() {
               <StepIdentity
                 name={name}
                 initials={initials}
+                currency={currency}
                 logoFile={logoFile}
                 onNameChange={setName}
                 onInitialsChange={setInitials}
+                onCurrencyChange={setCurrency}
                 onLogoFileChange={setLogoFile}
                 onNext={() => setCurrentStep(2)}
               />
@@ -165,6 +169,8 @@ export function OnboardingScreen() {
 
             {currentStep === 3 && (
               <StepLedger
+                currency={currency}
+                onCurrencyChange={setCurrency}
                 categories={categories}
                 onCategoriesChange={setCategories}
                 onBack={() => setCurrentStep(2)}

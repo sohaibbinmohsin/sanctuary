@@ -25,7 +25,7 @@ import { isReservedPublicSlug } from '@/shared/lib/public/slug'
 import {
   formatPublicWhen,
 } from '@/shared/lib/public/format'
-import { formatPkr } from '@/features/ledger/domain/ledger'
+import { formatCurrency } from '@/features/ledger/domain/ledger'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import type {
   PublicAnimalDto,
@@ -327,6 +327,7 @@ export function PublicShelterScreen({
                 ledger={ledger}
                 totalInCents={totalInCents}
                 totalOutCents={totalOutCents}
+                currency={data.currency}
                 emptyLabel={
                   data.ledger.length === 0
                     ? 'No ledger entries to show right now.'
@@ -514,12 +515,14 @@ function LedgerPanel({
   ledger,
   totalInCents,
   totalOutCents,
+  currency = 'PKR',
   emptyLabel,
   onOpenAttachments,
 }: {
   ledger: PublicLedgerDto[]
   totalInCents: number
   totalOutCents: number
+  currency?: 'PKR' | 'USD'
   emptyLabel: string
   onOpenAttachments: (items: HighlightItem[], index?: number) => void
 }) {
@@ -544,13 +547,13 @@ function LedgerPanel({
         <div>
           <span>Money in</span>
           <span className="public-shelter__amount--in">
-            {formatPkr(totalInCents)}
+            {formatCurrency(totalInCents, currency)}
           </span>
         </div>
         <div>
           <span>Money out</span>
           <span className="public-shelter__amount--out">
-            {formatPkr(totalOutCents)}
+            {formatCurrency(totalOutCents, currency)}
           </span>
         </div>
       </div>
@@ -618,7 +621,7 @@ function LedgerPanel({
                     }
                   >
                     {entry.direction === 'in' ? '+' : '−'}
-                    {formatPkr(entry.amountCents)}
+                    {formatCurrency(entry.amountCents, currency)}
                   </span>
                 </div>
               )

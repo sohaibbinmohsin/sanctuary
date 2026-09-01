@@ -4403,6 +4403,28 @@ a.primary {
     pointer-events: auto;
   }
 
+  .screen--ledger-empty,
+  .screen--empty:has(.summary-strip) {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+  }
+
+  .screen--ledger-empty .empty-state,
+  .screen--empty:has(.summary-strip) .empty-state {
+    position: static;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-block: var(--space-12);
+    min-height: 20rem;
+    pointer-events: auto;
+  }
+
   .animal-selection-actions--top {
     display: flex;
     align-items: center;

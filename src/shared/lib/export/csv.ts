@@ -72,6 +72,7 @@ export type LedgerCsvRow = {
   direction: string
   category?: string | null
   amount_cents: number
+  currency?: string | null
   notes?: string | null
   shelter_code?: string | null
 }
@@ -83,6 +84,7 @@ export function ledgerToCsv(rows: LedgerCsvRow[]): string {
       'direction',
       'category',
       'amount_cents',
+      'currency',
       'notes',
       'shelter_code',
     ],
@@ -91,6 +93,7 @@ export function ledgerToCsv(rows: LedgerCsvRow[]): string {
       r.direction,
       r.category,
       r.amount_cents,
+      r.currency ?? 'PKR',
       r.notes,
       r.shelter_code,
     ]),

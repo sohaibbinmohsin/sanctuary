@@ -42,7 +42,7 @@ async function seedInto(db: SanctuaryDb): Promise<void> {
 
   await db.writeTransaction(async (tx) => {
     await tx.execute(
-      `INSERT INTO organizations (id, name, initials, logo_r2_key, created_at) VALUES (?, ?, ?, NULL, ?)`,
+      `INSERT INTO organizations (id, name, initials, logo_r2_key, currency, created_at) VALUES (?, ?, ?, NULL, 'PKR', ?)`,
       [PLAYGROUND_ORG_ID, PLAYGROUND_ORG_NAME, PLAYGROUND_ORG_INITIALS, now],
     )
 

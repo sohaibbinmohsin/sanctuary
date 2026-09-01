@@ -13,6 +13,37 @@ const FATAL_RESPONSE_CODES = [
   /^42501$/,
 ]
 
+const TABLE_BOOLEAN_COLUMNS: Record<string, readonly string[]> = {
+  organizations: ['public_enabled', 'setup_completed'],
+  animal_statuses: ['counts_as_in_care', 'archived'],
+  animals: ['archived'],
+  treatments: ['hide_from_public'],
+  ledger_categories: ['archived'],
+  ledger_entries: ['is_anonymous', 'hide_from_public'],
+  photos: ['local_only', 'verified'],
+  ledger_attachments: ['local_only'],
+}
+
+export function sanitizeForPostgres(
+  table: string,
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  const booleanCols = TABLE_BOOLEAN_COLUMNS[table]
+  if (!booleanCols) return data
+
+  const cleaned = { ...data }
+  for (const col of booleanCols) {
+    if (col in cleaned && cleaned[col] !== null && cleaned[col] !== undefined) {
+      cleaned[col] =
+        cleaned[col] === 1 ||
+        cleaned[col] === true ||
+        cleaned[col] === '1' ||
+        cleaned[col] === 't'
+    }
+  }
+  return cleaned
+}
+
 export class SupabaseConnector implements PowerSyncBackendConnector {
   async fetchCredentials() {
     const {
@@ -49,13 +80,16 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         let result: PostgrestSingleResponse<null>
         switch (op.op) {
           case UpdateType.PUT: {
-            const record = { ...(op.opData ?? {}), id: op.id }
+            const rawRecord = { ...(op.opData ?? {}), id: op.id }
+            const record = sanitizeForPostgres(op.table, rawRecord)
             result = await table.upsert(record)
             break
           }
-          case UpdateType.PATCH:
-            result = await table.update(op.opData ?? {}).eq('id', op.id)
+          case UpdateType.PATCH: {
+            const record = sanitizeForPostgres(op.table, op.opData ?? {})
+            result = await table.update(record).eq('id', op.id)
             break
+          }
           case UpdateType.DELETE:
             result = await table.delete().eq('id', op.id)
             break
