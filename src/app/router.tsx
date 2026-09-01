@@ -122,6 +122,10 @@ export function AppShell() {
       }
       return <SetupWaitingScreen />
     }
+
+    if (!member) {
+      return <SplashScreen />
+    }
   }
 
   return (
