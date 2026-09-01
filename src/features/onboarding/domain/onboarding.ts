@@ -34,6 +34,7 @@ export const DEFAULT_ONBOARDING_CATEGORIES: readonly CategoryDraft[] = [
 
 export type CommitOnboardingInput = {
   orgId: string
+  userId?: string
   name: string
   initials: string
   logoFile?: File | null
@@ -77,6 +78,20 @@ export async function commitOnboarding(
       `UPDATE organizations SET name = ?, initials = ?, setup_completed = 1 WHERE id = ?`,
       [name, initials, input.orgId],
     )
+
+    await tx.execute(
+      `INSERT OR IGNORE INTO organizations (id, name, initials, logo_r2_key, public_enabled, public_slug, setup_completed, created_at)
+       VALUES (?, ?, ?, NULL, 0, NULL, 1, ?)`,
+      [input.orgId, name, initials, now],
+    )
+
+    if (input.userId) {
+      await tx.execute(
+        `INSERT OR IGNORE INTO org_members (id, org_id, user_id, role, created_at)
+         VALUES (?, ?, ?, 'admin', ?)`,
+        [crypto.randomUUID(), input.orgId, input.userId, now],
+      )
+    }
 
     await tx.execute(`DELETE FROM animal_statuses WHERE org_id = ?`, [input.orgId])
     for (let i = 0; i < filteredStatuses.length; i++) {

@@ -111,8 +111,8 @@ export function AppShell() {
       return <SplashScreen />
     }
 
-    if (member && !member.setupCompleted) {
-      if (member.role === 'admin') {
+    if (!member || !member.setupCompleted) {
+      if (!member || member.role === 'admin') {
         return (
           <Routes>
             <Route path="/onboarding" element={<OnboardingScreen />} />

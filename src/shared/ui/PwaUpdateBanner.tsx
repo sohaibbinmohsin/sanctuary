@@ -186,7 +186,7 @@ export function PwaUpdateBanner() {
       disabled={refreshing}
       onClick={() => void onRefresh()}
     >
-      {refreshing ? 'Updating…' : 'Refresh to update'}
+      {refreshing ? 'Updating…' : 'Click to update'}
     </button>
   )
 }

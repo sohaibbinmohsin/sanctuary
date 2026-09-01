@@ -97,11 +97,16 @@ export function useCurrentMember(): {
     userId ? [userId] : [],
   )
 
+  const [hydrating, setHydrating] = useState(false)
+
   useEffect(() => {
     if (!db || playground || !userId || authLoading || queryLoading) return
     if (memberRows.length === 0 && !hydratedRef.current) {
       hydratedRef.current = true
-      void hydrateOrgBootstrap(db)
+      setHydrating(true)
+      void hydrateOrgBootstrap(db).finally(() => {
+        setHydrating(false)
+      })
     }
   }, [db, playground, userId, authLoading, queryLoading, memberRows.length])
 
@@ -121,7 +126,8 @@ export function useCurrentMember(): {
       row?.org_setup_completed,
     ],
   )
-  const loading = authLoading || (userId ? queryLoading : false)
+  const loading =
+    authLoading || (userId ? queryLoading || hydrating : false)
 
   return { member, loading }
 }

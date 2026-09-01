@@ -14,6 +14,7 @@ import { SplashScreen } from '@/shared/ui/SplashScreen'
 const playground = isPlaygroundPath(window.location.pathname)
 
 const APP_ROOTS = new Set([
+  '',
   'animals',
   'ledger',
   'dashboard',
