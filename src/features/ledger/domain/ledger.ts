@@ -31,19 +31,50 @@ export type UpdateLedgerEntryInput = {
   hideFromPublic?: boolean
 }
 
-export function pkrToCents(amount: number): number {
+export type CurrencyCode = 'PKR' | 'USD'
+
+export function toCents(amount: number): number {
   return Math.round(amount * 100)
 }
 
-export function formatPkrAmount(cents: number): string {
-  return (cents / 100).toLocaleString(undefined, {
-    minimumFractionDigits: 0,
+export function pkrToCents(amount: number): number {
+  return toCents(amount)
+}
+
+export function currencySymbol(currency: CurrencyCode = 'PKR'): string {
+  return currency === 'USD' ? '$' : 'PKR'
+}
+
+export function formatCurrencyAmount(
+  cents: number,
+  currency: CurrencyCode = 'PKR',
+): string {
+  const absVal = Math.abs(cents) / 100
+  return absVal.toLocaleString(undefined, {
+    minimumFractionDigits: currency === 'USD' ? 2 : 0,
     maximumFractionDigits: 2,
   })
 }
 
+export function formatCurrency(
+  cents: number,
+  currency: CurrencyCode = 'PKR',
+): string {
+  const isNegative = cents < 0
+  const formattedAmount = formatCurrencyAmount(cents, currency)
+  const prefix = isNegative ? '-' : ''
+  if (currency === 'USD') {
+    return `${prefix}$${formattedAmount}`
+  }
+  return `${prefix}PKR ${formattedAmount}`
+}
+
+export function formatPkrAmount(cents: number): string {
+  return formatCurrencyAmount(cents, 'PKR')
+}
+
 export function formatPkr(cents: number): string {
-  return `PKR ${formatPkrAmount(cents)}`
+  return formatCurrency(cents, 'PKR')
 }
 
 export async function listLedgerCategories(

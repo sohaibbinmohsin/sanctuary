@@ -2,14 +2,18 @@ import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'rea
 import { UploadSimple, Trash } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/Button'
 import { Field } from '@/shared/ui/Field'
+import { SelectField } from '@/shared/ui/SelectField'
 import { orgInitials } from '@/shared/lib/ids/orgInitials'
+import type { CurrencyCode } from '@/features/ledger/domain/ledger'
 
 export type StepIdentityProps = {
   name: string
   initials: string
+  currency?: CurrencyCode
   logoFile: File | null
   onNameChange: (name: string) => void
   onInitialsChange: (initials: string) => void
+  onCurrencyChange?: (currency: CurrencyCode) => void
   onLogoFileChange: (file: File | null) => void
   onNext: () => void
 }
@@ -17,9 +21,11 @@ export type StepIdentityProps = {
 export function StepIdentity({
   name,
   initials,
+  currency = 'PKR',
   logoFile,
   onNameChange,
   onInitialsChange,
+  onCurrencyChange,
   onLogoFileChange,
   onNext,
 }: StepIdentityProps) {
@@ -115,6 +121,17 @@ export function StepIdentity({
             maxLength={10}
           />
         </Field>
+
+        <SelectField
+          label="Shelter currency"
+          hint="Used across ledger and public pages"
+          value={currency}
+          options={[
+            { value: 'PKR', label: 'PKR (Pakistani Rupee)' },
+            { value: 'USD', label: 'USD (US Dollar)' },
+          ]}
+          onChange={(val) => onCurrencyChange?.(val as CurrencyCode)}
+        />
 
         <div className="stack" style={{ gap: '0.5rem' }}>
           <label className="field__label" htmlFor="onboarding-logo-file">

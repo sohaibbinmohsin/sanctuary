@@ -44,7 +44,7 @@ export async function hydrateOrgBootstrap(db: SanctuaryDb): Promise<boolean> {
   const { data: orgs, error: orgError } = await supabase
     .from('organizations')
     .select(
-      'id, name, initials, logo_r2_key, public_enabled, public_slug, setup_completed, created_at',
+      'id, name, initials, logo_r2_key, public_enabled, public_slug, setup_completed, currency, created_at',
     )
     .in('id', orgIds)
 
@@ -77,8 +77,8 @@ export async function hydrateOrgBootstrap(db: SanctuaryDb): Promise<boolean> {
   await db.writeTransaction(async (tx) => {
     for (const org of orgs ?? []) {
       await tx.execute(
-        `INSERT OR REPLACE INTO organizations (id, name, initials, logo_r2_key, public_enabled, public_slug, setup_completed, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT OR REPLACE INTO organizations (id, name, initials, logo_r2_key, public_enabled, public_slug, setup_completed, currency, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           org.id,
           org.name,
@@ -87,6 +87,7 @@ export async function hydrateOrgBootstrap(db: SanctuaryDb): Promise<boolean> {
           boolToInt(org.public_enabled),
           org.public_slug ?? null,
           boolToInt(org.setup_completed),
+          org.currency ?? 'PKR',
           org.created_at ?? new Date().toISOString(),
         ],
       )

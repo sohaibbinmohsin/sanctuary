@@ -1,7 +1,7 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
 import { getLocalAttachment } from '@/features/ledger/domain/attachments'
-import { formatPkr } from '@/features/ledger/domain/ledger'
+import { formatCurrency, type CurrencyCode } from '@/features/ledger/domain/ledger'
 
 export type PendingMediaKind = 'photo' | 'proof'
 export type PendingMediaState = 'pending' | 'failed' | 'uploading'
@@ -85,6 +85,12 @@ export async function listPendingMediaOnThisDevice(
     [orgId],
   )
 
+  const org = await db.getOptional<{ currency: string }>(
+    `SELECT currency FROM organizations WHERE id = ?`,
+    [orgId],
+  )
+  const currency = (org?.currency === 'USD' ? 'USD' : 'PKR') as CurrencyCode
+
   const items: PendingMediaItem[] = []
 
   for (const row of photos) {
@@ -108,7 +114,7 @@ export async function listPendingMediaOnThisDevice(
   for (const row of proofs) {
     if (row.r2_key) continue
     if (!(await getLocalAttachment(row.id))) continue
-    const amount = formatPkr(row.amount_cents)
+    const amount = formatCurrency(row.amount_cents, currency)
     const label = row.direction === 'in' ? `In ${amount}` : `Out ${amount}`
     items.push({
       id: row.id,

@@ -57,7 +57,8 @@ describe('Onboarding domain', () => {
           e.sql.includes('UPDATE organizations SET name = ?') &&
           e.params?.[0] === 'Safe Haven Sanctuary' &&
           e.params?.[1] === 'SHS' &&
-          e.params?.[2] === 'org-123',
+          e.params?.[2] === 'PKR' &&
+          e.params?.[3] === 'org-123',
       ),
     ).toBe(true)
     expect(executedSql.some((e) => e.sql.includes('DELETE FROM animal_statuses WHERE org_id = ?'))).toBe(true)
@@ -101,7 +102,50 @@ describe('Onboarding domain', () => {
           e.sql.includes('UPDATE organizations SET name = ?') &&
           e.params?.[0] === 'Paws Rescue' &&
           e.params?.[1] === 'PAW' &&
-          e.params?.[2] === 'org-123',
+          e.params?.[2] === 'PKR' &&
+          e.params?.[3] === 'org-123',
+      ),
+    ).toBe(true)
+  })
+
+  it('saves custom currency (e.g. USD) when provided', async () => {
+    const executedSql: { sql: string; params?: unknown[] }[] = []
+    const mockDb: SanctuaryDb = {
+      execute: vi.fn(async (sql, params) => {
+        executedSql.push({ sql, params })
+      }),
+      getAll: vi.fn(async () => []),
+      getOptional: vi.fn(async () => null),
+      writeTransaction: vi.fn(async (fn) => {
+        return await fn({
+          execute: vi.fn(async (sql, params) => {
+            executedSql.push({ sql, params })
+          }),
+          getAll: vi.fn(async () => []),
+          getOptional: vi.fn(async () => null),
+        } as unknown as SanctuaryDb)
+      }),
+    }
+
+    const input: CommitOnboardingInput = {
+      orgId: 'org-456',
+      name: 'Global Shelter',
+      initials: 'GS',
+      currency: 'USD',
+      statuses: [{ label: 'Intake', countsAsInCare: true }],
+      categories: [{ label: 'Donation', direction: 'in' }],
+    }
+
+    await commitOnboarding(mockDb, input)
+
+    expect(
+      executedSql.some(
+        (e) =>
+          e.sql.includes('UPDATE organizations SET name = ?') &&
+          e.params?.[0] === 'Global Shelter' &&
+          e.params?.[1] === 'GS' &&
+          e.params?.[2] === 'USD' &&
+          e.params?.[3] === 'org-456',
       ),
     ).toBe(true)
   })

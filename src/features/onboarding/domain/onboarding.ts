@@ -1,5 +1,5 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
-import type { LedgerDirection } from '@/features/ledger/domain/ledger'
+import type { CurrencyCode, LedgerDirection } from '@/features/ledger/domain/ledger'
 import { setPartnerLogo } from '@/features/settings/domain/partnerLogo'
 
 export type StatusDraft = {
@@ -37,6 +37,7 @@ export type CommitOnboardingInput = {
   userId?: string
   name: string
   initials: string
+  currency?: CurrencyCode
   logoFile?: File | null
   statuses: StatusDraft[]
   categories: CategoryDraft[]
@@ -51,6 +52,7 @@ export async function commitOnboarding(
     throw new Error('Enter your shelter name.')
   }
   const initials = input.initials.trim() || name.slice(0, 3).toUpperCase()
+  const currency: CurrencyCode = input.currency === 'USD' ? 'USD' : 'PKR'
   const filteredStatuses = input.statuses
     .map((s) => ({ ...s, label: s.label.trim() }))
     .filter((s) => Boolean(s.label))
@@ -75,14 +77,14 @@ export async function commitOnboarding(
 
   await db.writeTransaction(async (tx) => {
     await tx.execute(
-      `UPDATE organizations SET name = ?, initials = ?, setup_completed = 1 WHERE id = ?`,
-      [name, initials, input.orgId],
+      `UPDATE organizations SET name = ?, initials = ?, currency = ?, setup_completed = 1 WHERE id = ?`,
+      [name, initials, currency, input.orgId],
     )
 
     await tx.execute(
-      `INSERT OR IGNORE INTO organizations (id, name, initials, logo_r2_key, public_enabled, public_slug, setup_completed, created_at)
-       VALUES (?, ?, ?, NULL, 0, NULL, 1, ?)`,
-      [input.orgId, name, initials, now],
+      `INSERT OR IGNORE INTO organizations (id, name, initials, logo_r2_key, public_enabled, public_slug, setup_completed, currency, created_at)` +
+        ` VALUES (?, ?, ?, NULL, 0, NULL, 1, ?, ?)`,
+      [input.orgId, name, initials, currency, now],
     )
 
     if (input.userId) {

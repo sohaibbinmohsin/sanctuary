@@ -7,7 +7,7 @@ import {
   deleteLedgerEntry,
   getLedgerEntry,
   listLedgerCategories,
-  pkrToCents,
+  toCents,
   updateLedgerEntry,
   type LedgerDirection,
 } from '@/features/ledger/domain/ledger'
@@ -178,7 +178,7 @@ export function LedgerEntryScreen() {
     setBusy(true)
     setError(null)
     try {
-      const amountCents = pkrToCents(Number(amount))
+      const amountCents = toCents(Number(amount))
       if (!Number.isFinite(amountCents) || amountCents <= 0) {
         throw new Error('Enter an amount greater than zero.')
       }
@@ -300,7 +300,7 @@ export function LedgerEntryScreen() {
             required
           />
           <TextField
-            label="Amount (PKR)"
+            label={`Amount (${member?.currency || 'PKR'})`}
             inputMode="decimal"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}

@@ -21,6 +21,7 @@ import {
   listLedgerCategories,
   renameLedgerCategory,
   setLedgerCategoryDirection,
+  type CurrencyCode,
   type LedgerDirection,
 } from '@/features/ledger/domain/ledger'
 import type { LedgerCategoryRecord } from '@/features/sync/powersync/schema'
@@ -78,6 +79,7 @@ export function SettingsScreen() {
   const [logoError, setLogoError] = useState<string | null>(null)
   const [partnerName, setPartnerName] = useState('')
   const [partnerNameError, setPartnerNameError] = useState<string | null>(null)
+  const [currency, setCurrency] = useState<CurrencyCode>(member?.currency ?? 'PKR')
   const logoInputRef = useRef<HTMLInputElement>(null)
   const [publicBusy, setPublicBusy] = useState(false)
   const [publicError, setPublicError] = useState<string | null>(null)
@@ -151,6 +153,19 @@ export function SettingsScreen() {
       })
     }
   }, [member?.orgId, logoR2Key])
+
+  useEffect(() => {
+    if (member?.currency) setCurrency(member.currency)
+  }, [member?.currency])
+
+  async function onSaveCurrency(next: CurrencyCode) {
+    if (!db || !member) return
+    setCurrency(next)
+    await db.execute(`UPDATE organizations SET currency = ? WHERE id = ?`, [
+      next,
+      member.orgId,
+    ])
+  }
 
   useEffect(() => {
     if (member?.orgName) setPartnerName(member.orgName)
@@ -530,6 +545,17 @@ export function SettingsScreen() {
             {partnerNameError ? (
               <p className="form-error">{partnerNameError}</p>
             ) : null}
+            <div style={{ maxWidth: '16rem' }}>
+              <SelectField
+                label="Shelter currency"
+                value={currency}
+                options={[
+                  { value: 'PKR', label: 'PKR (Pakistani Rupee)' },
+                  { value: 'USD', label: 'USD (US Dollar)' },
+                ]}
+                onChange={(val) => void onSaveCurrency(val as CurrencyCode)}
+              />
+            </div>
             {logoUrl ? (
               <img
                 className="partner-logo-preview"
@@ -588,6 +614,9 @@ export function SettingsScreen() {
                 }
               >
                 {partnerDisplayName || 'No partner name yet'}
+              </p>
+              <p className="muted settings-identity__hint" style={{ marginTop: '0.2rem' }}>
+                Currency: {currency}
               </p>
               {logoUrl ? null : (
                 <p className="muted settings-identity__hint">No logo yet.</p>

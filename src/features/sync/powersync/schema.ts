@@ -7,6 +7,7 @@ const organizations = new Table({
   public_enabled: column.integer, // 0/1
   public_slug: column.text,
   setup_completed: column.integer, // 0/1
+  currency: column.text, // 'PKR' | 'USD'
   created_at: column.text,
 })
 

@@ -60,6 +60,7 @@ describe('OnboardingScreen', () => {
     publicEnabled: false,
     publicSlug: null,
     setupCompleted: false,
+    currency: 'PKR',
   }
 
   beforeEach(() => {
@@ -182,6 +183,7 @@ describe('AppShell Route Guarding', () => {
         publicEnabled: false,
         publicSlug: null,
         setupCompleted: false,
+        currency: 'PKR',
       },
       loading: false,
     })
@@ -212,6 +214,7 @@ describe('AppShell Route Guarding', () => {
         publicEnabled: false,
         publicSlug: null,
         setupCompleted: false,
+        currency: 'PKR',
       },
       loading: false,
     })
@@ -243,6 +246,7 @@ describe('AppShell Route Guarding', () => {
         publicEnabled: false,
         publicSlug: null,
         setupCompleted: true,
+        currency: 'PKR',
       },
       loading: false,
     })

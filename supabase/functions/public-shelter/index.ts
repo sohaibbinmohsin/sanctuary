@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
 
     const { data: org, error: orgError } = await admin
       .from('organizations')
-      .select('id, name, public_slug, logo_r2_key')
+      .select('id, name, public_slug, logo_r2_key, currency')
       .eq('public_enabled', true)
       .eq('public_slug', slug)
       .maybeSingle()
@@ -338,12 +338,14 @@ Deno.serve(async (req) => {
       name: string
       public_slug: string
       logo_r2_key: string | null
+      currency?: 'PKR' | 'USD'
     }
 
     const dto = {
       orgName: orgRow.name,
       logoUrl: publicPhotoUrl(r2PublicBase, orgRow.logo_r2_key),
       slug: orgRow.public_slug,
+      currency: orgRow.currency ?? 'PKR',
       animals,
       ledger,
     }

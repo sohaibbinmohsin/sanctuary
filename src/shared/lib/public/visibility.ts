@@ -45,6 +45,7 @@ export type PublicShelterDto = {
   /** Partner org logo public URL, when set. */
   logoUrl: string | null
   slug: string
+  currency?: 'PKR' | 'USD'
   animals: PublicAnimalDto[]
   ledger: PublicLedgerDto[]
 }
@@ -79,6 +80,7 @@ export function buildPublicShelterDto(input: PublicShelterInput): PublicShelterD
     orgName: input.orgName,
     logoUrl: input.logoUrl ?? null,
     slug: input.slug,
+    currency: input.currency ?? 'PKR',
     animals: input.animals
       .filter((animal) => !animal.archived && animal.countsAsInCare)
       .map(
