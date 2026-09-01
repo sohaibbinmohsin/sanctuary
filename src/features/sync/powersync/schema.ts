@@ -98,6 +98,7 @@ const ledger_entries = new Table(
     category_id: column.text,
     direction: column.text,
     amount_cents: column.integer,
+    currency: column.text, // 'PKR' | 'USD'
     entry_date: column.text,
     notes: column.text,
     animal_id: column.text,

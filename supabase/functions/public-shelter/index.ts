@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
         .eq('org_id', org.id),
       admin
         .from('ledger_entries')
-        .select('id, direction, amount_cents, entry_date, notes, animal_id, is_anonymous, hide_from_public, category:ledger_categories!ledger_entries_category_id_fkey ( label )')
+        .select('id, direction, amount_cents, currency, entry_date, notes, animal_id, is_anonymous, hide_from_public, category:ledger_categories!ledger_entries_category_id_fkey ( label )')
         .eq('org_id', org.id)
         .eq('hide_from_public', false),
     ])
@@ -286,6 +286,7 @@ Deno.serve(async (req) => {
       id: string
       direction: 'in' | 'out'
       amount_cents: number
+      currency: string | null
       entry_date: string
       notes: string | null
       animal_id: string | null
@@ -304,18 +305,19 @@ Deno.serve(async (req) => {
         .from('ledger_attachments')
         .select('ledger_entry_id, r2_key')
         .in('ledger_entry_id', nonAnonymousLedgerIds)
+        .not('r2_key', 'is', null)
 
       if (attachmentsError) throw attachmentsError
 
-      for (const attachment of (attachmentsRaw ?? []) as {
+      for (const att of (attachmentsRaw ?? []) as {
         ledger_entry_id: string
-        r2_key: string | null
+        r2_key: string
       }[]) {
-        const url = publicPhotoUrl(r2PublicBase, attachment.r2_key)
+        const url = publicPhotoUrl(r2PublicBase, att.r2_key)
         if (!url) continue
-        const existing = attachmentsByEntry.get(attachment.ledger_entry_id) ?? []
-        existing.push(url)
-        attachmentsByEntry.set(attachment.ledger_entry_id, existing)
+        const list = attachmentsByEntry.get(att.ledger_entry_id) ?? []
+        list.push(url)
+        attachmentsByEntry.set(att.ledger_entry_id, list)
       }
     }
 
@@ -323,6 +325,7 @@ Deno.serve(async (req) => {
       id: row.id,
       direction: row.direction,
       amountCents: row.amount_cents,
+      currency: (row.currency === 'USD' ? 'USD' : 'PKR') as 'PKR' | 'USD',
       entryDate: row.entry_date,
       categoryLabel: row.category?.label ?? '',
       // Free-text notes on anonymous entries often carry the donor's name —

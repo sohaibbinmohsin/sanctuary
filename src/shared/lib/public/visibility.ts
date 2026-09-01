@@ -30,6 +30,7 @@ export type PublicLedgerDto = {
   id: string
   direction: 'in' | 'out'
   amountCents: number
+  currency?: 'PKR' | 'USD'
   entryDate: string
   categoryLabel: string
   /** Always null when isAnonymous — notes can name the donor. */

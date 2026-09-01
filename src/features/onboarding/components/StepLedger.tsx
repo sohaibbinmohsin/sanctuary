@@ -15,12 +15,14 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import type { CategoryDraft } from '@/features/onboarding/domain/onboarding'
-import type { LedgerDirection } from '@/features/ledger/domain/ledger'
+import type { CurrencyCode, LedgerDirection } from '@/features/ledger/domain/ledger'
 import { Button } from '@/shared/ui/Button'
 import { SelectField } from '@/shared/ui/SelectField'
 import { SortableListItem } from './SortableListItem'
 
 export type StepLedgerProps = {
+  currency?: CurrencyCode
+  onCurrencyChange?: (currency: CurrencyCode) => void
   categories: CategoryDraft[]
   onCategoriesChange: (categories: CategoryDraft[]) => void
   onBack: () => void
@@ -30,6 +32,8 @@ export type StepLedgerProps = {
 }
 
 export function StepLedger({
+  currency = 'PKR',
+  onCurrencyChange,
   categories,
   onCategoriesChange,
   onBack,
@@ -81,10 +85,23 @@ export function StepLedger({
   return (
     <div className="onboarding-step stack">
       <div className="onboarding-step__header">
-        <h2>Ledger categories</h2>
+        <h2>Ledger & currency</h2>
         <p className="muted">
-          How do you categorize your shelter's finances? Add your categories below to track where your money comes from (Money in) and where it goes (Money out).
+          Choose your default currency and categorize where your money comes from (Money in) and where it goes (Money out).
         </p>
+      </div>
+
+      <div>
+        <SelectField
+          label="Default currency"
+          hint="Used across ledger and overview"
+          value={currency}
+          options={[
+            { value: 'PKR', label: 'Pakistani Rupee' },
+            { value: 'USD', label: 'US Dollar' },
+          ]}
+          onChange={(val) => onCurrencyChange?.(val as CurrencyCode)}
+        />
       </div>
 
       {error ? (
@@ -95,16 +112,22 @@ export function StepLedger({
         </div>
       ) : null}
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="stack onboarding-list" style={{ gap: '0.75rem' }}>
-          <SortableContext
-            items={categories.map((c, i) => c.id ?? c.label ?? `cat-${i}`)}
-            strategy={verticalListSortingStrategy}
-          >
+      <div className="stack" style={{ gap: '0.5rem' }}>
+        <label className="field__label" style={{ margin: 0 }}>
+          Categories
+          <span className="field__hint"> · Track money in and out</span>
+        </label>
+
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="stack onboarding-list" style={{ gap: '0.75rem' }}>
+            <SortableContext
+              items={categories.map((c, i) => c.id ?? c.label ?? `cat-${i}`)}
+              strategy={verticalListSortingStrategy}
+            >
             {categories.map((category, index) => {
               const itemId = category.id ?? category.label ?? `cat-${index}`
               return (
@@ -160,6 +183,7 @@ export function StepLedger({
         >
           <Plus size={16} weight="bold" aria-hidden /> Add new category
         </Button>
+      </div>
       </div>
 
       <div className="onboarding-actions-row">

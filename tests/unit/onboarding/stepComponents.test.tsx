@@ -500,4 +500,23 @@ describe('StepLedger', () => {
     fireEvent.click(screen.getByRole('button', { name: /Finish setup/i }))
     expect(onFinish).toHaveBeenCalledTimes(1)
   })
+
+  it('allows selecting default currency in StepLedger', () => {
+    const onCurrencyChange = vi.fn()
+    render(
+      <StepLedger
+        currency="PKR"
+        onCurrencyChange={onCurrencyChange}
+        categories={[{ label: 'Donation', direction: 'in' }]}
+        onCategoriesChange={vi.fn()}
+        onBack={vi.fn()}
+        onFinish={vi.fn()}
+      />,
+    )
+    const currencyBtn = screen.getByRole('button', { name: /Default currency/i })
+    fireEvent.click(currencyBtn)
+    const usdOption = screen.getByRole('option', { name: 'US Dollar' })
+    fireEvent.click(usdOption)
+    expect(onCurrencyChange).toHaveBeenCalledWith('USD')
+  })
 })

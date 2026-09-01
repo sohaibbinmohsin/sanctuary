@@ -169,6 +169,8 @@ export function OnboardingScreen() {
 
             {currentStep === 3 && (
               <StepLedger
+                currency={currency}
+                onCurrencyChange={setCurrency}
                 categories={categories}
                 onCategoriesChange={setCategories}
                 onBack={() => setCurrentStep(2)}
