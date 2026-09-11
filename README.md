@@ -143,7 +143,8 @@ $$;
 - **Complex Veterinary States**: Rescued animals rarely occupy a single linear status. Sanctuary supports concurrent multi-status assignments (e.g., an animal can simultaneously be in *Quarantine* and *Medical Treatment*).
 - **Exclusive Terminal States**: Exit statuses (*Adopted*, *Deceased*, *Transferred*) represent terminal out-of-care states.
 - **Deterministic Headcount Logic**: Headcount metrics follow an airtight invariant:
-  $$\text{In-Care} \iff (\exists \text{ status with } \text{counts\_as\_in\_care} = \text{true}) \land (\forall \text{ status, } \text{counts\_as\_in\_care} \neq \text{false})$$
+  > **In-Care Invariant**: An animal is counted in-care if and only if it has **at least one active status** marked `counts_as_in_care = true` AND **zero statuses** marked `counts_as_in_care = false` (the deterministic "exit-wins" principle).
+
   Assigning any out-of-care status requires explicit confirmation and atomically revokes active care statuses, maintaining audit integrity across the herd.
 
 ### 4. Daily Care Round Checklist with Automated Web Push Engine
@@ -162,7 +163,7 @@ $$;
   - Rate-limited via durable database token buckets (60 req/min per IP; 120 req/min per slug), inspecting the rightmost proxy header to prevent spoofing.
 
 ### 6. Resilient Background Media Queue & PWA Service Worker
-- **Non-Blocking Field Captures**: Photos and financial expense receipts taken in the field are stored instantly in IndexedDB and queued in SQLite with state tracking (`pending` $\to$ `uploading` $\to$ `uploaded` $\mid$ `failed`).
+- **Non-Blocking Field Captures**: Photos and financial expense receipts taken in the field are stored instantly in IndexedDB and queued in SQLite with state tracking (`pending` → `uploading` → `uploaded` | `failed`).
 - **Background Dispatcher**: An active queue manager automatically senses network connectivity transitions, requests S3 presigned URLs, and drains pending uploads in the background without requiring the user to remain on the edit screen.
 - **Version Integrity Checking**: PWA deployments write a lightweight `version.json` payload on build. When field devices reconnect or return to the foreground, a non-intrusive update banner alerts staff to refresh and adopt new code versions.
 
@@ -287,15 +288,15 @@ npm test -- --run
   - `currency.test.ts`: Tests multi-currency parsing (PKR and USD), handling whole-unit and fractional currency inputs without floating-point errors.
 - **Security & Privacy Boundaries**:
   - `publicVisibility.test.ts` & `publicSlug.test.ts`: Validates that private notes, unverified photos, and anonymous donation receipts are completely stripped from public DTOs.
-  - `pendingMedia.test.ts`: Confirms state machine transitions (`pending` $\to$ `uploading` $\to$ `uploaded` / `failed`) for queued media.
+  - `pendingMedia.test.ts`: Confirms state machine transitions (`pending` → `uploading` → `uploaded` / `failed`) for queued media.
 
 ### Manual Field Pilot Runbook (Android / iOS PWA)
 Prior to every production release, the following manual verification sequence is executed on a physical Android device running Chrome:
 1. **PWA Standalone Mode**: Verify "Add to Home Screen" installs cleanly and launches full-screen with offline caching.
-2. **Airplane Mode Intake**: Enter flight mode $\to$ intake a new animal with live camera capture, medical treatment in Urdu, and an expense ledger row. Confirm UI remains responsive and the offline badge displays.
-3. **Queue Retention**: Navigate away from animal detail $\to$ verify the **Uploads** drawer holds the pending photo in queue.
-4. **Reconnection & Drain**: Disable airplane mode $\to$ observe automatic database synchronization to Supabase, photo streaming to Cloudflare R2, and sync banner returning to green.
-5. **Data Export**: Execute **Settings $\to$ Export my data** $\to$ inspect downloaded ZIP containing `animals.csv`, `treatments.csv`, `ledger.csv`, and all bundled images.
+2. **Airplane Mode Intake**: Enter flight mode → intake a new animal with live camera capture, medical treatment in Urdu, and an expense ledger row. Confirm UI remains responsive and the offline badge displays.
+3. **Queue Retention**: Navigate away from animal detail → verify the **Uploads** drawer holds the pending photo in queue.
+4. **Reconnection & Drain**: Disable airplane mode → observe automatic database synchronization to Supabase, photo streaming to Cloudflare R2, and sync banner returning to green.
+5. **Data Export**: Execute **Settings → Export my data** → inspect downloaded ZIP containing `animals.csv`, `treatments.csv`, `ledger.csv`, and all bundled images.
 6. **Cloud Outage Simulation**: Verify that if backend connectivity fails, the app displays the fail-soft reassurance message:
    > *"Can't reach Sanctuary cloud right now. Your data is safe on this phone. Please contact support."*
 
@@ -364,7 +365,7 @@ npm run db:setup
 4. Click **Deploy**.
 
 #### 5. Configure Cloudflare R2 CORS
-In Cloudflare R2 $\to$ Bucket Settings $\to$ CORS Policy, apply:
+In Cloudflare R2 → Bucket Settings → CORS Policy, apply:
 ```json
 [
   {
