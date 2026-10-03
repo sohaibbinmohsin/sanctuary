@@ -14,6 +14,7 @@ import { AnimalsListScreen } from '@/features/animals/screens/AnimalsListScreen'
 import { AnimalsFiltersScreen } from '@/features/animals/screens/AnimalsFiltersScreen'
 import { AddToChecklistScreen } from '@/features/animals/screens/AddToChecklistScreen'
 import { AnimalIntakeScreen } from '@/features/animals/screens/AnimalIntakeScreen'
+import { FieldCameraIntakeScreen } from '@/features/animals/screens/FieldCameraIntakeScreen'
 import { AnimalDetailScreen } from '@/features/animals/screens/AnimalDetailScreen'
 import { LedgerScreen } from '@/features/ledger/screens/LedgerScreen'
 import { LedgerEntryScreen } from '@/features/ledger/screens/LedgerEntryScreen'
@@ -167,6 +168,7 @@ export function AppShell() {
               path="/animals/add-to-checklist"
               element={<AddToChecklistScreen />}
             />
+            <Route path="/animals/camera" element={<FieldCameraIntakeScreen />} />
             <Route path="/animals/new" element={<AnimalIntakeScreen />} />
             <Route path="/animals/:id/edit" element={<AnimalIntakeScreen />} />
             <Route path="/animals/:id" element={<AnimalDetailScreen />} />
