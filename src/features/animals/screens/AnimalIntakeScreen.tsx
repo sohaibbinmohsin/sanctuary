@@ -22,12 +22,12 @@ import { deletePhotosForAnimal } from '@/features/photos/domain/photos'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
 
-function splitSpecies(species: string | null | undefined): {
+export function splitSpecies(species: string | null | undefined): {
   preset: string
   other: string
 } {
   const value = species?.trim() ?? ''
-  if (!value) return { preset: 'Dog', other: '' }
+  if (!value || value === 'Unknown') return { preset: 'Dog', other: '' }
   if (SPECIES_PRESETS.includes(value) && value !== 'Other') {
     return { preset: value, other: '' }
   }

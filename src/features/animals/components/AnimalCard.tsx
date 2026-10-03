@@ -69,6 +69,9 @@ export function AnimalCard({
         {animal.name?.trim() && isList ? (
           <div className="animal-card__code shelter-code">{animal.shelter_code}</div>
         ) : null}
+        {animal.species === 'Unknown' ? (
+          <span className="animal-card__stub-pill">Add details</span>
+        ) : null}
         {labels.length > 0 ? (
           <div className="status-badge-row" aria-label={`Status: ${labels.join(', ')}`}>
             {labels.map((label) => (

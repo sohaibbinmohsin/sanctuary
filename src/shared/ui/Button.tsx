@@ -16,6 +16,7 @@ type Variant =
 
 type Common = {
   variant?: Variant
+  size?: 'sm' | 'md'
   block?: boolean
   children: ReactNode
   className?: string
@@ -33,10 +34,11 @@ type ButtonAsLink = Common &
 
 export type ButtonProps = ButtonAsButton | ButtonAsLink
 
-function classes(variant: Variant, block?: boolean, className?: string) {
+function classes(variant: Variant, block?: boolean, size?: 'sm' | 'md', className?: string) {
   return [
     'btn',
     `btn--${variant}`,
+    size ? `btn--${size}` : '',
     block ? 'btn--block' : '',
     className ?? '',
   ]
@@ -47,10 +49,10 @@ function classes(variant: Variant, block?: boolean, className?: string) {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   function Button(props, ref) {
     const variant = props.variant ?? 'primary'
-    const className = classes(variant, props.block, props.className)
+    const className = classes(variant, props.block, props.size, props.className)
 
     if ('to' in props && props.to !== undefined) {
-      const { variant: _v, block: _b, className: _c, children, ...rest } = props
+      const { variant: _v, block: _b, size: _s, className: _c, children, ...rest } = props
       return (
         <Link className={className} {...rest}>
           {children}
@@ -61,6 +63,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const {
       variant: _v,
       block: _b,
+      size: _s,
       className: _c,
       children,
       type = 'button',
