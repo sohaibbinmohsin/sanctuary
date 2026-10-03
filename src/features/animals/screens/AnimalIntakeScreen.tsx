@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Trash } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
@@ -18,7 +18,16 @@ import { TextareaField, TextField } from '@/shared/ui/Field'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import { StatusMultiSelect } from '@/features/animals/components/StatusMultiSelect'
-import { deletePhotosForAnimal } from '@/features/photos/domain/photos'
+import {
+  deletePhotosForAnimal,
+  processPhotoQueue,
+  queuePhoto,
+} from '@/features/photos/domain/photos'
+import {
+  IntakePhotoPicker,
+  type StagedPhoto,
+} from '@/features/animals/components/IntakePhotoPicker'
+import { isPlaygroundMode } from '@/features/playground/mode'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
 
@@ -59,6 +68,17 @@ export function AnimalIntakeScreen() {
   const [removing, setRemoving] = useState(false)
   const [loading, setLoading] = useState(isEdit)
   const [notFound, setNotFound] = useState(false)
+  const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>([])
+  const stagedPhotosRef = useRef<StagedPhoto[]>([])
+  stagedPhotosRef.current = stagedPhotos
+
+  useEffect(() => {
+    return () => {
+      for (const photo of stagedPhotosRef.current) {
+        URL.revokeObjectURL(photo.previewUrl)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!db || !member || isEdit) return
@@ -179,6 +199,24 @@ export function AnimalIntakeScreen() {
         notes,
         intakeDate,
       })
+
+      for (const photo of stagedPhotos) {
+        try {
+          await queuePhoto(db, {
+            orgId: member.orgId,
+            animalId: animal.id,
+            blob: photo.blob,
+            captureSource: photo.captureSource,
+          })
+        } catch (photoErr) {
+          console.warn('Failed to queue photo for new animal', photoErr)
+        }
+      }
+
+      if (navigator.onLine && !isPlaygroundMode()) {
+        void processPhotoQueue(db)
+      }
+
       setToast(pickMessage(INTAKE_MESSAGES))
       window.setTimeout(() => navigate(`/animals/${animal.id}`), 600)
     } catch (err) {
@@ -290,6 +328,29 @@ export function AnimalIntakeScreen() {
 
         {isEdit ? null : (
           <div className="panel stack">
+            <div className="stack stack--tight">
+              <p className="section-label">Photos</p>
+              <span className="field__hint">Optional — take or choose photos</span>
+            </div>
+            <IntakePhotoPicker
+              photos={stagedPhotos}
+              onAddPhotos={(newPhotos) =>
+                setStagedPhotos((current) => [...current, ...newPhotos])
+              }
+              onRemovePhoto={(photoId) => {
+                setStagedPhotos((current) => {
+                  const target = current.find((p) => p.id === photoId)
+                  if (target) URL.revokeObjectURL(target.previewUrl)
+                  return current.filter((p) => p.id !== photoId)
+                })
+              }}
+              disabled={busy}
+            />
+          </div>
+        )}
+
+        {isEdit ? null : (
+          <div className="panel stack">
             <p className="section-label">Arrival</p>
             <StatusMultiSelect
               statuses={statuses}
@@ -311,7 +372,6 @@ export function AnimalIntakeScreen() {
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Anything helpers should know"
             />
-            <p className="muted">You can add photos on the next screen after saving.</p>
           </div>
         )}
 
