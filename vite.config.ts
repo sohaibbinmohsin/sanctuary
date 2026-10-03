@@ -49,7 +49,10 @@ function sanctuaryVersionPlugin(version: string): Plugin {
 export default defineConfig({
   server: {
     // Phone / LAN testing via `vite --host` + Cloudflare quick tunnels.
-    allowedHosts: ['.trycloudflare.com'],
+    allowedHosts: ['.trycloudflare.com', '.sohaibbinmohsin.com'],
+    hmr: {
+      clientPort: 443,
+    },
   },
   plugins: [
     react(),
