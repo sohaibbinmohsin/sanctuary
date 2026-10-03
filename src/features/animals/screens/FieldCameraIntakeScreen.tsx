@@ -199,8 +199,15 @@ export function FieldCameraIntakeScreen() {
           />
         )}
 
-        {/* Top Bar */}
+        {/* Top Bar: Skip on left, Close on right */}
         <div className="camera-overlay__top">
+          <button
+            type="button"
+            className="camera-overlay__skip"
+            onClick={() => navigate('/animals/new')}
+          >
+            Skip to form
+          </button>
           <button
             type="button"
             className="camera-overlay__close"
@@ -209,17 +216,7 @@ export function FieldCameraIntakeScreen() {
           >
             <X size={20} weight="bold" />
           </button>
-          <button
-            type="button"
-            className="camera-overlay__skip"
-            onClick={() => navigate('/animals/new')}
-          >
-            Skip to form
-          </button>
         </div>
-
-        {/* Center reticle */}
-        <div className="camera-overlay__viewfinder" />
 
         {/* Shutter controls */}
         {!showConfirm && (

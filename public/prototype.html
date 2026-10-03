@@ -493,19 +493,16 @@
     <div class="camera-overlay">
       <div id="camera-stream" class="camera-overlay__stream" style="background-image: url('https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=800&q=80');"></div>
 
-      <!-- Top Bar -->
+      <!-- Top Bar: Skip on left, Close on right -->
       <div class="camera-overlay__top">
+        <button id="skip-btn" class="camera-overlay__skip">Skip to form</button>
+
         <button id="close-btn" class="camera-overlay__close" aria-label="Close" title="Back to Animals">
           <svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor">
             <path d="M208.49,196.49a12,12,0,0,1-17,17L128,145,64.49,208.49a12,12,0,0,1-17-17L111,128,47.51,64.49a12,12,0,0,1,17-17L128,111l63.51-63.52a12,12,0,0,1,17,17L145,128Z"/>
           </svg>
         </button>
-
-        <button id="skip-btn" class="camera-overlay__skip">Skip to form</button>
       </div>
-
-      <!-- Center focus indicator -->
-      <div class="camera-overlay__viewfinder"></div>
 
       <!-- Bottom Shutter -->
       <div class="camera-overlay__controls">
