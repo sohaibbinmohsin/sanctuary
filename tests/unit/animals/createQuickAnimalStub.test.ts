@@ -53,7 +53,7 @@ function createMockDb(): SanctuaryDb {
       return null
     },
     async get<T>(query: string, params: any[] = []): Promise<T | null> {
-      return this.getOptional(query, params)
+      return (this as any).getOptional(query, params)
     },
     async execute(query: string, params: any[] = []): Promise<void> {
       if (query.includes('INSERT INTO animals')) {

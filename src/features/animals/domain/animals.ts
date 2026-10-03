@@ -177,7 +177,7 @@ export async function createQuickAnimalStub(
 
   return {
     animal,
-    shelterCode: animal.shelter_code,
+    shelterCode: animal.shelter_code ?? '',
   }
 }
 

@@ -238,24 +238,7 @@ export function FieldCameraIntakeScreen() {
 
         {/* Camera error state */}
         {cameraError && (
-          <div
-            className="camera-overlay__error"
-            role="alert"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '2rem',
-              color: '#ffffff',
-              textAlign: 'center',
-              gap: '1rem',
-              zIndex: 20,
-              background: 'rgba(0,0,0,0.85)',
-            }}
-          >
+          <div className="camera-overlay__error" role="alert">
             <p>{cameraError}</p>
             <button
               type="button"
