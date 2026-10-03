@@ -195,6 +195,10 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+  if (req.method === 'PUT') {
+    // Local dev mock upload target
+    return new Response('ok', { headers: corsHeaders })
+  }
 
   try {
     const authHeader = req.headers.get('Authorization')
@@ -265,8 +269,31 @@ Deno.serve(async (req) => {
     )
 
     if (!accessKeyId || !secretAccessKey || !bucket || !endpoint) {
-      return new Response(JSON.stringify({ error: 'R2 not configured' }), {
-        status: 500,
+      if (action === 'delete') {
+        return new Response(JSON.stringify({ ok: true, key }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const captureToken = body.captureToken?.trim()
+      const photoId = body.photoId?.trim()
+      if (captureToken && photoId && keyAnimalId) {
+        await tryBindCaptureSession({
+          supabaseUrl: Deno.env.get('SUPABASE_URL') ?? '',
+          serviceRoleKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+          orgId: membership.org_id,
+          animalId: keyAnimalId,
+          photoId,
+          token: captureToken,
+        })
+      }
+
+      const reqUrl = new URL(req.url)
+      reqUrl.search = `?mock=upload&key=${encodeURIComponent(key)}`
+      const uploadUrl = reqUrl.toString()
+      const publicUrl = key
+
+      return new Response(JSON.stringify({ uploadUrl, publicUrl }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }

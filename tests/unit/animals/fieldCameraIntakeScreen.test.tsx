@@ -43,6 +43,14 @@ vi.mock('@/features/photos/domain/photos', () => ({
   listPhotosForAnimal: vi.fn().mockResolvedValue([{ id: 'photo-1' }]),
 }))
 
+vi.mock('@/shared/lib/supabase', () => ({
+  supabase: {
+    from: vi.fn().mockReturnValue({
+      upsert: vi.fn().mockResolvedValue({ error: null }),
+    }),
+  },
+}))
+
 describe('FieldCameraIntakeScreen', () => {
   let originalMediaDevices: PropertyDescriptor | undefined
   let stopTrackMock: ReturnType<typeof vi.fn>

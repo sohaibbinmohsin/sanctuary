@@ -245,7 +245,7 @@ export function FieldCameraIntakeScreen() {
 
         {/* Shutter controls */}
         {!showConfirm && (
-          <div className="camera-overlay__controls">
+          <div className="camera-overlay__controls camera-intake-controls">
             <button
               type="button"
               className="camera-overlay__shutter"
