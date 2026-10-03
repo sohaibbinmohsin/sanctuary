@@ -9,6 +9,8 @@ import {
   listAssignmentsForAnimal,
   replaceAnimalStatuses,
 } from '@/features/statuses/domain/assignments'
+import { listStatuses } from '@/features/statuses/domain/statuses'
+import { queuePhoto } from '@/features/photos/domain/photos'
 
 export type CreateAnimalInput = {
   orgId: string
@@ -111,6 +113,71 @@ export async function createAnimal(
     archived: 0,
     created_at: now,
     updated_at: now,
+  }
+}
+
+export type CreateQuickAnimalStubInput = {
+  orgId: string
+  prefix: string
+  photoBlob?: Blob
+  captureSource?: 'camera' | 'gallery'
+  captureToken?: string
+  statusId?: string
+}
+
+export async function getNextShelterCode(
+  db: SanctuaryDb,
+  orgId: string,
+  prefix: string,
+): Promise<string> {
+  const codes = await db.getAll<{ shelter_code: string }>(
+    `SELECT shelter_code FROM animals WHERE org_id = ?`,
+    [orgId],
+  )
+  return nextShelterId(
+    prefix,
+    codes.map((c) => c.shelter_code),
+  )
+}
+
+export async function createQuickAnimalStub(
+  db: SanctuaryDb,
+  input: CreateQuickAnimalStubInput,
+): Promise<{ animal: AnimalRecord; shelterCode: string }> {
+  let statusId = input.statusId
+  if (!statusId) {
+    const statuses = await listStatuses(db, input.orgId)
+    const inCare = statuses.find((s) => s.counts_as_in_care === 1 && !s.archived)
+    statusId = inCare ? inCare.id : statuses[0]?.id
+  }
+
+  if (!statusId) {
+    throw new Error('No animal status found to assign.')
+  }
+
+  const animal = await createAnimal(db, {
+    orgId: input.orgId,
+    prefix: input.prefix,
+    species: 'Unknown',
+    statusIds: [statusId],
+    name: undefined,
+    sex: undefined,
+    markings: undefined,
+  })
+
+  if (input.photoBlob) {
+    await queuePhoto(db, {
+      orgId: input.orgId,
+      animalId: animal.id,
+      blob: input.photoBlob,
+      captureSource: input.captureSource ?? 'camera',
+      captureToken: input.captureToken,
+    })
+  }
+
+  return {
+    animal,
+    shelterCode: animal.shelter_code,
   }
 }
 
