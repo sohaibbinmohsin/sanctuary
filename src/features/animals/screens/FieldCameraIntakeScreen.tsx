@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, SealCheck, X } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
@@ -176,10 +177,18 @@ export function FieldCameraIntakeScreen() {
     }
   }
 
-  return (
-    <div className="camera-intake-screen">
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prevOverflow
+    }
+  }, [])
+
+  return createPortal(
+    <div className="camera-intake-fullscreen" aria-label="Camera intake">
       {/* Viewfinder stream */}
-      <div className="camera-overlay">
+      <div className={`camera-viewfinder-layer${showConfirm ? ' is-blurred' : ''}`}>
         {capturedPreview ? (
           <div
             className="camera-overlay__video"
@@ -250,9 +259,9 @@ export function FieldCameraIntakeScreen() {
 
       {/* Review Dialog matching approved prototype */}
       {showConfirm && (
-        <div className="confirm-root is-active" role="dialog" aria-modal="true">
-          <div className="confirm-backdrop" onClick={handleRetake} />
-          <div className="confirm-card">
+        <div className="camera-confirm-dialog" role="dialog" aria-modal="true">
+          <div className="camera-confirm-backdrop" onClick={handleRetake} />
+          <div className="camera-confirm-card">
             <h2 className="confirm-card__title">Photo captured</h2>
 
             {/* Image Card with Tag and ID on it */}
@@ -313,6 +322,7 @@ export function FieldCameraIntakeScreen() {
           <span>{toastMessage}</span>
         </div>
       )}
-    </div>
+    </div>,
+    document.body,
   )
 }
