@@ -38,7 +38,7 @@ function classes(variant: Variant, block?: boolean, size?: 'sm' | 'md', classNam
   return [
     'btn',
     `btn--${variant}`,
-    size ? `btn--${size}` : '',
+    size === 'sm' ? 'btn--sm' : '',
     block ? 'btn--block' : '',
     className ?? '',
   ]
