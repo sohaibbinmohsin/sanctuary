@@ -15,6 +15,7 @@ import {
   listPhotosForAnimal,
 } from '@/features/photos/domain/photos'
 import { isPlaygroundMode } from '@/features/playground/mode'
+import { supabase } from '@/shared/lib/supabase'
 import './FieldCameraIntakeScreen.css'
 
 export function FieldCameraIntakeScreen() {
@@ -146,6 +147,18 @@ export function FieldCameraIntakeScreen() {
       // 2. If online and not playground, mint verified session
       if (navigator.onLine && !isPlaygroundMode()) {
         try {
+          await supabase.from('animals').upsert({
+            id: animal.id,
+            org_id: animal.org_id,
+            shelter_code: animal.shelter_code,
+            species: animal.species,
+            status_id: animal.status_id,
+            intake_date: animal.intake_date,
+            archived: false,
+            created_at: animal.created_at,
+            updated_at: animal.updated_at,
+          })
+
           const session = await requestCaptureSession({ animalId: animal.id })
           if (session?.token) {
             const photos = await listPhotosForAnimal(db, animal.id)
@@ -276,14 +289,14 @@ export function FieldCameraIntakeScreen() {
               />
               <div className="confirm-image-card__overlay">
                 <span className="shelter-code">{predictedCode}</span>
-                <span className="verified-badge">
+                <span className="confirm-image-card__badge verified-badge">
                   <SealCheck size={14} weight="fill" />
                   Verified photo
                 </span>
               </div>
             </div>
 
-            <div className="confirm-card__actions">
+            <div className="confirm-card__actions camera-confirm-actions">
               <button
                 type="button"
                 className="btn btn--primary btn--block"
