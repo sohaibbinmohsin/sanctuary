@@ -192,9 +192,12 @@ export function FieldCameraIntakeScreen() {
 
   useEffect(() => {
     const prevOverflow = document.body.style.overflow
+    const prevBg = document.body.style.backgroundColor
     document.body.style.overflow = 'hidden'
+    document.body.style.backgroundColor = '#000000'
     return () => {
       document.body.style.overflow = prevOverflow
+      document.body.style.backgroundColor = prevBg
     }
   }, [])
 

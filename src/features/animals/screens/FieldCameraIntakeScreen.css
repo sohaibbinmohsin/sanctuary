@@ -5,9 +5,12 @@
 .camera-intake-fullscreen {
   position: fixed;
   inset: 0;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
   z-index: 9999;
   background: #000000;
   overflow: hidden;
@@ -18,12 +21,17 @@
 .camera-viewfinder-layer {
   position: absolute;
   inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
+  background: #000000;
   transition: filter 250ms ease, transform 250ms ease;
 }
 
@@ -36,11 +44,16 @@
 .camera-overlay__video {
   position: absolute;
   inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   background-size: cover;
   background-position: center;
+  background: #000000;
   transition: filter var(--duration, 200ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
