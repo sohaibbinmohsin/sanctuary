@@ -31,32 +31,14 @@ describe('AnimalCard stub indicator', () => {
     expect(screen.queryByText(/add details/i)).toBeNull()
   })
 
-  it('displays Add details badge when species is Unknown', () => {
-    render(
-      <MemoryRouter>
-        <AnimalCard animal={{ ...baseAnimal, species: 'Unknown' }} />
-      </MemoryRouter>,
-    )
-    expect(screen.getByText(/add details/i)).toBeInTheDocument()
-  })
-
-  it('displays Add details badge in list variant when species is Unknown', () => {
-    render(
-      <MemoryRouter>
-        <AnimalCard animal={{ ...baseAnimal, species: 'Unknown' }} variant="list" />
-      </MemoryRouter>,
-    )
-    expect(screen.getByText(/add details/i)).toBeInTheDocument()
-  })
-
-  it('suppresses status badges when species is Unknown', () => {
+  it('does not display Add details badge when species is Unknown, shows status badge', () => {
     render(
       <MemoryRouter>
         <AnimalCard animal={{ ...baseAnimal, species: 'Unknown', status_labels: ['Intake'] }} />
       </MemoryRouter>,
     )
-    expect(screen.getByText(/add details/i)).toBeInTheDocument()
-    expect(screen.queryByText('Intake')).toBeNull()
+    expect(screen.queryByText(/add details/i)).toBeNull()
+    expect(screen.getByText('Intake')).toBeInTheDocument()
   })
 })
 

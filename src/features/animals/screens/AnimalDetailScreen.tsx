@@ -529,15 +529,29 @@ export function AnimalDetailScreen() {
               >
                 {animal.name?.trim() || animal.shelter_code}
               </h1>
-              <Button
-                to={`/animals/${animal.id}/edit`}
-                variant="ghost"
-                className="btn--icon"
-                aria-label="Edit animal"
-                title="Edit"
-              >
-                <PencilSimple size={18} weight="bold" aria-hidden />
-              </Button>
+              <div className="detail-hero__actions">
+                <Button
+                  to={`/animals/${animal.id}/edit`}
+                  variant="ghost"
+                  className="btn--icon"
+                  aria-label="Edit animal"
+                  title="Edit"
+                >
+                  <PencilSimple size={18} weight="bold" aria-hidden />
+                </Button>
+                {member ? (
+                  <button
+                    type="button"
+                    className={`animal-checklist-toggle-btn${onChecklist ? ' is-on-checklist' : ''}`}
+                    disabled={checklistBusy}
+                    onClick={() => void onToggleChecklist()}
+                    aria-label={onChecklist ? 'Remove from checklist' : 'Add to checklist'}
+                    title={onChecklist ? 'On checklist · Click to remove' : 'Add to checklist'}
+                  >
+                    <ListChecks size={18} weight={onChecklist ? 'fill' : 'bold'} aria-hidden />
+                  </button>
+                ) : null}
+              </div>
             </div>
             {animal.name?.trim() ? (
               <p className="detail-hero__title shelter-code">
@@ -559,45 +573,6 @@ export function AnimalDetailScreen() {
             onRequestExit={(exitId) => void onRequestExit(exitId)}
             onAddStatus={() => setShowAddStatusModal(true)}
           />
-
-          {member ? (
-            <div className="animal-checklist-actions">
-              <p className="animal-checklist-actions__heading">Checklist</p>
-              <div className="animal-checklist-actions__row">
-                {onChecklist ? (
-                  <Button
-                    type="button"
-                    variant="danger-outline"
-                    disabled={checklistBusy}
-                    onClick={() => void onToggleChecklist()}
-                  >
-                    <Trash size={18} weight="bold" aria-hidden />
-                    {checklistBusy ? 'Removing…' : 'Remove from checklist'}
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="accent"
-                    disabled={checklistBusy}
-                    onClick={() => void onToggleChecklist()}
-                  >
-                    <ListChecks size={18} weight="bold" aria-hidden />
-                    {checklistBusy ? 'Adding…' : 'Add to checklist'}
-                  </Button>
-                )}
-                <Button
-                  to="/checklist"
-                  state={{
-                    backTo: `/animals/${animal.id}`,
-                    backLabel: animal.name?.trim() || animal.shelter_code || 'Animal',
-                  }}
-                  variant="secondary"
-                >
-                  View checklist
-                </Button>
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
 
