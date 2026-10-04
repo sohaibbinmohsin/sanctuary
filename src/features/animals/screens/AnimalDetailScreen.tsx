@@ -506,14 +506,14 @@ export function AnimalDetailScreen() {
 
         <div className="stack">
           {animal.species === 'Unknown' && (
-            <div className="panel panel--subtle stack stack--tight" style={{ borderLeft: '4px solid var(--color-forest)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <strong>Rescue details needed</strong>
-                <Button to={`/animals/${animal.id}/edit`} variant="secondary" size="sm">
-                  Add details →
-                </Button>
+            <div className="stub-callout">
+              <div className="stub-callout__header">
+                <strong className="stub-callout__title">Rescue details needed</strong>
+                <Link to={`/animals/${animal.id}/edit`} className="stub-callout__btn">
+                  Add
+                </Link>
               </div>
-              <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-ink-muted)' }}>
+              <p className="stub-callout__body">
                 This animal was saved during quick field intake.
               </p>
             </div>
