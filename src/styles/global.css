@@ -512,42 +512,6 @@ a.primary {
   }
 }
 
-.modal-card {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 24rem);
-  padding: var(--space-6);
-  border-radius: var(--radius-xl);
-  background: var(--color-white);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-lg);
-  text-align: left;
-  animation: confirm-in var(--duration) var(--ease-out);
-}
-
-.modal-card__title {
-  margin: 0 0 var(--space-1);
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--color-ink);
-}
-
-.modal-card__subtitle {
-  margin: 0 0 var(--space-4);
-  font-size: var(--text-sm);
-  color: var(--color-ink-muted);
-  line-height: var(--leading-snug);
-}
-
-.modal-card__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin-top: var(--space-5);
-}
-
 .segmented {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
