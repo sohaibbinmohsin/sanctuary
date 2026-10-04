@@ -82,7 +82,11 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           case UpdateType.PUT: {
             const rawRecord = { ...(op.opData ?? {}), id: op.id }
             const record = sanitizeForPostgres(op.table, rawRecord)
-            result = await table.upsert(record)
+            if (op.table === 'org_members') {
+              result = await table.upsert(record, { onConflict: 'org_id, user_id' })
+            } else {
+              result = await table.upsert(record)
+            }
             break
           }
           case UpdateType.PATCH: {

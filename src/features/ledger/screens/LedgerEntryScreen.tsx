@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { X } from '@phosphor-icons/react'
+import { Plus, X } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   addLedgerEntry,
@@ -15,6 +15,7 @@ import {
   processLedgerAttachmentQueue,
   queueLedgerAttachment,
 } from '@/features/ledger/domain/attachments'
+import { CreateCategoryModal } from '@/features/ledger/components/CreateCategoryModal'
 import { ProofCapture } from '@/features/ledger/components/ProofCapture'
 import { searchAnimals, getAnimal } from '@/features/animals/domain/animals'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
@@ -62,6 +63,7 @@ export function LedgerEntryScreen() {
   const [busy, setBusy] = useState(false)
   const [loadingEntry, setLoadingEntry] = useState(isEdit)
   const [notFound, setNotFound] = useState(false)
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
 
   const selectedCategory = useMemo(
     () => categories.find((c) => c.id === categoryId),
@@ -291,16 +293,41 @@ export function LedgerEntryScreen() {
 
       <form className="stack stack--loose" onSubmit={onSubmit}>
         <div className="panel stack">
-          <SelectField
-            label="Category"
-            value={categoryId}
-            options={categories.map((c) => ({
-              value: c.id,
-              label: `${c.label} (${c.direction === 'in' ? 'money in' : 'money out'})`,
-            }))}
-            onChange={setCategoryId}
-            required
-          />
+          {categories.length === 0 ? (
+            <div className="field">
+              <span className="field__label">Category</span>
+              <div
+                className="row"
+                style={{
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span className="muted" style={{ fontSize: 'var(--text-sm)' }}>
+                  No categories yet.
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowAddCategoryModal(true)}
+                >
+                  <Plus size={14} weight="bold" aria-hidden /> Add category
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <SelectField
+              label="Category"
+              value={categoryId}
+              options={categories.map((c) => ({
+                value: c.id,
+                label: `${c.label} (${c.direction === 'in' ? 'money in' : 'money out'})`,
+              }))}
+              onChange={setCategoryId}
+              required
+            />
+          )}
           <TextField
             label={`Amount (${member?.currency || 'PKR'})`}
             inputMode="decimal"
@@ -454,6 +481,16 @@ export function LedgerEntryScreen() {
       ) : null}
 
       <MoraleToast message={toast} onDone={() => setToast(null)} />
+      {showAddCategoryModal && member ? (
+        <CreateCategoryModal
+          orgId={member.orgId}
+          onClose={() => setShowAddCategoryModal(false)}
+          onCreated={(newCat) => {
+            setCategories((prev) => [...prev, newCat])
+            setCategoryId(newCat.id)
+          }}
+        />
+      ) : null}
     </section>
   )
 }

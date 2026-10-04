@@ -74,6 +74,12 @@ export async function commitOnboarding(
   }
 
   const now = new Date().toISOString()
+  const existingMember = input.userId
+    ? await db.getOptional<{ id: string }>(
+        `SELECT id FROM org_members WHERE org_id = ? AND user_id = ? LIMIT 1`,
+        [input.orgId, input.userId],
+      )
+    : null
 
   await db.writeTransaction(async (tx) => {
     await tx.execute(
@@ -87,7 +93,7 @@ export async function commitOnboarding(
       [input.orgId, name, initials, currency, now],
     )
 
-    if (input.userId) {
+    if (input.userId && !existingMember) {
       await tx.execute(
         `INSERT OR IGNORE INTO org_members (id, org_id, user_id, role, created_at)
          VALUES (?, ?, ?, 'admin', ?)`,

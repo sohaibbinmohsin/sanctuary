@@ -42,6 +42,7 @@ import {
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import { StatusMultiSelect } from '@/features/animals/components/StatusMultiSelect'
+import { CreateStatusModal } from '@/features/statuses/components/CreateStatusModal'
 import {
   addAnimalsToChecklist,
   isAnimalOnChecklist,
@@ -120,6 +121,7 @@ export function AnimalDetailScreen() {
   const [deletingPhoto, setDeletingPhoto] = useState(false)
   const [onChecklist, setOnChecklist] = useState(false)
   const [checklistBusy, setChecklistBusy] = useState(false)
+  const [showAddStatusModal, setShowAddStatusModal] = useState(false)
 
   async function reload() {
     if (!db || !id) return
@@ -542,6 +544,7 @@ export function AnimalDetailScreen() {
             value={statusIds}
             onChange={(nextIds) => void onStatusChange(nextIds)}
             onRequestExit={(exitId) => void onRequestExit(exitId)}
+            onAddStatus={() => setShowAddStatusModal(true)}
           />
 
           {member ? (
@@ -737,6 +740,16 @@ export function AnimalDetailScreen() {
       </div>
 
       <MoraleToast message={toast} onDone={() => setToast(null)} />
+      {showAddStatusModal && member ? (
+        <CreateStatusModal
+          orgId={member.orgId}
+          onClose={() => setShowAddStatusModal(false)}
+          onCreated={(newStatus) => {
+            setStatuses((prev) => [...prev, newStatus])
+            void onStatusChange([...statusIds, newStatus.id])
+          }}
+        />
+      ) : null}
     </section>
   )
 }
