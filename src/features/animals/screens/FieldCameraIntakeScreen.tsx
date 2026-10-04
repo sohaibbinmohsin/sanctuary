@@ -336,7 +336,7 @@ export function FieldCameraIntakeScreen() {
 
       {/* Morale Toast */}
       {toastMessage && (
-        <div className="morale-toast is-visible" role="status">
+        <div className="camera-intake-toast morale-toast is-visible" role="status">
           <CheckCircle size={16} weight="fill" color="#6EE7B7" />
           <span>{toastMessage}</span>
         </div>
