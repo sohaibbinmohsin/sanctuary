@@ -50,6 +50,9 @@ export default defineConfig({
   server: {
     // Phone / LAN testing via `vite --host` + Cloudflare quick tunnels.
     allowedHosts: ['.trycloudflare.com', '.sohaibbinmohsin.com'],
+    fs: {
+      allow: ['..', '/home/ubuntu/development'],
+    },
   },
   plugins: [
     react(),
