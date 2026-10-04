@@ -237,6 +237,44 @@ describe('FieldCameraIntakeScreen', () => {
     })
   })
 
+  it('only the clicked action button shows loading state while saving', async () => {
+    let resolveStub!: (value: any) => void
+    const pendingPromise = new Promise((resolve) => {
+      resolveStub = resolve
+    })
+    vi.mocked(animalsDomain.createQuickAnimalStub).mockReturnValueOnce(pendingPromise as any)
+
+    render(
+      <MemoryRouter>
+        <FieldCameraIntakeScreen />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /take verified photo/i })).toBeEnabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /take verified photo/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /add details now/i })).toBeInTheDocument()
+    })
+
+    // Click "Add details now →"
+    fireEvent.click(screen.getByRole('button', { name: /add details now/i }))
+
+    // "Add details now" changes to "Opening form…", while "Add details later" stays as is
+    expect(screen.getByText('Opening form…')).toBeInTheDocument()
+    expect(screen.getByText('Add details later')).toBeInTheDocument()
+    expect(screen.queryByText('Saving stub…')).not.toBeInTheDocument()
+
+    // Resolve stub
+    resolveStub({
+      animal: { id: 'test-stub', shelter_code: 'TS-015', org_id: 'org-1', species: 'Unknown' },
+      shelterCode: 'TS-015',
+    })
+  })
+
   it('clicking "Retake photo" clears capture state and hides confirm card', async () => {
     render(
       <MemoryRouter>

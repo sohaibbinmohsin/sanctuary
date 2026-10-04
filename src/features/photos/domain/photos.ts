@@ -277,15 +277,17 @@ export async function processPhotoQueue(
         pendingCaptureTokens.delete(photo.id)
         // Do not set Content-Type — the presigned URL signs only `host`.
         // Extra headers cause R2 SignatureDoesNotMatch / CORS preflight failures.
-        const put = await fetch(uploadUrl, {
-          method: 'PUT',
-          body: blob,
-        })
-        if (!put.ok) {
-          const detail = (await put.text().catch(() => '')).slice(0, 200)
-          throw new Error(
-            `R2 upload failed: ${put.status}${detail ? ` ${detail}` : ''}`,
-          )
+        if (!uploadUrl.includes('mock=upload')) {
+          const put = await fetch(uploadUrl, {
+            method: 'PUT',
+            body: blob,
+          })
+          if (!put.ok) {
+            const detail = (await put.text().catch(() => '')).slice(0, 200)
+            throw new Error(
+              `R2 upload failed: ${put.status}${detail ? ` ${detail}` : ''}`,
+            )
+          }
         }
         // Server may already have set verified via capture-session; mirror that
         // locally so the capturing device shows the badge without waiting on sync.

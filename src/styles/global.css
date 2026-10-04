@@ -3927,7 +3927,13 @@ a.primary {
   left: auto;
   right: auto;
   bottom: auto;
-  margin-top: var(--space-3);
+  margin-top: var(--space-4);
+  padding: var(--space-2) 0 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .screen--sticky-footer {
@@ -3943,13 +3949,19 @@ a.primary {
 }
 
 .sticky-actions--split {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-2);
+  width: 100%;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .sticky-actions--split:has(> :only-child) {
-  grid-template-columns: minmax(0, 1fr);
+  flex-direction: column;
 }
 
 .sticky-actions--split > .btn {
@@ -4408,6 +4420,16 @@ a.primary {
     background: none;
     box-shadow: none;
     backdrop-filter: none;
+  }
+
+  .sticky-actions--split {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .sticky-actions--split:has(> :only-child) {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sticky-actions--reminders,

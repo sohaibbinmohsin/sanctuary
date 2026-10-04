@@ -34,7 +34,8 @@ export function FieldCameraIntakeScreen() {
   const [capturedPreview, setCapturedPreview] = useState<string | null>(null)
   const [predictedCode, setPredictedCode] = useState<string>('...')
   const [showConfirm, setShowConfirm] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [savingMode, setSavingMode] = useState<'later' | 'now' | null>(null)
+  const isSaving = savingMode !== null
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   // Initialize camera stream
@@ -91,7 +92,7 @@ export function FieldCameraIntakeScreen() {
 
   function handleCapture() {
     const video = videoRef.current
-    if (!video || !streamReady || saving) return
+    if (!video || !streamReady || isSaving) return
 
     try {
       const canvas = document.createElement('canvas')
@@ -132,8 +133,8 @@ export function FieldCameraIntakeScreen() {
   }
 
   async function handleSave(mode: 'later' | 'now') {
-    if (!db || !member || !capturedBlob || saving) return
-    setSaving(true)
+    if (!db || !member || !capturedBlob || isSaving) return
+    setSavingMode(mode)
 
     try {
       // 1. Create animal stub
@@ -186,7 +187,7 @@ export function FieldCameraIntakeScreen() {
     } catch (err) {
       console.error('Failed to save quick animal stub', err)
     } finally {
-      setSaving(false)
+      setSavingMode(null)
     }
   }
 
@@ -250,7 +251,7 @@ export function FieldCameraIntakeScreen() {
               type="button"
               className="camera-overlay__shutter"
               onClick={handleCapture}
-              disabled={!streamReady || saving}
+              disabled={!streamReady || isSaving}
               aria-label="Take verified photo"
             >
               <div className="camera-overlay__shutter-inner" />
@@ -304,25 +305,25 @@ export function FieldCameraIntakeScreen() {
                 type="button"
                 className="btn btn--primary btn--block"
                 onClick={() => handleSave('later')}
-                disabled={saving}
+                disabled={isSaving}
               >
-                {saving ? 'Saving stub…' : 'Add details later'}
+                {savingMode === 'later' ? 'Saving stub…' : 'Add details later'}
               </button>
 
               <button
                 type="button"
                 className="btn btn--secondary btn--block"
                 onClick={() => handleSave('now')}
-                disabled={saving}
+                disabled={isSaving}
               >
-                Add details now →
+                {savingMode === 'now' ? 'Opening form…' : 'Add details now →'}
               </button>
 
               <button
                 type="button"
                 className="btn btn--ghost btn--block"
                 onClick={handleRetake}
-                disabled={saving}
+                disabled={isSaving}
               >
                 Retake photo
               </button>

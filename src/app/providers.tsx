@@ -45,6 +45,7 @@ export function Providers({
 
   useEffect(() => {
     if (playground || !sessionReady || !supabaseConfigured) return
+    if (!import.meta.env.VITE_POWERSYNC_URL) return
     void connectPowerSync().catch((err) => {
       console.warn(
         'PowerSync connect failed. Check VITE_POWERSYNC_URL, Client Auth (Supabase JWT), and sync rules.',

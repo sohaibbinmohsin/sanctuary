@@ -36,7 +36,7 @@ export function useSyncStatus(): SyncStatus {
   })
 
   useEffect(() => {
-    if (isPlaygroundMode()) {
+    if (isPlaygroundMode() || !import.meta.env.VITE_POWERSYNC_URL) {
       setStatus({
         kind: 'synced',
         errorMessage: null,
