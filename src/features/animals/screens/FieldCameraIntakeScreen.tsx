@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle, SealCheck, X } from '@phosphor-icons/react'
+import { CheckCircle, PawPrint, SealCheck, X } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
@@ -249,12 +249,14 @@ export function FieldCameraIntakeScreen() {
           <div className="camera-overlay__controls camera-intake-controls">
             <button
               type="button"
-              className="camera-overlay__shutter"
+              className="camera-overlay__shutter camera-intake-shutter"
               onClick={handleCapture}
               disabled={!streamReady || isSaving}
               aria-label="Take verified photo"
             >
-              <div className="camera-overlay__shutter-inner" />
+              <div className="camera-overlay__shutter-inner camera-intake-shutter__inner">
+                <PawPrint size={32} weight="fill" className="camera-intake-shutter__icon" />
+              </div>
             </button>
           </div>
         )}

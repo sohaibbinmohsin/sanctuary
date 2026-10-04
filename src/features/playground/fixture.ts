@@ -119,6 +119,20 @@ export const PLAYGROUND_ANIMALS: PlaygroundAnimalFixture[] = [
     photoUrl:
       'https://pub-013d58bfca2d4cc4a607e56ffe23aa4f.r2.dev/2dd27176-42e2-4805-b8b0-a35f2e56a9c7/3214fff1-d76c-4870-9d08-76629c52d34e/ab3fd383-c485-4fa4-985e-88f52589bf11.jpg',
   },
+  {
+    id: 'd1111111-1111-4111-8111-111111111105',
+    shelterCode: 'PLAY-0005',
+    name: '',
+    species: 'Unknown',
+    sex: null,
+    markings: 'Tan and white field rescue',
+    intakeDate: '2026-10-04',
+    statusLabel: 'Intake',
+    notes: 'Quick field intake stub waiting for details.',
+    photoVerified: true,
+    photoUrl:
+      'https://pub-013d58bfca2d4cc4a607e56ffe23aa4f.r2.dev/2dd27176-42e2-4805-b8b0-a35f2e56a9c7/9dd087c4-5375-450e-8e5b-1d074b2adaf6/919a1da5-aa32-4021-bf1b-c81cbc02d171.jpg',
+  },
 ]
 
 export const PLAYGROUND_TREATMENTS: PlaygroundTreatmentFixture[] = [

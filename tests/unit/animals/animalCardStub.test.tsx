@@ -48,6 +48,16 @@ describe('AnimalCard stub indicator', () => {
     )
     expect(screen.getByText(/add details/i)).toBeInTheDocument()
   })
+
+  it('suppresses status badges when species is Unknown', () => {
+    render(
+      <MemoryRouter>
+        <AnimalCard animal={{ ...baseAnimal, species: 'Unknown', status_labels: ['Intake'] }} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText(/add details/i)).toBeInTheDocument()
+    expect(screen.queryByText('Intake')).toBeNull()
+  })
 })
 
 describe('splitSpecies for stub editing', () => {

@@ -146,36 +146,67 @@
   box-sizing: border-box !important;
 }
 
-.camera-overlay__shutter {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 5.5rem;
-  height: 5.5rem;
-  border-radius: 9999px;
-  border: 5px solid var(--color-white, #ffffff);
-  background: rgba(255, 255, 255, 0.2);
-  color: var(--color-white, #ffffff);
-  cursor: pointer;
-  transition: transform 120ms ease, background 120ms ease;
-  -webkit-tap-highlight-color: transparent;
-  outline: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+.camera-overlay__shutter,
+.camera-intake-shutter {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 5.75rem !important;
+  height: 5.75rem !important;
+  min-width: 5.75rem !important;
+  max-width: 5.75rem !important;
+  min-height: 5.75rem !important;
+  max-height: 5.75rem !important;
+  aspect-ratio: 1 / 1 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 50% !important;
+  border: 5px solid var(--color-white, #ffffff) !important;
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: var(--color-white, #ffffff) !important;
+  cursor: pointer !important;
+  transition: transform 120ms ease, background 120ms ease !important;
+  -webkit-tap-highlight-color: transparent !important;
+  outline: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
 }
 
-.camera-overlay__shutter:active {
-  transform: scale(0.92);
-  background: rgba(255, 255, 255, 0.4);
+.camera-overlay__shutter:active,
+.camera-intake-shutter:active {
+  transform: scale(0.92) !important;
+  background: rgba(255, 255, 255, 0.45) !important;
+  box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.35) !important;
 }
 
-.camera-overlay__shutter-inner {
-  width: 4.25rem;
-  height: 4.25rem;
-  border-radius: 9999px;
-  background: var(--color-white, #ffffff);
-  pointer-events: none;
+.camera-overlay__shutter-inner,
+.camera-intake-shutter__inner {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 4.5rem !important;
+  height: 4.5rem !important;
+  min-width: 4.5rem !important;
+  max-width: 4.5rem !important;
+  min-height: 4.5rem !important;
+  max-height: 4.5rem !important;
+  aspect-ratio: 1 / 1 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 50% !important;
+  background: var(--color-white, #ffffff) !important;
+  pointer-events: none !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.camera-intake-shutter__icon {
+  color: var(--color-forest, #2F5D3A) !important;
+  flex-shrink: 0 !important;
 }
 
 /* Review Dialog / Confirm Card Modal */
