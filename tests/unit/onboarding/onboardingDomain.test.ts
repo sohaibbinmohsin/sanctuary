@@ -216,4 +216,80 @@ describe('Onboarding domain', () => {
 
     await expect(commitOnboarding(mockDb, input)).rejects.toThrow('Add at least one ledger category.')
   })
+
+  it('inserts org_member when userId is provided and no member row exists', async () => {
+    const executedSql: { sql: string; params?: unknown[] }[] = []
+    const mockDb: SanctuaryDb = {
+      execute: vi.fn(async (sql, params) => {
+        executedSql.push({ sql, params })
+      }),
+      getAll: vi.fn(async () => []),
+      getOptional: vi.fn(async () => null),
+      writeTransaction: vi.fn(async (fn) => {
+        return await fn({
+          execute: vi.fn(async (sql, params) => {
+            executedSql.push({ sql, params })
+          }),
+          getAll: vi.fn(async () => []),
+          getOptional: vi.fn(async () => null),
+        } as unknown as SanctuaryDb)
+      }),
+    }
+
+    const input: CommitOnboardingInput = {
+      orgId: 'org-123',
+      userId: 'user-456',
+      name: 'Safe Haven Sanctuary',
+      initials: 'SHS',
+      statuses: [{ label: 'Intake', countsAsInCare: true }],
+      categories: [{ label: 'Donation', direction: 'in' }],
+    }
+
+    await commitOnboarding(mockDb, input)
+
+    expect(
+      executedSql.some(
+        (e) =>
+          e.sql.includes('INSERT OR IGNORE INTO org_members') &&
+          e.params?.[1] === 'org-123' &&
+          e.params?.[2] === 'user-456',
+      ),
+    ).toBe(true)
+  })
+
+  it('skips org_member insertion when member already exists to prevent duplicate key errors', async () => {
+    const executedSql: { sql: string; params?: unknown[] }[] = []
+    const mockDb: SanctuaryDb = {
+      execute: vi.fn(async (sql, params) => {
+        executedSql.push({ sql, params })
+      }),
+      getAll: vi.fn(async () => []),
+      getOptional: vi.fn(
+        async () => ({ id: 'existing-member-id' }),
+      ) as unknown as SanctuaryDb['getOptional'],
+      writeTransaction: vi.fn(async (fn) => {
+        return await fn({
+          execute: vi.fn(async (sql, params) => {
+            executedSql.push({ sql, params })
+          }),
+        })
+      }),
+    }
+
+    const input: CommitOnboardingInput = {
+      orgId: 'org-123',
+      userId: 'user-456',
+      name: 'Safe Haven Sanctuary',
+      initials: 'SHS',
+      statuses: [{ label: 'Intake', countsAsInCare: true }],
+      categories: [{ label: 'Donation', direction: 'in' }],
+    }
+
+    await commitOnboarding(mockDb, input)
+
+    expect(
+      executedSql.some((e) => e.sql.includes('INSERT OR IGNORE INTO org_members')),
+    ).toBe(false)
+  })
 })
+

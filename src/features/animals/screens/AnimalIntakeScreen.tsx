@@ -28,6 +28,7 @@ import {
   type StagedPhoto,
 } from '@/features/animals/components/IntakePhotoPicker'
 import { isPlaygroundMode } from '@/features/playground/mode'
+import { CreateStatusModal } from '@/features/statuses/components/CreateStatusModal'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
 
@@ -79,6 +80,7 @@ export function AnimalIntakeScreen() {
       }
     }
   }, [])
+  const [showAddStatusModal, setShowAddStatusModal] = useState(false)
 
   useEffect(() => {
     if (!db || !member || isEdit) return
@@ -357,6 +359,7 @@ export function AnimalIntakeScreen() {
               value={statusIds}
               onChange={setStatusIds}
               onRequestExit={(exitId) => void onRequestExit(exitId)}
+              onAddStatus={() => setShowAddStatusModal(true)}
             />
             <TextField
               label="Date arrived"
@@ -400,6 +403,18 @@ export function AnimalIntakeScreen() {
         </div>
       </form>
       <MoraleToast message={toast} onDone={() => setToast(null)} />
+      {showAddStatusModal && member ? (
+        <CreateStatusModal
+          orgId={member.orgId}
+          onClose={() => setShowAddStatusModal(false)}
+          onCreated={(newStatus) => {
+            setStatuses((prev) => [...prev, newStatus])
+            setStatusIds((prev) =>
+              prev.length > 0 ? [...prev, newStatus.id] : [newStatus.id],
+            )
+          }}
+        />
+      ) : null}
     </section>
   )
 }

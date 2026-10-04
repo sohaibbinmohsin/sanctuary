@@ -45,6 +45,12 @@ export function OnboardingScreen() {
     window.scrollTo(0, 0)
   }, [currentStep])
 
+  useEffect(() => {
+    if (member?.orgName && !name) setName(member.orgName)
+    if (member?.orgInitials && !initials) setInitials(member.orgInitials)
+    if (member?.currency) setCurrency(member.currency)
+  }, [member])
+
   async function handleSignOut() {
     await disconnectPowerSync()
     await supabaseConnector.logout()
@@ -53,19 +59,41 @@ export function OnboardingScreen() {
 
   async function handleFinish() {
     if (!db) return
-    let targetOrgId = member?.orgId
-    let targetUserId = member?.userId
+    let targetOrgId: string = member?.orgId || ''
+    let targetUserId: string = member?.userId || ''
 
-    if (!targetOrgId || !targetUserId) {
+    if (!targetUserId) {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      targetUserId = session?.user?.id
+      targetUserId = session?.user?.id || ''
       if (!targetUserId) {
         setError('You are not signed in.')
         return
       }
-      targetOrgId = targetOrgId || crypto.randomUUID()
+    }
+
+    if (!targetOrgId) {
+      const localMembership = await db.getOptional<{ org_id: string }>(
+        `SELECT org_id FROM org_members WHERE user_id = ? LIMIT 1`,
+        [targetUserId],
+      )
+      if (localMembership?.org_id) {
+        targetOrgId = localMembership.org_id
+      } else {
+        const { data: remoteMember } = await supabase
+          .from('org_members')
+          .select('org_id')
+          .eq('user_id', targetUserId)
+          .limit(1)
+          .maybeSingle()
+
+        if (remoteMember?.org_id) {
+          targetOrgId = remoteMember.org_id
+        } else {
+          targetOrgId = crypto.randomUUID()
+        }
+      }
     }
 
     setBusy(true)
