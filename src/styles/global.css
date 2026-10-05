@@ -2725,6 +2725,51 @@ a.primary {
   background: var(--color-forest);
 }
 
+/* ——— Tabs ——— */
+
+.tab-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-min, 44px);
+  min-width: var(--touch-min, 44px);
+  padding: 0.5rem 1rem;
+  font-family: var(--font-body, "DM Sans", sans-serif);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 600;
+  color: var(--color-ink-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  background: transparent;
+  text-decoration: none;
+  transition:
+    color var(--duration) var(--ease-out),
+    border-color var(--duration) var(--ease-out);
+}
+
+.tab-btn:hover {
+  color: var(--color-ink);
+}
+
+.tab-btn.is-active,
+.tab-btn[aria-selected="true"] {
+  color: var(--color-forest);
+  border-bottom-color: var(--color-forest);
+}
+
+.tab-panel {
+  display: block;
+}
+
+
 .money-in {
   color: var(--color-forest);
   font-weight: 600;

@@ -122,6 +122,7 @@ export function AnimalDetailScreen() {
   const [onChecklist, setOnChecklist] = useState(false)
   const [checklistBusy, setChecklistBusy] = useState(false)
   const [showAddStatusModal, setShowAddStatusModal] = useState(false)
+  const [activeTab, setActiveTab] = useState<'care' | 'timeline'>('care')
 
   async function reload() {
     if (!db || !id) return
@@ -362,6 +363,16 @@ export function AnimalDetailScreen() {
   )
   const showLegacyArrival = Boolean(animal.intake_date && !hasArrivalEntry)
 
+  const careTreatments = treatments.filter(
+    (t) => t.treatment_type !== 'status' && !isArrivalTreatmentType(t.treatment_type),
+  )
+  const timelineTreatments = treatments.filter(
+    (t) => t.treatment_type === 'status',
+  )
+  const arrivalTreatments = treatments.filter(
+    (t) => isArrivalTreatmentType(t.treatment_type),
+  )
+
   const careFormTypes: TreatmentType[] =
     editingTreatmentId && SYSTEM_CARE_TYPES.includes(treatmentType)
       ? [treatmentType, ...CARE_FORM_TYPES]
@@ -570,156 +581,237 @@ export function AnimalDetailScreen() {
         </div>
       </div>
 
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h2 style={{ margin: 0 }}>Care log</h2>
-        {!showCareForm ? (
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={openCreateCareForm}
+      <div
+        className="tab-group"
+        role="tablist"
+        style={{ marginTop: '1.5rem', marginBottom: '1rem' }}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'care'}
+          className={`tab-btn${activeTab === 'care' ? ' is-active' : ''}`}
+          onClick={() => setActiveTab('care')}
+        >
+          Care
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'timeline'}
+          className={`tab-btn${activeTab === 'timeline' ? ' is-active' : ''}`}
+          onClick={() => setActiveTab('timeline')}
+        >
+          Timeline
+        </button>
+      </div>
+
+      {activeTab === 'care' ? (
+        <div className="tab-panel" role="tabpanel">
+          <div
+            className="row"
+            style={{ justifyContent: 'space-between', alignItems: 'center' }}
           >
-            Log care
-          </Button>
-        ) : null}
-      </div>
-
-      {showCareForm ? (
-        <form className="panel stack" onSubmit={onSaveTreatment} style={{ marginTop: '1rem' }}>
-          <SelectField
-            label="What kind of care?"
-            value={treatmentType}
-            options={careFormTypes.map((key) => ({
-              value: key,
-              label: TREATMENT_LABELS[key],
-            }))}
-            onChange={(value) => setTreatmentType(value as TreatmentType)}
-          />
-          <TextField
-            label="When"
-            type="datetime-local"
-            value={treatedAt}
-            onChange={(e) => setTreatedAt(e.target.value)}
-          />
-          <TextareaField
-            label="Notes"
-            rows={3}
-            required
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="What was done, medicine given, next steps…"
-          />
-          <label className="check-row">
-            <input
-              type="checkbox"
-              checked={hideFromPublic}
-              onChange={(e) => setHideFromPublic(e.target.checked)}
-            />
-            <span>Hide from public</span>
-          </label>
-          {error ? <p className="form-error">{error}</p> : null}
-          <div className="row">
-            <Button type="submit" variant="primary" disabled={!notes.trim()}>
-              {editingTreatmentId ? 'Save changes' : 'Save care note'}
-            </Button>
-            <Button type="button" variant="ghost" onClick={resetCareForm}>
-              Cancel
-            </Button>
+            <h2 style={{ margin: 0 }}>Care log</h2>
+            {!showCareForm ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={openCreateCareForm}
+              >
+                Log care
+              </Button>
+            ) : null}
           </div>
-        </form>
-      ) : null}
 
-      <div style={{ marginTop: '0.5rem' }}>
-        {treatments.map((t) => {
-          const type = t.treatment_type as TreatmentType
-          const isStatus = type === 'status'
-          const title = isStatus
-            ? t.notes?.trim() || TREATMENT_LABELS.status
-            : TREATMENT_LABELS[type] ?? t.treatment_type
-          return (
-          <div className="list-item list-item--row" key={t.id}>
-            <div className="list-item__body timeline-item" style={{ border: 'none', padding: 0 }}>
-              <span className="timeline-dot" aria-hidden />
-              <div>
-                {isStatus ? (
-                  <>
-                    <div>
-                      <strong>Status</strong>
-                    </div>
-                    <div>{title}</div>
-                    <span className="muted">
-                      {t.treated_at
-                        ? formatCareTimestamp(t.treated_at)
-                        : 'Unknown date'}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <strong>{title}</strong>{' '}
-                    <span className="muted">
-                      {t.treated_at
-                        ? formatCareTimestamp(t.treated_at)
-                        : 'Unknown date'}
-                    </span>
-                    {t.notes?.trim() ? (
-                      <div className="list-item__notes">{t.notes}</div>
-                    ) : null}
-                  </>
-                )}
-              </div>
-            </div>
-            {type === 'status' ? null : (
-              <div className="list-item__actions">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="btn--icon"
-                  aria-label="Edit care note"
-                  title="Edit"
-                  onClick={() => openEditCareForm(t)}
-                >
-                  <PencilSimple size={18} weight="bold" aria-hidden />
-                </Button>
-                {isArrivalTreatmentType(type) ? null : (
-                  <Button
-                    type="button"
-                    variant="danger-ghost"
-                    className="btn--icon"
-                    aria-label="Delete care note"
-                    onClick={() => void onDeleteTreatment(t.id)}
-                  >
-                    <Trash size={18} weight="bold" aria-hidden />
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-          )
-        })}
-        {showLegacyArrival ? (
-          <div className="list-item list-item--row">
-            <div
-              className="list-item__body timeline-item"
-              style={{ border: 'none', padding: 0 }}
+          {showCareForm ? (
+            <form
+              className="panel stack"
+              onSubmit={onSaveTreatment}
+              style={{ marginTop: '1rem' }}
             >
-              <span className="timeline-dot" aria-hidden />
-              <div>
-                <strong>{TREATMENT_LABELS.arrived}</strong>{' '}
-                <span className="muted">
-                  {animal.intake_date
-                    ? formatCareTimestamp(`${animal.intake_date}T12:00:00`)
-                    : 'Arrival'}
-                </span>
-                {animal.notes?.trim() ? (
-                  <div className="list-item__notes">{animal.notes}</div>
-                ) : null}
+              <SelectField
+                label="What kind of care?"
+                value={treatmentType}
+                options={careFormTypes.map((key) => ({
+                  value: key,
+                  label: TREATMENT_LABELS[key],
+                }))}
+                onChange={(value) => setTreatmentType(value as TreatmentType)}
+              />
+              <TextField
+                label="When"
+                type="datetime-local"
+                value={treatedAt}
+                onChange={(e) => setTreatedAt(e.target.value)}
+              />
+              <TextareaField
+                label="Notes"
+                rows={3}
+                required
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="What was done, medicine given, next steps…"
+              />
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={hideFromPublic}
+                  onChange={(e) => setHideFromPublic(e.target.checked)}
+                />
+                <span>Hide from public</span>
+              </label>
+              {error ? <p className="form-error">{error}</p> : null}
+              <div className="row">
+                <Button type="submit" variant="primary" disabled={!notes.trim()}>
+                  {editingTreatmentId ? 'Save changes' : 'Save care note'}
+                </Button>
+                <Button type="button" variant="ghost" onClick={resetCareForm}>
+                  Cancel
+                </Button>
               </div>
-            </div>
+            </form>
+          ) : null}
+
+          <div style={{ marginTop: '0.5rem' }}>
+            {careTreatments.map((t) => {
+              const type = t.treatment_type as TreatmentType
+              const title = TREATMENT_LABELS[type] ?? t.treatment_type
+              return (
+                <div className="list-item list-item--row" key={t.id}>
+                  <div
+                    className="list-item__body timeline-item"
+                    style={{ border: 'none', padding: 0 }}
+                  >
+                    <span className="timeline-dot" aria-hidden />
+                    <div>
+                      <strong>{title}</strong>{' '}
+                      <span className="muted">
+                        {t.treated_at
+                          ? formatCareTimestamp(t.treated_at)
+                          : 'Unknown date'}
+                      </span>
+                      {t.notes?.trim() ? (
+                        <div className="list-item__notes">{t.notes}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="list-item__actions">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="btn--icon"
+                      aria-label="Edit care note"
+                      title="Edit"
+                      onClick={() => openEditCareForm(t)}
+                    >
+                      <PencilSimple size={18} weight="bold" aria-hidden />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="danger-ghost"
+                      className="btn--icon"
+                      aria-label="Delete care note"
+                      onClick={() => void onDeleteTreatment(t.id)}
+                    >
+                      <Trash size={18} weight="bold" aria-hidden />
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+            {careTreatments.length === 0 ? (
+              <p className="muted">
+                No care notes yet. Tap Log care to add the first one.
+              </p>
+            ) : null}
           </div>
-        ) : null}
-        {treatments.length === 0 && !showLegacyArrival ? (
-          <p className="muted">No care notes yet. Tap Log care to add the first one.</p>
-        ) : null}
-      </div>
+        </div>
+      ) : (
+        <div className="tab-panel" role="tabpanel">
+          <h2 style={{ margin: 0, marginBottom: '0.75rem' }}>
+            Status timeline
+          </h2>
+
+          <div style={{ marginTop: '0.5rem' }}>
+            {timelineTreatments.map((t) => {
+              const title = t.notes?.trim() || TREATMENT_LABELS.status
+              return (
+                <div className="list-item list-item--row" key={t.id}>
+                  <div
+                    className="list-item__body timeline-item"
+                    style={{ border: 'none', padding: 0 }}
+                  >
+                    <span className="timeline-dot" aria-hidden />
+                    <div>
+                      <div>
+                        <strong>Status</strong>
+                      </div>
+                      <div>{title}</div>
+                      <span className="muted">
+                        {t.treated_at
+                          ? formatCareTimestamp(t.treated_at)
+                          : 'Unknown date'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            {arrivalTreatments.map((t) => {
+              const type = t.treatment_type as TreatmentType
+              const title = TREATMENT_LABELS[type] ?? 'Arrived'
+              return (
+                <div className="list-item list-item--row" key={t.id}>
+                  <div
+                    className="list-item__body timeline-item"
+                    style={{ border: 'none', padding: 0 }}
+                  >
+                    <span className="timeline-dot" aria-hidden />
+                    <div>
+                      <strong>{title}</strong>{' '}
+                      <span className="muted">
+                        {t.treated_at
+                          ? formatCareTimestamp(t.treated_at)
+                          : 'Unknown date'}
+                      </span>
+                      {t.notes?.trim() ? (
+                        <div className="list-item__notes">{t.notes}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            {showLegacyArrival ? (
+              <div className="list-item list-item--row">
+                <div
+                  className="list-item__body timeline-item"
+                  style={{ border: 'none', padding: 0 }}
+                >
+                  <span className="timeline-dot" aria-hidden />
+                  <div>
+                    <strong>{TREATMENT_LABELS.arrived}</strong>{' '}
+                    <span className="muted">
+                      {animal.intake_date
+                        ? formatCareTimestamp(`${animal.intake_date}T12:00:00`)
+                        : 'Arrival'}
+                    </span>
+                    {animal.notes?.trim() ? (
+                      <div className="list-item__notes">{animal.notes}</div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            {timelineTreatments.length === 0 &&
+            arrivalTreatments.length === 0 &&
+            !showLegacyArrival ? (
+              <p className="muted">No status transitions recorded yet.</p>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       <MoraleToast message={toast} onDone={() => setToast(null)} />
       {showAddStatusModal && member ? (
