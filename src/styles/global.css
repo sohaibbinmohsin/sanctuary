@@ -3678,13 +3678,6 @@ a.primary {
   gap: var(--space-2);
 }
 
-.detail-hero__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-
 .detail-hero__title-wrap {
   display: inline-flex;
   align-items: center;
@@ -3692,12 +3685,25 @@ a.primary {
 }
 
 .btn--inline-edit {
+  position: relative;
   width: 2.25rem !important;
   height: 2.25rem !important;
   min-height: 2.25rem !important;
   padding: 0 !important;
   border-radius: 999px;
   color: var(--color-ink-muted);
+}
+
+.btn--inline-edit::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: var(--touch-min, 44px);
+  min-height: var(--touch-min, 44px);
+  width: 100%;
+  height: 100%;
 }
 
 .animal-daily-care-btn {
