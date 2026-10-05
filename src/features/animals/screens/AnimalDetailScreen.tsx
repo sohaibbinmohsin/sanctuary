@@ -4,7 +4,7 @@ import { useQuery } from '@powersync/react'
 import {
   ArrowLeft,
   Camera,
-  ListChecks,
+  CheckCircle,
   PencilSimple,
   Trash,
 } from '@phosphor-icons/react'
@@ -497,38 +497,44 @@ export function AnimalDetailScreen() {
         <div className="stack">
           <div>
             <div className="detail-hero__id-row">
-              <h1
-                className={
-                  animal.name?.trim()
-                    ? 'detail-hero__title'
-                    : 'detail-hero__title shelter-code'
-                }
-              >
-                {animal.name?.trim() || animal.shelter_code}
-              </h1>
-              <div className="detail-hero__actions">
+              <div className="detail-hero__title-wrap">
+                <h1
+                  className={
+                    animal.name?.trim()
+                      ? 'detail-hero__title'
+                      : 'detail-hero__title shelter-code'
+                  }
+                >
+                  {animal.name?.trim() || animal.shelter_code}
+                </h1>
                 <Button
                   to={`/animals/${animal.id}/edit`}
                   variant="ghost"
-                  className="btn--icon"
+                  className="btn--icon btn--inline-edit"
                   aria-label="Edit animal"
                   title="Edit"
                 >
                   <PencilSimple size={18} weight="bold" aria-hidden />
                 </Button>
-                {member ? (
-                  <button
-                    type="button"
-                    className={`animal-checklist-toggle-btn${onChecklist ? ' is-on-checklist' : ''}`}
-                    disabled={checklistBusy}
-                    onClick={() => void onToggleChecklist()}
-                    aria-label={onChecklist ? 'Remove from checklist' : 'Add to checklist'}
-                    title={onChecklist ? 'On checklist · Click to remove' : 'Add to checklist'}
-                  >
-                    <ListChecks size={18} weight={onChecklist ? 'fill' : 'bold'} aria-hidden />
-                  </button>
-                ) : null}
               </div>
+
+              {member ? (
+                <button
+                  type="button"
+                  className={`animal-daily-care-btn${onChecklist ? ' is-active' : ''}`}
+                  disabled={checklistBusy}
+                  onClick={() => void onToggleChecklist()}
+                  aria-label={onChecklist ? 'Remove from Daily Care' : 'Add to Daily Care'}
+                >
+                  {onChecklist ? (
+                    <>
+                      <CheckCircle size={16} weight="fill" /> In Daily Care
+                    </>
+                  ) : (
+                    '+ Daily Care'
+                  )}
+                </button>
+              ) : null}
             </div>
             {animal.name?.trim() ? (
               <p className="detail-hero__title shelter-code">

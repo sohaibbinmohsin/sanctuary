@@ -3685,53 +3685,52 @@ a.primary {
   flex-shrink: 0;
 }
 
-.animal-checklist-toggle-btn {
+.detail-hero__title-wrap {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  min-width: 2.25rem;
-  min-height: 2.25rem;
-  border-radius: 50% !important;
-  border: 1px solid transparent;
+  gap: var(--space-2, 0.5rem);
+}
+
+.btn--inline-edit {
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  min-height: 2.25rem !important;
+  padding: 0 !important;
+  border-radius: 999px;
+  color: var(--color-ink-muted);
+}
+
+.animal-daily-care-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-body, "DM Sans", sans-serif);
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  min-height: var(--touch-min, 44px);
+  border-radius: 999px;
+  border: 1px solid var(--color-forest, #2F5D3A);
   background: transparent;
-  color: var(--color-ink);
+  color: var(--color-forest, #2F5D3A);
   cursor: pointer;
-  transition: all 150ms ease;
-  padding: 0;
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
+  transition: all var(--duration) var(--ease-out);
 }
 
-.animal-checklist-toggle-btn::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  min-width: 44px;
-  min-height: 44px;
-  width: 100%;
-  height: 100%;
-}
-
-.animal-checklist-toggle-btn:hover {
+.animal-daily-care-btn:hover {
   background: var(--color-surface-hover, rgba(0, 0, 0, 0.05));
 }
 
-.animal-checklist-toggle-btn.is-on-checklist {
-  background: var(--color-forest, #2F5D3A) !important;
-  color: #ffffff !important;
-  border-color: var(--color-forest, #2F5D3A) !important;
-  box-shadow: 0 1px 3px rgba(47, 93, 58, 0.3) !important;
+.animal-daily-care-btn.is-active {
+  background: var(--color-forest, #2F5D3A);
+  color: #ffffff;
 }
 
-.animal-checklist-toggle-btn.is-on-checklist:hover {
-  background: #254a2e !important;
+.animal-daily-care-btn.is-active:hover {
+  background: #254a2e;
 }
 
-.animal-checklist-toggle-btn:disabled {
+.animal-daily-care-btn:disabled {
   opacity: 0.6;
   cursor: wait;
 }
