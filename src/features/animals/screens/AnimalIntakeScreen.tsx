@@ -17,7 +17,7 @@ import { Button } from '@/shared/ui/Button'
 import { TextareaField, TextField } from '@/shared/ui/Field'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
-import { StatusMultiSelect } from '@/features/animals/components/StatusMultiSelect'
+import { StatusSingleSelect } from '@/features/animals/components/StatusSingleSelect'
 import {
   deletePhotosForAnimal,
   processPhotoQueue,
@@ -54,7 +54,7 @@ export function AnimalIntakeScreen() {
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
   const [speciesPreset, setSpeciesPreset] = useState('Dog')
   const [speciesOther, setSpeciesOther] = useState('')
-  const [statusIds, setStatusIds] = useState<string[]>([])
+  const [statusId, setStatusId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [sex, setSex] = useState('')
   const [markings, setMarkings] = useState('')
@@ -88,9 +88,7 @@ export function AnimalIntakeScreen() {
       setStatuses(rows)
       const firstInCare = rows.find((row) => row.counts_as_in_care === 1)
       if (firstInCare) {
-        setStatusIds((current) =>
-          current.length > 0 ? current : [firstInCare.id],
-        )
+        setStatusId((current) => current ?? firstInCare.id)
       }
     })
   }, [db, member, isEdit])
@@ -131,16 +129,6 @@ export function AnimalIntakeScreen() {
 
   const species =
     speciesPreset === 'Other' ? speciesOther.trim() : speciesPreset
-
-  async function onRequestExit(exitId: string) {
-    const ok = await confirm({
-      title: 'Mark as out of care?',
-      body: 'All other statuses will be removed from this animal.',
-      confirmLabel: 'Continue',
-      tone: 'danger',
-    })
-    if (ok) setStatusIds([exitId])
-  }
 
   async function onRemoveAnimal() {
     if (!db || !animalId || removing) return
@@ -187,14 +175,14 @@ export function AnimalIntakeScreen() {
         navigate(`/animals/${animalId}`, { replace: true })
         return
       }
-      if (statusIds.length === 0) {
+      if (!statusId) {
         throw new Error('Please choose an animal type and status.')
       }
       const animal = await createAnimal(db, {
         orgId: member.orgId,
         prefix: member.orgInitials,
         species,
-        statusIds,
+        statusIds: [statusId],
         name,
         sex,
         markings,
@@ -354,11 +342,10 @@ export function AnimalIntakeScreen() {
         {isEdit ? null : (
           <div className="panel stack">
             <p className="section-label">Arrival</p>
-            <StatusMultiSelect
+            <StatusSingleSelect
               statuses={statuses}
-              value={statusIds}
-              onChange={setStatusIds}
-              onRequestExit={(exitId) => void onRequestExit(exitId)}
+              value={statusId}
+              onChange={setStatusId}
               onAddStatus={() => setShowAddStatusModal(true)}
             />
             <TextField
@@ -409,9 +396,7 @@ export function AnimalIntakeScreen() {
           onClose={() => setShowAddStatusModal(false)}
           onCreated={(newStatus) => {
             setStatuses((prev) => [...prev, newStatus])
-            setStatusIds((prev) =>
-              prev.length > 0 ? [...prev, newStatus.id] : [newStatus.id],
-            )
+            setStatusId(newStatus.id)
           }}
         />
       ) : null}

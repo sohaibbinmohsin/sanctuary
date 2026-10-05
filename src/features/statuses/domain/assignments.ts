@@ -157,3 +157,23 @@ export async function replaceAnimalStatuses(
     treatedAt: now,
   })
 }
+
+export async function setSingleStatusAssignment(
+  db: SanctuaryDb,
+  input: { animalId: string; orgId: string; statusId: string },
+): Promise<void> {
+  const now = new Date().toISOString()
+  await db.execute(
+    'DELETE FROM animal_status_assignments WHERE animal_id = ?',
+    [input.animalId],
+  )
+  await db.execute(
+    'INSERT INTO animal_status_assignments (id, org_id, animal_id, status_id, created_at) VALUES (?, ?, ?, ?, ?)',
+    [`asa-${crypto.randomUUID()}`, input.orgId, input.animalId, input.statusId, now],
+  )
+  await db.execute(
+    'UPDATE animals SET status_id = ?, updated_at = ? WHERE id = ?',
+    [input.statusId, now, input.animalId],
+  )
+}
+

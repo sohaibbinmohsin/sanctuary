@@ -2216,6 +2216,67 @@ a.primary {
   color: var(--color-ink);
 }
 
+.status-single-select {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.status-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.85rem;
+  min-height: 38px;
+  border-radius: 999px;
+  font-family: var(--font-body, inherit);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-ink);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 150ms ease;
+  user-select: none;
+}
+
+.status-pill:hover:not(:disabled) {
+  border-color: var(--color-forest);
+  background: var(--color-forest-soft);
+}
+
+.status-pill.is-selected {
+  background: var(--color-forest);
+  color: #ffffff;
+  border-color: var(--color-forest);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(47, 93, 58, 0.25);
+}
+
+.status-pill--add {
+  border-style: dashed;
+  color: var(--color-forest);
+  background: transparent;
+}
+
+.status-pill--add:hover:not(:disabled) {
+  border-style: solid;
+  background: var(--color-forest-soft);
+}
+
+.status-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .status-multi-select {
   display: grid;
   gap: var(--space-2);

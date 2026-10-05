@@ -16,7 +16,7 @@ import {
 import { listStatuses, type AnimalStatus } from '@/features/statuses/domain/statuses'
 import {
   listAssignmentsForAnimal,
-  replaceAnimalStatuses,
+  setSingleStatusAssignment,
 } from '@/features/statuses/domain/assignments'
 import {
   addTreatment,
@@ -41,7 +41,7 @@ import {
 } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
-import { StatusMultiSelect } from '@/features/animals/components/StatusMultiSelect'
+import { StatusSingleSelect } from '@/features/animals/components/StatusSingleSelect'
 import { CreateStatusModal } from '@/features/statuses/components/CreateStatusModal'
 import {
   addAnimalsToChecklist,
@@ -98,7 +98,7 @@ export function AnimalDetailScreen() {
   const confirm = useConfirm()
   const [animal, setAnimal] = useState<AnimalWithStatus | null>(null)
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
-  const [statusIds, setStatusIds] = useState<string[]>([])
+  const [statusId, setStatusId] = useState<string | null>(null)
   const [treatments, setTreatments] = useState<TreatmentRecord[]>([])
   const [photos, setPhotos] = useState<PhotoItem[]>([])
   const [activePhotoId, setActivePhotoId] = useState<string | null>(null)
@@ -132,7 +132,7 @@ export function AnimalDetailScreen() {
     ])
     setAnimal(nextAnimal)
     setTreatments(nextTreatments)
-    setStatusIds(assignments.map((assignment) => assignment.status_id))
+    setStatusId(assignments[0]?.status_id ?? nextAnimal?.status_id ?? null)
     if (member) {
       setOnChecklist(await isAnimalOnChecklist(db, member.orgId, id))
     }
@@ -209,15 +209,15 @@ export function AnimalDetailScreen() {
     setShowCareForm(true)
   }
 
-  async function onStatusChange(nextIds: string[]) {
+  async function onStatusChange(nextStatusId: string) {
     if (!db || !id || !member) return
-    setStatusIds(nextIds)
+    setStatusId(nextStatusId)
     setError(null)
     try {
-      await replaceAnimalStatuses(db, {
+      await setSingleStatusAssignment(db, {
         orgId: member.orgId,
         animalId: id,
-        statusIds: nextIds,
+        statusId: nextStatusId,
       })
       await reload()
     } catch (err) {
@@ -226,16 +226,6 @@ export function AnimalDetailScreen() {
       )
       await reload()
     }
-  }
-
-  async function onRequestExit(exitId: string) {
-    const ok = await confirm({
-      title: 'Mark as out of care?',
-      body: 'All other statuses will be removed from this animal.',
-      confirmLabel: 'Continue',
-      tone: 'danger',
-    })
-    if (ok) await onStatusChange([exitId])
   }
 
   async function onDeletePhoto(photoId: string) {
@@ -566,11 +556,10 @@ export function AnimalDetailScreen() {
             </p>
           ) : null}
 
-          <StatusMultiSelect
+          <StatusSingleSelect
             statuses={statuses}
-            value={statusIds}
-            onChange={(nextIds) => void onStatusChange(nextIds)}
-            onRequestExit={(exitId) => void onRequestExit(exitId)}
+            value={statusId}
+            onChange={(nextId) => void onStatusChange(nextId)}
             onAddStatus={() => setShowAddStatusModal(true)}
           />
         </div>
@@ -734,7 +723,7 @@ export function AnimalDetailScreen() {
           onClose={() => setShowAddStatusModal(false)}
           onCreated={(newStatus) => {
             setStatuses((prev) => [...prev, newStatus])
-            void onStatusChange([...statusIds, newStatus.id])
+            void onStatusChange(newStatus.id)
           }}
         />
       ) : null}
