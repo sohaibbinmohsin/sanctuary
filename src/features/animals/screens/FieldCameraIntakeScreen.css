@@ -57,6 +57,13 @@
   transition: filter var(--duration, 200ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
+.camera-overlay__video-freeze {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
 /* Top Bar */
 .camera-overlay__top {
   position: absolute;

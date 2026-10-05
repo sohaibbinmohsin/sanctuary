@@ -130,6 +130,9 @@ export function FieldCameraIntakeScreen() {
     setCapturedBlob(null)
     setCapturedPreview(null)
     setShowConfirm(false)
+    if (videoRef.current && streamRef.current) {
+      videoRef.current.play().catch(() => {})
+    }
   }
 
   async function handleSave(mode: 'later' | 'now') {
@@ -206,24 +209,25 @@ export function FieldCameraIntakeScreen() {
     <div className="camera-intake-fullscreen" aria-label="Camera intake">
       {/* Viewfinder stream */}
       <div className={`camera-viewfinder-layer${showConfirm ? ' is-blurred' : ''}`}>
+        {/* Always keep video element mounted so MediaStream connection is never broken */}
+        <video
+          ref={videoRef}
+          className="camera-overlay__video"
+          autoPlay
+          playsInline
+          muted
+        />
+
         {capturedPreview ? (
           <div
-            className="camera-overlay__video"
+            className="camera-overlay__video camera-overlay__video-freeze"
             style={{
               backgroundImage: `url(${capturedPreview})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
           />
-        ) : (
-          <video
-            ref={videoRef}
-            className="camera-overlay__video"
-            autoPlay
-            playsInline
-            muted
-          />
-        )}
+        ) : null}
 
         {/* Top Bar: Skip on left, Close on right */}
         <div className="camera-overlay__top">
