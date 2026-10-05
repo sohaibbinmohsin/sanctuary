@@ -1,4 +1,5 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
+import { supabase } from '@/shared/lib/supabase'
 
 export type AnimalStatus = {
   id: string
@@ -16,21 +17,122 @@ export type CreateStatusInput = {
   countsAsInCare?: boolean
 }
 
+export async function ensureDefaultStatuses(
+  db: SanctuaryDb,
+  orgId: string,
+): Promise<AnimalStatus[]> {
+  const existing = await db.getAll<AnimalStatus>(
+    `SELECT * FROM animal_statuses WHERE org_id = ? AND archived = 0 ORDER BY sort_order ASC, label ASC`,
+    [orgId],
+  )
+  if (existing.length > 0) return existing
+
+  try {
+    const { data } = await supabase
+      .from('animal_statuses')
+      .select('id, org_id, label, sort_order, counts_as_in_care, archived, created_at')
+      .eq('org_id', orgId)
+      .eq('archived', false)
+      .order('sort_order', { ascending: true })
+
+    if (data && data.length > 0) {
+      if (db.writeTransaction) {
+        await db.writeTransaction(async (tx) => {
+          for (const s of data) {
+            await tx.execute(
+              `INSERT OR REPLACE INTO animal_statuses
+                (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [
+                s.id,
+                s.org_id,
+                s.label,
+                s.sort_order,
+                s.counts_as_in_care ? 1 : 0,
+                s.archived ? 1 : 0,
+                s.created_at ?? new Date().toISOString(),
+              ],
+            )
+          }
+        })
+      } else {
+        for (const s of data) {
+          await db.execute(
+            `INSERT OR REPLACE INTO animal_statuses
+              (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              s.id,
+              s.org_id,
+              s.label,
+              s.sort_order,
+              s.counts_as_in_care ? 1 : 0,
+              s.archived ? 1 : 0,
+              s.created_at ?? new Date().toISOString(),
+            ],
+          )
+        }
+      }
+      return await db.getAll<AnimalStatus>(
+        `SELECT * FROM animal_statuses WHERE org_id = ? AND archived = 0 ORDER BY sort_order ASC, label ASC`,
+        [orgId],
+      )
+    }
+  } catch (err) {
+    console.warn('ensureDefaultStatuses: supabase fetch failed', err)
+  }
+
+  const id = crypto.randomUUID()
+  const now = new Date().toISOString()
+  await db.execute(
+    `INSERT OR REPLACE INTO animal_statuses (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
+     VALUES (?, ?, 'Intake', 1, 1, 0, ?)`,
+    [id, orgId, now],
+  )
+
+  void supabase
+    .from('animal_statuses')
+    .insert({
+      id,
+      org_id: orgId,
+      label: 'Intake',
+      sort_order: 1,
+      counts_as_in_care: true,
+      archived: false,
+    })
+    .then(({ error }) => {
+      if (error) console.warn('ensureDefaultStatuses insert failed:', error.message)
+    })
+
+  return await db.getAll<AnimalStatus>(
+    `SELECT * FROM animal_statuses WHERE org_id = ? AND archived = 0 ORDER BY sort_order ASC, label ASC`,
+    [orgId],
+  )
+}
+
 export async function listStatuses(
   db: SanctuaryDb,
   orgId: string,
   includeArchived = false,
 ): Promise<AnimalStatus[]> {
   if (includeArchived) {
-    return db.getAll<AnimalStatus>(
+    const all = await db.getAll<AnimalStatus>(
       `SELECT * FROM animal_statuses WHERE org_id = ? ORDER BY sort_order ASC`,
       [orgId],
     )
+    if (all.length === 0) {
+      return ensureDefaultStatuses(db, orgId)
+    }
+    return all
   }
-  return db.getAll<AnimalStatus>(
+  const active = await db.getAll<AnimalStatus>(
     `SELECT * FROM animal_statuses WHERE org_id = ? AND archived = 0 ORDER BY sort_order ASC`,
     [orgId],
   )
+  if (active.length === 0) {
+    return ensureDefaultStatuses(db, orgId)
+  }
+  return active
 }
 
 export async function createStatus(

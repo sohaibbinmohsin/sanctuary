@@ -36,15 +36,23 @@ export function useSyncStatus(): SyncStatus {
   })
 
   useEffect(() => {
-    if (isPlaygroundMode()) {
-      setStatus({
-        kind: 'synced',
-        errorMessage: null,
-        hasSynced: true,
-        downloading: false,
-        uploading: false,
-      })
-      return
+    if (isPlaygroundMode() || !import.meta.env.VITE_POWERSYNC_URL) {
+      const update = () => {
+        setStatus({
+          kind: navigator.onLine ? 'synced' : 'offline',
+          errorMessage: null,
+          hasSynced: true,
+          downloading: false,
+          uploading: false,
+        })
+      }
+      update()
+      window.addEventListener('online', update)
+      window.addEventListener('offline', update)
+      return () => {
+        window.removeEventListener('online', update)
+        window.removeEventListener('offline', update)
+      }
     }
     if (!powerSync) {
       setStatus({
