@@ -17,67 +17,66 @@ export function AnimalCard({
   hasVerifiedPhoto = false,
   variant = 'grid',
 }: AnimalCardProps) {
-  const labels = animal.status_labels?.length
-    ? animal.status_labels
-    : animal.status_label
-      ? [animal.status_label]
-      : []
+  const primaryStatus = animal.status_label || animal.status_labels?.[0]
   const isList = variant === 'list'
+
+  if (isList) {
+    return (
+      <Link className="animal-card animal-card--list" to={`/animals/${animal.id}`}>
+        <div
+          className="animal-card__photo"
+          style={photoUrl ? { backgroundImage: `url(${photoUrl})` } : undefined}
+          role={photoUrl ? 'img' : undefined}
+          aria-label={photoUrl ? `Photo of ${animal.name || animal.shelter_code}` : undefined}
+        >
+          {photoUrl ? null : <span className="animal-card__photo-empty">No photo</span>}
+          {hasVerifiedPhoto ? (
+            <span className="animal-card__verified" title="Has a verified camera photo">
+              <SealCheck size={14} weight="fill" aria-hidden />
+            </span>
+          ) : null}
+        </div>
+        <div className="animal-card__body">
+          <div className={animal.name?.trim() ? 'animal-card__name' : 'animal-card__code shelter-code'}>
+            {animal.name?.trim() || animal.shelter_code}
+          </div>
+          {animal.name?.trim() ? (
+            <div className="animal-card__code shelter-code">{animal.shelter_code}</div>
+          ) : null}
+          {primaryStatus ? (
+            <div className="status-badge-row">
+              <StatusBadge label={primaryStatus} />
+            </div>
+          ) : null}
+        </div>
+      </Link>
+    )
+  }
 
   return (
     <Link
-      className={isList ? 'animal-card animal-card--list' : 'animal-card'}
+      className={`animal-card animal-card--full-bleed${!photoUrl ? ' animal-card--no-photo' : ''}`}
       to={`/animals/${animal.id}`}
+      style={photoUrl ? { backgroundImage: `url(${photoUrl})` } : undefined}
+      role="img"
+      aria-label={`Photo card for ${animal.name || animal.shelter_code}`}
     >
-      <div
-        className="animal-card__photo"
-        style={
-          photoUrl
-            ? {
-                backgroundImage: `url(${photoUrl})`,
-              }
-            : undefined
-        }
-        role={photoUrl ? 'img' : undefined}
-        aria-label={photoUrl ? `Photo of ${animal.name || animal.shelter_code}` : undefined}
-      >
-        {photoUrl ? null : (
-          <span className="animal-card__photo-empty">
-            {isList ? 'No photo' : 'No photo yet'}
-          </span>
-        )}
+      <div className="animal-card__overlay-top">
+        {primaryStatus ? <StatusBadge label={primaryStatus} /> : <span />}
         {hasVerifiedPhoto ? (
-          <span
-            className="animal-card__verified"
-            title="Has a verified camera photo"
-            aria-label="Has a verified camera photo"
-          >
+          <span className="animal-card__verified-badge" title="Verified photo">
             <SealCheck size={14} weight="fill" aria-hidden />
           </span>
         ) : null}
       </div>
-      <div className="animal-card__body">
-        <div
-          className={
-            animal.name?.trim()
-              ? 'animal-card__name'
-              : 'animal-card__code shelter-code'
-          }
-        >
+
+      <div className="animal-card__overlay-bottom">
+        <span className="animal-card__overlay-title">
           {animal.name?.trim() || animal.shelter_code}
-        </div>
-        {animal.name?.trim() && isList ? (
-          <div className="animal-card__code shelter-code">{animal.shelter_code}</div>
+        </span>
+        {animal.name?.trim() ? (
+          <span className="animal-card__overlay-sub shelter-code">{animal.shelter_code}</span>
         ) : null}
-        {labels.length > 0 ? (
-          <div className="status-badge-row" aria-label={`Status: ${labels.join(', ')}`}>
-            {labels.map((label) => (
-              <StatusBadge key={label} label={label} />
-            ))}
-          </div>
-        ) : (
-          <div className="status-badge-row status-badge-row--empty" aria-hidden />
-        )}
       </div>
     </Link>
   )
