@@ -280,7 +280,7 @@ export function FieldCameraIntakeScreen() {
       {showConfirm && (
         <div className="camera-confirm-dialog" role="dialog" aria-modal="true">
           <div className="camera-confirm-backdrop" onClick={handleRetake} />
-          <div className="camera-confirm-card">
+          <div className="camera-confirm-card camera-confirm-sheet">
             <h2 className="confirm-card__title">Photo captured</h2>
 
             {/* Image Card with Tag and ID on it */}
