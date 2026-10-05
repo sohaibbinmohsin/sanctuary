@@ -495,19 +495,6 @@ export function AnimalDetailScreen() {
         </div>
 
         <div className="stack">
-          {animal.species === 'Unknown' && (
-            <div className="stub-callout">
-              <div className="stub-callout__header">
-                <strong className="stub-callout__title">Rescue details needed</strong>
-                <Link to={`/animals/${animal.id}/edit`} className="stub-callout__btn">
-                  Add
-                </Link>
-              </div>
-              <p className="stub-callout__body">
-                This animal was saved during quick field intake.
-              </p>
-            </div>
-          )}
           <div>
             <div className="detail-hero__id-row">
               <h1
@@ -550,7 +537,19 @@ export function AnimalDetailScreen() {
             ) : null}
           </div>
 
-          {detailMeta ? (
+          {animal.species === 'Unknown' ? (
+            <div className="stub-callout">
+              <div className="stub-callout__header">
+                <strong className="stub-callout__title">Rescue details needed</strong>
+                <Link to={`/animals/${animal.id}/edit`} className="stub-callout__btn">
+                  Add
+                </Link>
+              </div>
+              <p className="stub-callout__body">
+                This animal was saved during quick field intake.
+              </p>
+            </div>
+          ) : detailMeta ? (
             <p className="muted" style={{ margin: 0 }}>
               {detailMeta}
             </p>
