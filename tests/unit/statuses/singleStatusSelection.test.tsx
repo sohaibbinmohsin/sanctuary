@@ -75,9 +75,14 @@ describe('StatusSingleSelect', () => {
 })
 
 describe('setSingleStatusAssignment', () => {
-  it('deletes previous assignments, inserts the single assignment, and updates animals table', async () => {
-    const execute = vi.fn().mockResolvedValue(undefined)
-    const db = { execute } as never
+  it('deletes previous assignments, inserts the single assignment, and updates animals table within a transaction', async () => {
+    const txExecute = vi.fn().mockResolvedValue(undefined)
+    const writeTransaction = vi.fn(
+      async (fn: (tx: { execute: typeof txExecute }) => Promise<void>) => {
+        await fn({ execute: txExecute })
+      },
+    )
+    const db = { writeTransaction } as never
 
     await setSingleStatusAssignment(db, {
       animalId: 'anim-1',
@@ -85,20 +90,21 @@ describe('setSingleStatusAssignment', () => {
       statusId: 'st-foster',
     })
 
-    expect(execute).toHaveBeenCalledTimes(3)
+    expect(writeTransaction).toHaveBeenCalledTimes(1)
+    expect(txExecute).toHaveBeenCalledTimes(3)
     // 1. DELETE
-    expect(execute.mock.calls[0][0]).toContain('DELETE FROM animal_status_assignments WHERE animal_id = ?')
-    expect(execute.mock.calls[0][1]).toEqual(['anim-1'])
+    expect(txExecute.mock.calls[0][0]).toContain('DELETE FROM animal_status_assignments WHERE animal_id = ?')
+    expect(txExecute.mock.calls[0][1]).toEqual(['anim-1'])
 
     // 2. INSERT
-    expect(execute.mock.calls[1][0]).toContain('INSERT INTO animal_status_assignments')
-    expect(execute.mock.calls[1][1]).toEqual(
+    expect(txExecute.mock.calls[1][0]).toContain('INSERT INTO animal_status_assignments')
+    expect(txExecute.mock.calls[1][1]).toEqual(
       expect.arrayContaining(['anim-1', 'st-foster'])
     )
 
     // 3. UPDATE animals
-    expect(execute.mock.calls[2][0]).toContain('UPDATE animals SET status_id = ?')
-    expect(execute.mock.calls[2][1]).toEqual(
+    expect(txExecute.mock.calls[2][0]).toContain('UPDATE animals SET status_id = ?')
+    expect(txExecute.mock.calls[2][1]).toEqual(
       expect.arrayContaining(['st-foster', 'anim-1'])
     )
   })

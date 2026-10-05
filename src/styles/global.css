@@ -2235,9 +2235,9 @@ a.primary {
   justify-content: center;
   gap: 0.35rem;
   padding: 0.35rem 0.85rem;
-  min-height: 38px;
+  min-height: var(--touch-min, 44px);
   border-radius: 999px;
-  font-family: var(--font-body, inherit);
+  font-family: var(--font-sans, inherit);
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--color-ink);
