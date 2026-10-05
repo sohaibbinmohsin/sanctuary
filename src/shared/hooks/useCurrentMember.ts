@@ -107,9 +107,11 @@ export function useCurrentMember(): {
 
   useEffect(() => {
     if (!db || playground || !userId || authLoading || queryLoading) return
-    if (memberRows.length === 0 && !hydratedRef.current) {
+    if (!hydratedRef.current) {
       hydratedRef.current = true
-      setHydrating(true)
+      if (memberRows.length === 0) {
+        setHydrating(true)
+      }
       void hydrateOrgBootstrap(db).finally(() => {
         setHydrating(false)
       })
