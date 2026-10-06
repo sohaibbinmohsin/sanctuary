@@ -91,6 +91,20 @@
   gap: var(--space-3, 0.75rem);
 }
 
+.responsive-modal__actions {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-2, 0.5rem);
+  width: 100%;
+  margin-top: var(--space-3, 0.75rem);
+}
+
+.responsive-modal__actions .btn,
+.responsive-modal__actions button {
+  width: 100%;
+  justify-content: center;
+}
+
 /* Desktop: centered card modal */
 @media (min-width: 641px) {
   .responsive-modal-root {
@@ -112,6 +126,18 @@
     display: none;
   }
 
+  .responsive-modal__actions {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: var(--space-3, 0.75rem);
+    width: auto;
+  }
+
+  .responsive-modal__actions .btn,
+  .responsive-modal__actions button {
+    width: auto;
+  }
+
   @keyframes responsive-card-scale-in {
     from {
       opacity: 0;
@@ -123,3 +149,4 @@
     }
   }
 }
+

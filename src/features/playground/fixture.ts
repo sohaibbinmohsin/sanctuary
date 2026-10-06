@@ -160,6 +160,12 @@ export const PLAYGROUND_TREATMENTS: PlaygroundTreatmentFixture[] = [
     notes: 'Quarantine day 1 — eating well, no sneezing observed.',
     treatedAt: '2026-07-09T14:00:00.000Z',
   },
+  {
+    animalId: 'd1111111-1111-4111-8111-111111111105',
+    treatmentType: 'status',
+    notes: 'Quarantine - Moved to quarantine wing for observation',
+    treatedAt: '2026-10-05T09:00:00.000Z',
+  },
 ]
 
 export const PLAYGROUND_LEDGER: PlaygroundLedgerFixture[] = [

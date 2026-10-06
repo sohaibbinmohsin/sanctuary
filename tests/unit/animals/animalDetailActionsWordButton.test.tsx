@@ -64,7 +64,8 @@ describe('Inline edit and word-based Daily Care button', () => {
 
     const careBtn = await screen.findByRole('button', { name: /Add to Daily Care/i })
     expect(careBtn).toBeInTheDocument()
-    expect(careBtn).toHaveTextContent('+ Daily Care')
+    expect(careBtn).toHaveTextContent('Daily Care')
+    expect(careBtn.querySelector('svg')).toBeInTheDocument()
   })
 
   it('renders "In Daily Care" when already on checklist and toggles when clicked', async () => {
@@ -104,6 +105,7 @@ describe('Inline edit and word-based Daily Care button', () => {
 
     const toggledBtn = await screen.findByRole('button', { name: /Add to Daily Care/i })
     expect(toggledBtn).toBeInTheDocument()
-    expect(toggledBtn).toHaveTextContent('+ Daily Care')
+    expect(toggledBtn).toHaveTextContent('Daily Care')
+    expect(toggledBtn.querySelector('svg')).toBeInTheDocument()
   })
 })

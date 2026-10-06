@@ -44,6 +44,7 @@ import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import { StatusSingleSelect } from '@/features/animals/components/StatusSingleSelect'
 import { ResponsiveSheetModal } from '@/shared/ui/ResponsiveSheetModal'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
+import { MedicalCrossIcon } from '@/shared/ui/MedicalCrossIcon'
 import { CreateStatusModal } from '@/features/statuses/components/CreateStatusModal'
 import {
   addAnimalsToChecklist,
@@ -576,7 +577,9 @@ export function AnimalDetailScreen() {
                       <CheckCircle size={16} weight="fill" /> In Daily Care
                     </>
                   ) : (
-                    '+ Daily Care'
+                    <>
+                      <MedicalCrossIcon size={14} /> Daily Care
+                    </>
                   )}
                 </button>
               ) : null}
@@ -883,7 +886,7 @@ export function AnimalDetailScreen() {
             <span>Hide from public</span>
           </label>
           {error ? <p className="form-error">{error}</p> : null}
-          <div className="row">
+          <div className="responsive-modal__actions">
             <Button type="submit" variant="primary" disabled={!notes.trim()}>
               {editingTreatmentId ? 'Save changes' : 'Save care note'}
             </Button>
@@ -924,7 +927,7 @@ export function AnimalDetailScreen() {
             placeholder="e.g. Cleared quarantine, moved to foster..."
           />
           {error ? <p className="form-error">{error}</p> : null}
-          <div className="row" style={{ marginTop: '0.5rem' }}>
+          <div className="responsive-modal__actions">
             <Button type="submit" variant="primary">
               Save status
             </Button>

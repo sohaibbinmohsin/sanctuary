@@ -5,10 +5,9 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { Camera, ImageSquare, X } from '@phosphor-icons/react'
+import { Camera, ImageSquare, Plus, X } from '@phosphor-icons/react'
 import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
 import { InAppCamera } from '@/features/animals/components/InAppCamera'
-import { MedicalCrossIcon } from '@/shared/ui/MedicalCrossIcon'
 
 export type StagedPhoto = {
   id: string
@@ -136,7 +135,7 @@ export function IntakePhotoPicker({
             title="Add photo"
             onClick={onPlusClick}
           >
-            <MedicalCrossIcon size={20} />
+            <Plus size={22} weight="bold" aria-hidden />
             {photos.length > 0 ? (
               <span className="photo-strip__badge" title={`${photos.length} attached`}>
                 {photos.length}
