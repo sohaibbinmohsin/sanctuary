@@ -1,6 +1,6 @@
 type StatusBadgeProps = {
   label: string
-  tone?: 'default' | 'amber' | 'muted'
+  tone?: 'default' | 'amber' | 'muted' | 'forest'
 }
 
 function toneFromLabel(label: string): StatusBadgeProps['tone'] {
@@ -31,6 +31,8 @@ export function StatusBadge({ label, tone }: StatusBadgeProps) {
       ? 'status-badge status-badge--amber'
       : resolved === 'muted'
         ? 'status-badge status-badge--muted'
-        : 'status-badge'
+        : resolved === 'forest'
+          ? 'status-badge status-badge--forest'
+          : 'status-badge'
   return <span className={className}>{label}</span>
 }

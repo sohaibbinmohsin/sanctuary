@@ -43,6 +43,7 @@ import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import { StatusSingleSelect } from '@/features/animals/components/StatusSingleSelect'
 import { ResponsiveSheetModal } from '@/shared/ui/ResponsiveSheetModal'
+import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { CreateStatusModal } from '@/features/statuses/components/CreateStatusModal'
 import {
   addAnimalsToChecklist,
@@ -248,7 +249,7 @@ export function AnimalDetailScreen() {
         orgId: member.orgId,
         animalId: id,
         treatmentType: 'status',
-        notes: trimmedNotes || label,
+        notes: trimmedNotes ? `${label} - ${trimmedNotes}` : label,
         treatedAt: effectiveIso,
       })
       setShowStatusModal(false)
@@ -707,8 +708,14 @@ export function AnimalDetailScreen() {
               return (
                 <div className="list-item list-item--row" key={t.id}>
                   <div
-                    className="list-item__body timeline-item"
-                    style={{ border: 'none', padding: 0 }}
+                    className="list-item__body"
+                    style={{
+                      border: 'none',
+                      padding: 0,
+                      display: 'flex',
+                      gap: '0.75rem',
+                      alignItems: 'flex-start',
+                    }}
                   >
                     <span className="timeline-dot" aria-hidden />
                     <div>
@@ -774,74 +781,97 @@ export function AnimalDetailScreen() {
             </Button>
           </div>
 
-          <div style={{ marginTop: '0.5rem' }}>
+          <div className="timeline-feed" style={{ marginTop: '0.5rem' }}>
             {timelineTreatments.map((t) => {
-              const title = t.notes?.trim() || TREATMENT_LABELS.status
+              const trimmedNotes = t.notes?.trim()
+              let badgeLabel = animal.status_label || 'Status update'
+              let displayNotes: string | null = null
+
+              if (trimmedNotes) {
+                if (trimmedNotes.includes(' - ')) {
+                  const [prefix, ...rest] = trimmedNotes.split(' - ')
+                  badgeLabel = prefix.trim()
+                  displayNotes = rest.join(' - ').trim() || null
+                } else if (
+                  statuses.some(
+                    (s) => s.label?.toLowerCase() === trimmedNotes.toLowerCase(),
+                  ) ||
+                  trimmedNotes.toLowerCase() ===
+                    animal.status_label?.toLowerCase() ||
+                  animal.status_labels?.some(
+                    (l) => l?.toLowerCase() === trimmedNotes.toLowerCase(),
+                  )
+                ) {
+                  badgeLabel = trimmedNotes
+                  displayNotes = null
+                } else {
+                  badgeLabel = animal.status_label || 'Status update'
+                  displayNotes = trimmedNotes
+                }
+              }
+
               return (
-                <div className="list-item list-item--row" key={t.id}>
-                  <div
-                    className="list-item__body timeline-item"
-                    style={{ border: 'none', padding: 0 }}
-                  >
-                    <span className="timeline-dot" aria-hidden />
-                    <div>
-                      <div>
-                        <strong>Status</strong>
-                      </div>
-                      <div>{title}</div>
-                      <span className="muted">
-                        {t.treated_at
-                          ? formatCareTimestamp(t.treated_at)
-                          : 'Unknown date'}
-                      </span>
+                <div className="timeline-entry" key={t.id}>
+                  <div className="timeline-track">
+                    <span className="timeline-dot" />
+                  </div>
+                  <div className="timeline-item">
+                    <div className="timeline-item__primary">
+                      <StatusBadge label={badgeLabel} />
                     </div>
+                    <div className="timeline-item__timestamp muted">
+                      {t.treated_at
+                        ? formatCareTimestamp(t.treated_at)
+                        : 'Unknown date'}
+                    </div>
+                    {displayNotes ? (
+                      <div className="timeline-item__notes">{displayNotes}</div>
+                    ) : null}
                   </div>
                 </div>
               )
             })}
             {arrivalTreatments.map((t) => {
               const type = t.treatment_type as TreatmentType
-              const title = TREATMENT_LABELS[type] ?? 'Arrived'
+              const label = TREATMENT_LABELS[type] ?? 'Arrived'
               return (
-                <div className="list-item list-item--row" key={t.id}>
-                  <div
-                    className="list-item__body timeline-item"
-                    style={{ border: 'none', padding: 0 }}
-                  >
-                    <span className="timeline-dot" aria-hidden />
-                    <div>
-                      <strong>{title}</strong>{' '}
-                      <span className="muted">
-                        {t.treated_at
-                          ? formatCareTimestamp(t.treated_at)
-                          : 'Unknown date'}
-                      </span>
-                      {t.notes?.trim() ? (
-                        <div className="list-item__notes">{t.notes}</div>
-                      ) : null}
+                <div className="timeline-entry" key={t.id}>
+                  <div className="timeline-track">
+                    <span className="timeline-dot timeline-dot--arrival" />
+                  </div>
+                  <div className="timeline-item">
+                    <div className="timeline-item__primary">
+                      <StatusBadge label={label} tone="forest" />
                     </div>
+                    <div className="timeline-item__timestamp muted">
+                      {t.treated_at
+                        ? formatCareTimestamp(t.treated_at)
+                        : 'Unknown date'}
+                    </div>
+                    {t.notes?.trim() ? (
+                      <div className="timeline-item__notes">{t.notes}</div>
+                    ) : null}
                   </div>
                 </div>
               )
             })}
             {showLegacyArrival ? (
-              <div className="list-item list-item--row">
-                <div
-                  className="list-item__body timeline-item"
-                  style={{ border: 'none', padding: 0 }}
-                >
-                  <span className="timeline-dot" aria-hidden />
-                  <div>
-                    <strong>{TREATMENT_LABELS.arrived}</strong>{' '}
-                    <span className="muted">
-                      {animal.intake_date
-                        ? formatCareTimestamp(`${animal.intake_date}T12:00:00`)
-                        : 'Arrival'}
-                    </span>
-                    {animal.notes?.trim() ? (
-                      <div className="list-item__notes">{animal.notes}</div>
-                    ) : null}
+              <div className="timeline-entry">
+                <div className="timeline-track">
+                  <span className="timeline-dot timeline-dot--arrival" />
+                </div>
+                <div className="timeline-item">
+                  <div className="timeline-item__primary">
+                    <StatusBadge label="Arrived" tone="forest" />
                   </div>
+                  <div className="timeline-item__timestamp muted">
+                    {animal.intake_date
+                      ? formatCareTimestamp(`${animal.intake_date}T12:00:00`)
+                      : 'Arrival'}
+                  </div>
+                  {animal.notes?.trim() ? (
+                    <div className="timeline-item__notes">{animal.notes}</div>
+                  ) : null}
                 </div>
               </div>
             ) : null}
