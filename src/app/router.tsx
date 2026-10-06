@@ -179,7 +179,10 @@ export function AppShell() {
             <Route path="/uploads" element={<UploadsScreen />} />
             <Route path="/checklist" element={<ChecklistScreen />} />
             <Route path="/settings" element={<SettingsScreen />} />
-            <Route path="/onboarding" element={<Navigate to="/animals" replace />} />
+            <Route
+              path="/onboarding"
+              element={playground ? <OnboardingScreen /> : <Navigate to="/animals" replace />}
+            />
           </Routes>
         </main>
         {showBottomNav ? <NavItems className="app-nav" items={BOTTOM_NAV} /> : null}

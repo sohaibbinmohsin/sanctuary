@@ -166,6 +166,30 @@ export const PLAYGROUND_TREATMENTS: PlaygroundTreatmentFixture[] = [
     notes: 'Quarantine - Moved to quarantine wing for observation',
     treatedAt: '2026-10-05T09:00:00.000Z',
   },
+  {
+    animalId: 'd1111111-1111-4111-8111-111111111105',
+    treatmentType: 'meds',
+    notes: 'Amoxicillin 50mg twice daily with meals for 7 days.',
+    treatedAt: '2026-10-06T08:30:00.000Z',
+  },
+  {
+    animalId: 'd1111111-1111-4111-8111-111111111105',
+    treatmentType: 'vet',
+    notes: 'Examined ears and clear lungs, vital signs stable.',
+    treatedAt: '2026-10-05T14:15:00.000Z',
+  },
+  {
+    animalId: 'd1111111-1111-4111-8111-111111111105',
+    treatmentType: 'procedure',
+    notes: 'Microchipped and vaccinated for FVRCP.',
+    treatedAt: '2026-10-05T11:00:00.000Z',
+  },
+  {
+    animalId: 'd1111111-1111-4111-8111-111111111105',
+    treatmentType: 'other',
+    notes: 'Transitioned to high-protein wet food formula.',
+    treatedAt: '2026-10-04T16:45:00.000Z',
+  },
 ]
 
 export const PLAYGROUND_LEDGER: PlaygroundLedgerFixture[] = [

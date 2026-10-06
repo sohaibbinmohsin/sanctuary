@@ -351,8 +351,33 @@
 
 /* Mobile responsive adjustments */
 @media (max-width: 640px) {
+  .onboarding-screen__main {
+    padding-inline: 0;
+  }
+
+  .onboarding-screen__container {
+    padding-inline: 0;
+    max-width: 100%;
+  }
+
   .onboarding-card {
-    padding: var(--space-5);
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    width: 100%;
+    padding: var(--space-5) var(--space-4);
+  }
+
+  .onboarding-actions-row {
+    flex-direction: column;
+    width: 100%;
+    gap: var(--space-3);
+  }
+
+  .onboarding-actions-row .btn,
+  .onboarding-actions-row > * {
+    width: 100%;
+    text-align: center;
   }
 
   .onboarding-screen__header {

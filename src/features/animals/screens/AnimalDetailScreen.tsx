@@ -624,7 +624,7 @@ export function AnimalDetailScreen() {
           className={`tab-btn${activeTab === 'care' ? ' is-active' : ''}`}
           onClick={() => setActiveTab('care')}
         >
-          Care
+          Care History
         </button>
         <button
           type="button"
@@ -643,7 +643,7 @@ export function AnimalDetailScreen() {
             className="row"
             style={{ justifyContent: 'space-between', alignItems: 'center' }}
           >
-            <h2 style={{ margin: 0 }}>Care log</h2>
+            <h2 style={{ margin: 0 }}>Care History</h2>
             <Button
               type="button"
               variant="secondary"

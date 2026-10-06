@@ -107,7 +107,7 @@ describe('Care and Timeline tabs on AnimalDetailScreen', () => {
     const careTab = await screen.findByRole('tab', { name: /Care/i })
     expect(careTab).toBeInTheDocument()
 
-    expect(screen.getByRole('heading', { level: 2, name: 'Care log' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Care History' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Log care/i })).toBeInTheDocument()
     expect(
       screen.getByText('No care notes yet. Tap Log care to add the first one.')
