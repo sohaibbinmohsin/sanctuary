@@ -3727,6 +3727,17 @@ a.primary {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2, 0.5rem);
+  min-height: var(--touch-min, 44px);
+}
+
+.detail-hero__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-ink);
 }
 
 .btn--inline-edit {
@@ -3737,6 +3748,10 @@ a.primary {
   padding: 0 !important;
   border-radius: 999px;
   color: var(--color-ink-muted);
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0;
 }
 
 .btn--inline-edit::after {
@@ -3754,11 +3769,12 @@ a.primary {
 .animal-daily-care-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
   font-family: var(--font-body, "DM Sans", sans-serif);
   font-size: var(--text-xs, 0.75rem);
   font-weight: 600;
-  padding: 0.35rem 0.75rem;
+  padding: 0.4rem 0.85rem;
   min-height: var(--touch-min, 44px);
   border-radius: 999px;
   border: 1px solid var(--color-forest, #2F5D3A);
@@ -3766,6 +3782,7 @@ a.primary {
   color: var(--color-forest, #2F5D3A);
   cursor: pointer;
   transition: all var(--duration) var(--ease-out);
+  flex-shrink: 0;
 }
 
 .animal-daily-care-btn:hover {
@@ -3784,14 +3801,6 @@ a.primary {
 .animal-daily-care-btn:disabled {
   opacity: 0.6;
   cursor: wait;
-}
-
-.detail-hero__title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--color-ink);
 }
 
 .detail-hero__id-row + .detail-hero__title {
