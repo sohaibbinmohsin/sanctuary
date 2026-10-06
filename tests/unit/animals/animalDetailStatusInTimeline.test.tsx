@@ -102,7 +102,7 @@ describe('AnimalDetailScreen status moved inside Timeline tab', () => {
     fireEvent.click(updateBtn)
 
     // Inside modal, choose Quarantine status
-    const modalDialog = screen.getByRole('dialog')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
     const quarantinePill = await screen.findByRole('button', { name: /Quarantine/i })
     fireEvent.click(quarantinePill)
 
