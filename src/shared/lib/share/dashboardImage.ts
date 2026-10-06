@@ -1,7 +1,7 @@
 import { toPng } from 'html-to-image'
 
 export const DASHBOARD_SHARE_CREDIT =
-  'Shared with Sanctuary · nonprofit software by The Mohsin Project'
+  'Shared with Sanctuary · free software by The Mohsin Project'
 
 /** Instagram feed / square post size. */
 export const DASHBOARD_SHARE_SIZE = 1080
