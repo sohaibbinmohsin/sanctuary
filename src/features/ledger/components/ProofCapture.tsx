@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery } from '@powersync/react'
-import { Camera, ImageSquare, Plus, Trash, X } from '@phosphor-icons/react'
+import { Camera, ImageSquare, Trash, X } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
 import type { LedgerAttachmentRecord } from '@/features/sync/powersync/schema'
@@ -13,6 +13,7 @@ import {
   resolveAttachmentUrl,
 } from '@/features/ledger/domain/attachments'
 import { Button } from '@/shared/ui/Button'
+import { MedicalCrossIcon } from '@/shared/ui/MedicalCrossIcon'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import { isPlaygroundMode } from '@/features/playground/mode'
 import { InAppCamera } from '@/features/animals/components/InAppCamera'
@@ -287,7 +288,7 @@ export function ProofCapture({
             title="Add proof"
             onClick={onPlusClick}
           >
-            <Plus size={22} weight="bold" aria-hidden />
+            <MedicalCrossIcon size={20} />
             {totalCount > 0 ? (
               <span className="photo-strip__badge" title={`${totalCount} attached`}>
                 {totalCount}

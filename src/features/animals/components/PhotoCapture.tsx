@@ -10,7 +10,6 @@ import {
   Camera,
   CircleNotch,
   ImageSquare,
-  Plus,
   WarningCircle,
 } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
@@ -25,6 +24,7 @@ import { requestCaptureSession } from '@/shared/lib/r2/captureSession'
 import { isPlaygroundMode } from '@/features/playground/mode'
 import { InAppCamera } from '@/features/animals/components/InAppCamera'
 import { Button } from '@/shared/ui/Button'
+import { MedicalCrossIcon } from '@/shared/ui/MedicalCrossIcon'
 
 type PhotoCaptureProps = {
   orgId: string
@@ -260,7 +260,7 @@ export function PhotoCapture({
           }
           onClick={onPlusClick}
         >
-          <Plus size={22} weight="bold" aria-hidden />
+          <MedicalCrossIcon size={20} />
           {pending > 0 ? (
             <span className="photo-strip__badge" title={`${pending} waiting to upload`}>
               {pending}
