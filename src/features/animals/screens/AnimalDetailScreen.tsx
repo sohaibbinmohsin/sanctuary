@@ -641,65 +641,14 @@ export function AnimalDetailScreen() {
             style={{ justifyContent: 'space-between', alignItems: 'center' }}
           >
             <h2 style={{ margin: 0 }}>Care log</h2>
-            {!showCareForm ? (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={openCreateCareForm}
-              >
-                Log care
-              </Button>
-            ) : null}
-          </div>
-
-          {showCareForm ? (
-            <form
-              className="panel stack"
-              onSubmit={onSaveTreatment}
-              style={{ marginTop: '1rem' }}
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={openCreateCareForm}
             >
-              <SelectField
-                label="What kind of care?"
-                value={treatmentType}
-                options={careFormTypes.map((key) => ({
-                  value: key,
-                  label: TREATMENT_LABELS[key],
-                }))}
-                onChange={(value) => setTreatmentType(value as TreatmentType)}
-              />
-              <TextField
-                label="When"
-                type="datetime-local"
-                value={treatedAt}
-                onChange={(e) => setTreatedAt(e.target.value)}
-              />
-              <TextareaField
-                label="Notes"
-                rows={3}
-                required
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="What was done, medicine given, next steps…"
-              />
-              <label className="check-row">
-                <input
-                  type="checkbox"
-                  checked={hideFromPublic}
-                  onChange={(e) => setHideFromPublic(e.target.checked)}
-                />
-                <span>Hide from public</span>
-              </label>
-              {error ? <p className="form-error">{error}</p> : null}
-              <div className="row">
-                <Button type="submit" variant="primary" disabled={!notes.trim()}>
-                  {editingTreatmentId ? 'Save changes' : 'Save care note'}
-                </Button>
-                <Button type="button" variant="ghost" onClick={resetCareForm}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          ) : null}
+              Log care
+            </Button>
+          </div>
 
           <div style={{ marginTop: '0.5rem' }}>
             {careTreatments.map((t) => {
@@ -895,6 +844,55 @@ export function AnimalDetailScreen() {
           }}
         />
       ) : null}
+
+      <ResponsiveSheetModal
+        isOpen={showCareForm}
+        onClose={resetCareForm}
+        title={editingTreatmentId ? 'Edit care note' : 'Log care'}
+      >
+        <form className="stack" onSubmit={onSaveTreatment}>
+          <SelectField
+            label="What kind of care?"
+            value={treatmentType}
+            options={careFormTypes.map((key) => ({
+              value: key,
+              label: TREATMENT_LABELS[key],
+            }))}
+            onChange={(value) => setTreatmentType(value as TreatmentType)}
+          />
+          <TextField
+            label="When"
+            type="datetime-local"
+            value={treatedAt}
+            onChange={(e) => setTreatedAt(e.target.value)}
+          />
+          <TextareaField
+            label="Notes"
+            rows={3}
+            required
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="What was done, medicine given, next steps…"
+          />
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={hideFromPublic}
+              onChange={(e) => setHideFromPublic(e.target.checked)}
+            />
+            <span>Hide from public</span>
+          </label>
+          {error ? <p className="form-error">{error}</p> : null}
+          <div className="row">
+            <Button type="submit" variant="primary" disabled={!notes.trim()}>
+              {editingTreatmentId ? 'Save changes' : 'Save care note'}
+            </Button>
+            <Button type="button" variant="ghost" onClick={resetCareForm}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </ResponsiveSheetModal>
 
       <ResponsiveSheetModal
         isOpen={showStatusModal}
