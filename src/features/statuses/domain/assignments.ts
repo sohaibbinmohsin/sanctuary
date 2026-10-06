@@ -160,9 +160,17 @@ export async function replaceAnimalStatuses(
 
 export async function setSingleStatusAssignment(
   db: SanctuaryDb,
-  input: { animalId: string; orgId: string; statusId: string },
+  input: {
+    animalId: string
+    orgId: string
+    statusId: string
+    treatedAt?: string
+    notes?: string
+  },
 ): Promise<void> {
-  const now = new Date().toISOString()
+  const now = input.treatedAt
+    ? new Date(input.treatedAt).toISOString()
+    : new Date().toISOString()
   await db.writeTransaction(async (tx) => {
     await tx.execute(
       'DELETE FROM animal_status_assignments WHERE animal_id = ?',

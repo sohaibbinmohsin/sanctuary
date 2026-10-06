@@ -42,6 +42,7 @@ import {
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import { StatusSingleSelect } from '@/features/animals/components/StatusSingleSelect'
+import { ResponsiveSheetModal } from '@/shared/ui/ResponsiveSheetModal'
 import { CreateStatusModal } from '@/features/statuses/components/CreateStatusModal'
 import {
   addAnimalsToChecklist,
@@ -122,6 +123,11 @@ export function AnimalDetailScreen() {
   const [onChecklist, setOnChecklist] = useState(false)
   const [checklistBusy, setChecklistBusy] = useState(false)
   const [showAddStatusModal, setShowAddStatusModal] = useState(false)
+  const [showStatusModal, setShowStatusModal] = useState(false)
+  const [statusEffectiveAt, setStatusEffectiveAt] = useState(() =>
+    toDatetimeLocalValue(new Date().toISOString()),
+  )
+  const [statusNotes, setStatusNotes] = useState('')
   const [activeTab, setActiveTab] = useState<'care' | 'timeline'>('care')
 
   async function reload() {
@@ -210,22 +216,49 @@ export function AnimalDetailScreen() {
     setShowCareForm(true)
   }
 
-  async function onStatusChange(nextStatusId: string) {
-    if (!db || !id || !member) return
-    setStatusId(nextStatusId)
+  function openStatusModal() {
+    setStatusEffectiveAt(toDatetimeLocalValue(new Date().toISOString()))
+    setStatusNotes('')
+    setShowStatusModal(true)
+  }
+
+  function closeStatusModal() {
+    setShowStatusModal(false)
+    setStatusNotes('')
+    setStatusId(animal?.status_id ?? null)
+  }
+
+  async function onSaveStatusForm(e: FormEvent) {
+    e.preventDefault()
+    if (!db || !id || !member || !statusId) return
     setError(null)
     try {
+      const effectiveIso = new Date(statusEffectiveAt).toISOString()
+      const trimmedNotes = statusNotes.trim()
       await setSingleStatusAssignment(db, {
         orgId: member.orgId,
         animalId: id,
-        statusId: nextStatusId,
+        statusId,
+        treatedAt: statusEffectiveAt,
+        notes: trimmedNotes,
       })
+      const selectedStatus = statuses.find((s) => s.id === statusId)
+      const label = selectedStatus?.label || 'Status update'
+      await addTreatment(db, {
+        orgId: member.orgId,
+        animalId: id,
+        treatmentType: 'status',
+        notes: trimmedNotes || label,
+        treatedAt: effectiveIso,
+      })
+      setShowStatusModal(false)
+      setStatusNotes('')
+      setToast('Status updated')
       await reload()
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Could not update status. Try again.',
       )
-      await reload()
     }
   }
 
@@ -572,12 +605,6 @@ export function AnimalDetailScreen() {
             </p>
           ) : null}
 
-          <StatusSingleSelect
-            statuses={statuses}
-            value={statusId}
-            onChange={(nextId) => void onStatusChange(nextId)}
-            onAddStatus={() => setShowAddStatusModal(true)}
-          />
         </div>
       </div>
 
@@ -729,9 +756,23 @@ export function AnimalDetailScreen() {
         </div>
       ) : (
         <div className="tab-panel" role="tabpanel">
-          <h2 style={{ margin: 0, marginBottom: '0.75rem' }}>
-            Status timeline
-          </h2>
+          <div
+            className="row"
+            style={{
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1rem',
+            }}
+          >
+            <h2 style={{ margin: 0 }}>Status timeline</h2>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={openStatusModal}
+            >
+              Update status
+            </Button>
+          </div>
 
           <div style={{ marginTop: '0.5rem' }}>
             {timelineTreatments.map((t) => {
@@ -820,10 +861,51 @@ export function AnimalDetailScreen() {
           onClose={() => setShowAddStatusModal(false)}
           onCreated={(newStatus) => {
             setStatuses((prev) => [...prev, newStatus])
-            void onStatusChange(newStatus.id)
+            setStatusId(newStatus.id)
           }}
         />
       ) : null}
+
+      <ResponsiveSheetModal
+        isOpen={showStatusModal}
+        onClose={closeStatusModal}
+        title="Update status"
+      >
+        <form className="stack" onSubmit={onSaveStatusForm}>
+          <p className="section-label" style={{ margin: 0 }}>
+            Select new status
+          </p>
+          <StatusSingleSelect
+            statuses={statuses}
+            value={statusId}
+            onChange={(nextId) => setStatusId(nextId)}
+            onAddStatus={() => setShowAddStatusModal(true)}
+          />
+          <TextField
+            label="Effective date & time"
+            type="datetime-local"
+            value={statusEffectiveAt}
+            onChange={(e) => setStatusEffectiveAt(e.target.value)}
+          />
+          <TextareaField
+            label="Notes"
+            hint="optional — reason for status change"
+            rows={2}
+            value={statusNotes}
+            onChange={(e) => setStatusNotes(e.target.value)}
+            placeholder="e.g. Cleared quarantine, moved to foster..."
+          />
+          {error ? <p className="form-error">{error}</p> : null}
+          <div className="row" style={{ marginTop: '0.5rem' }}>
+            <Button type="submit" variant="primary">
+              Save status
+            </Button>
+            <Button type="button" variant="ghost" onClick={closeStatusModal}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </ResponsiveSheetModal>
     </section>
   )
 }
