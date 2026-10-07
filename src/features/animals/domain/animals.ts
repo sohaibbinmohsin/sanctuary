@@ -12,10 +12,15 @@ import {
 import { listStatuses } from '@/features/statuses/domain/statuses'
 import { queuePhoto } from '@/features/photos/domain/photos'
 
+export type AnimalLifeStage = 'adult' | 'child'
+export type { AnimalRecord }
+
 export type CreateAnimalInput = {
   orgId: string
   prefix: string
   species: string
+  life_stage?: AnimalLifeStage
+  lifeStage?: AnimalLifeStage
   statusIds: string[]
   name?: string
   sex?: string
@@ -61,11 +66,13 @@ export async function createAnimal(
 
   const notes = input.notes?.trim() || null
 
+  const life_stage: AnimalLifeStage = input.life_stage ?? input.lifeStage ?? 'adult'
+
   await db.execute(
     `INSERT INTO animals (
       id, org_id, shelter_code, name, species, sex, markings,
-      intake_date, status_id, notes, archived, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      intake_date, status_id, notes, archived, created_at, updated_at, life_stage
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
     [
       id,
       input.orgId,
@@ -79,6 +86,7 @@ export async function createAnimal(
       notes,
       now,
       now,
+      life_stage,
     ],
   )
 
@@ -106,6 +114,7 @@ export async function createAnimal(
     name: input.name?.trim() || null,
     species: input.species.trim(),
     sex: input.sex?.trim() || null,
+    life_stage,
     markings: input.markings?.trim() || null,
     intake_date,
     status_id: created.status_id,
@@ -298,6 +307,8 @@ export type UpdateAnimalInput = {
   species: string
   name?: string
   sex?: string
+  life_stage?: AnimalLifeStage
+  lifeStage?: AnimalLifeStage
   markings?: string
   /** When omitted, existing statuses are left unchanged. */
   statusIds?: string[]
@@ -330,11 +341,18 @@ export async function updateAnimal(
     ? (input.intakeDate ?? existing.intake_date ?? localDateString())
     : (existing.intake_date ?? localDateString())
   const intakeDateChanged = intake_date !== existing.intake_date
+  const touchLifeStage =
+    input.life_stage !== undefined || input.lifeStage !== undefined
+  const life_stage: AnimalLifeStage = touchLifeStage
+    ? (input.life_stage ?? input.lifeStage ?? 'adult')
+    : (existing.life_stage ?? 'adult')
+
   await db.execute(
     `UPDATE animals SET
       name = ?,
       species = ?,
       sex = ?,
+      life_stage = ?,
       markings = ?,
       intake_date = ?,
       notes = ?,
@@ -344,6 +362,7 @@ export async function updateAnimal(
       input.name?.trim() || null,
       input.species.trim(),
       input.sex?.trim() || null,
+      life_stage,
       input.markings?.trim() || null,
       intake_date,
       notes,

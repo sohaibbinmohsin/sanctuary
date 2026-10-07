@@ -56,6 +56,7 @@ const animals = new Table(
     name: column.text,
     species: column.text,
     sex: column.text,
+    life_stage: column.text,
     markings: column.text,
     intake_date: column.text,
     status_id: column.text,
@@ -65,6 +66,24 @@ const animals = new Table(
     updated_at: column.text,
   },
   { indexes: { by_org: ['org_id'], by_status: ['status_id'] } },
+)
+
+const animal_relationships = new Table(
+  {
+    org_id: column.text,
+    animal_id: column.text,
+    related_animal_id: column.text,
+    relationship_type: column.text, // 'bonded' | 'mother' | 'child' | 'sibling' | 'incompatible'
+    notes: column.text,
+    created_at: column.text,
+  },
+  {
+    indexes: {
+      by_animal: ['animal_id'],
+      by_related: ['related_animal_id'],
+      by_org: ['org_id'],
+    },
+  },
 )
 
 const treatments = new Table(
@@ -172,6 +191,7 @@ export const AppSchema = new Schema({
   animal_statuses,
   animal_status_assignments,
   animals,
+  animal_relationships,
   treatments,
   ledger_categories,
   ledger_entries,
@@ -188,7 +208,10 @@ export type OrganizationRecord = Database['organizations']
 export type OrgMemberRecord = Database['org_members']
 export type AnimalStatusRecord = Database['animal_statuses']
 export type AnimalStatusAssignmentRecord = Database['animal_status_assignments']
-export type AnimalRecord = Database['animals']
+export type AnimalRecord = Omit<Database['animals'], 'life_stage'> & {
+  life_stage?: 'adult' | 'child' | null
+}
+export type AnimalRelationshipRecord = Database['animal_relationships']
 export type TreatmentRecord = Database['treatments']
 export type LedgerCategoryRecord = Database['ledger_categories']
 export type LedgerEntryRecord = Database['ledger_entries']
