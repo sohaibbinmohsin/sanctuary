@@ -1,0 +1,69 @@
+/* AnimalLineArt component styles */
+.animal-line-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--color-forest-soft, #e3ede6);
+  color: var(--color-ink, #1a2e22);
+  user-select: none;
+}
+
+.animal-line-art--square {
+  aspect-ratio: 1 / 1;
+}
+
+.animal-line-art--video {
+  aspect-ratio: 16 / 9;
+}
+
+.animal-line-art--cover {
+  width: 100%;
+  height: 100%;
+}
+
+.animal-line-art__svg {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+.animal-line-art__bg {
+  fill: var(--color-forest-soft, #e3ede6);
+}
+
+.animal-line-art__path {
+  fill: none;
+  stroke: var(--color-forest, #2f5d3a);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.animal-line-art__fill {
+  fill: var(--color-forest, #2f5d3a);
+}
+
+.animal-line-art__accent {
+  fill: none;
+  stroke: var(--color-amber, #b45309);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.85;
+}
+
+.animal-line-art__subtle {
+  fill: none;
+  stroke: var(--color-border-strong, #9aaba0);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
+}
