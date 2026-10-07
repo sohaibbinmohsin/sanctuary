@@ -58,6 +58,9 @@ describe('Log care form in ResponsiveSheetModal', () => {
       </MemoryRouter>
     )
 
+    const careTab = await screen.findByRole('tab', { name: /Care/i })
+    fireEvent.click(careTab)
+
     const logCareBtn = await screen.findByRole('button', { name: /Log care/i })
     fireEvent.click(logCareBtn)
 

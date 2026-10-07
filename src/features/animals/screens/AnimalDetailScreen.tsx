@@ -64,6 +64,8 @@ const TREATMENT_LABELS: Record<TreatmentType, string> = {
   status: 'Status',
 }
 
+type AnimalDetailTab = 'care' | 'timeline' | 'details'
+
 const CARE_FORM_TYPES: TreatmentType[] = ['meds', 'vet', 'procedure', 'other']
 const SYSTEM_CARE_TYPES: TreatmentType[] = ['arrived', 'intake', 'status']
 
@@ -131,7 +133,11 @@ export function AnimalDetailScreen() {
     toDatetimeLocalValue(new Date().toISOString()),
   )
   const [statusNotes, setStatusNotes] = useState('')
-  const [activeTab, setActiveTab] = useState<'care' | 'timeline'>('care')
+  const [selectedTab, setSelectedTab] = useState<AnimalDetailTab | null>(null)
+
+  useEffect(() => {
+    setSelectedTab(null)
+  }, [id])
 
   async function reload() {
     if (!db || !id) return
@@ -409,6 +415,22 @@ export function AnimalDetailScreen() {
     (t) => isArrivalTreatmentType(t.treatment_type),
   )
 
+  const hasCareNotes = careTreatments.length > 0
+  const defaultTab: AnimalDetailTab = hasCareNotes ? 'care' : 'timeline'
+  const activeTab: AnimalDetailTab = selectedTab ?? defaultTab
+
+  const tabs: { id: AnimalDetailTab; label: string }[] = hasCareNotes
+    ? [
+        { id: 'care', label: 'Care' },
+        { id: 'timeline', label: 'Timeline' },
+        { id: 'details', label: 'Details' },
+      ]
+    : [
+        { id: 'timeline', label: 'Timeline' },
+        { id: 'care', label: 'Care' },
+        { id: 'details', label: 'Details' },
+      ]
+
   const careFormTypes: TreatmentType[] =
     editingTreatmentId && SYSTEM_CARE_TYPES.includes(treatmentType)
       ? [treatmentType, ...CARE_FORM_TYPES]
@@ -624,24 +646,18 @@ export function AnimalDetailScreen() {
         role="tablist"
         style={{ marginTop: '1.5rem', marginBottom: '1rem' }}
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'care'}
-          className={`tab-btn${activeTab === 'care' ? ' is-active' : ''}`}
-          onClick={() => setActiveTab('care')}
-        >
-          Care
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'timeline'}
-          className={`tab-btn${activeTab === 'timeline' ? ' is-active' : ''}`}
-          onClick={() => setActiveTab('timeline')}
-        >
-          Timeline
-        </button>
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={`tab-btn${activeTab === tab.id ? ' is-active' : ''}`}
+            onClick={() => setSelectedTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'care' ? (
@@ -741,7 +757,9 @@ export function AnimalDetailScreen() {
             ) : null}
           </div>
         </div>
-      ) : (
+      ) : null}
+
+      {activeTab === 'timeline' ? (
         <div className="tab-panel" role="tabpanel">
           <div
             className="row"
@@ -862,7 +880,25 @@ export function AnimalDetailScreen() {
             ) : null}
           </div>
         </div>
-      )}
+      ) : null}
+
+      {activeTab === 'details' ? (
+        <div className="tab-panel" role="tabpanel">
+          <div
+            className="row"
+            style={{
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1rem',
+            }}
+          >
+            <h2 style={{ margin: 0 }}>Animal Details</h2>
+          </div>
+          <div className="tab-panel__content" style={{ marginTop: '0.5rem' }}>
+            <p className="muted">Detailed characteristics and relationships will appear here.</p>
+          </div>
+        </div>
+      ) : null}
 
       <MoraleToast message={toast} onDone={() => setToast(null)} />
       {showAddStatusModal && member ? (
