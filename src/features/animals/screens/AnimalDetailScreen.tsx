@@ -7,6 +7,7 @@ import {
   CheckCircle,
   PencilSimple,
   Trash,
+  X,
 } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
@@ -15,6 +16,13 @@ import {
   type AnimalWithStatus,
   type AnimalLifeStage,
 } from '@/features/animals/domain/animals'
+import {
+  getAnimalRelationships,
+  linkAnimals,
+  unlinkAnimals,
+  type AnimalRelationship,
+  type RelationshipType,
+} from '@/features/animals/domain/relationships'
 import { splitSpecies } from '@/features/animals/screens/AnimalIntakeScreen'
 import { listStatuses, type AnimalStatus } from '@/features/statuses/domain/statuses'
 import {
@@ -58,6 +66,30 @@ import {
 import { formatCareTimestamp } from '@/shared/lib/dates'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
+
+const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
+  bonded: 'Bonded',
+  mother: 'Mother',
+  child: 'Child',
+  sibling: 'Sibling',
+  incompatible: 'Incompatible',
+}
+
+const RELATIONSHIP_TONES: Record<RelationshipType, 'forest' | 'amber' | 'danger'> = {
+  bonded: 'forest',
+  mother: 'amber',
+  child: 'amber',
+  sibling: 'amber',
+  incompatible: 'danger',
+}
+
+const RELATIONSHIP_TYPES: { value: RelationshipType; label: string }[] = [
+  { value: 'bonded', label: 'Bonded' },
+  { value: 'mother', label: 'Mother' },
+  { value: 'child', label: 'Child' },
+  { value: 'sibling', label: 'Sibling' },
+  { value: 'incompatible', label: 'Incompatible' },
+]
 
 const TREATMENT_LABELS: Record<TreatmentType, string> = {
   meds: 'Medicine',
@@ -148,6 +180,23 @@ export function AnimalDetailScreen() {
   const [editMarkings, setEditMarkings] = useState('')
   const [editDetailsBusy, setEditDetailsBusy] = useState(false)
 
+  const [relationships, setRelationships] = useState<AnimalRelationship[]>([])
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [linkSearchQuery, setLinkSearchQuery] = useState('')
+  const [selectedRelatedAnimalId, setSelectedRelatedAnimalId] = useState<string | null>(null)
+  const [selectedRelationshipType, setSelectedRelationshipType] = useState<RelationshipType>('bonded')
+  const [linkNotes, setLinkNotes] = useState('')
+  const [linkBusy, setLinkBusy] = useState(false)
+  const [availableAnimals, setAvailableAnimals] = useState<
+    {
+      id: string
+      name: string | null
+      shelter_code: string
+      species: string
+      life_stage: 'adult' | 'child'
+    }[]
+  >([])
+
   useEffect(() => {
     setSelectedTab(null)
   }, [id])
@@ -200,16 +249,115 @@ export function AnimalDetailScreen() {
     }
   }
 
+  async function reloadRelationships() {
+    if (!db || !id) return
+    try {
+      const nextRelationships = await getAnimalRelationships(db, id)
+      setRelationships(nextRelationships)
+    } catch (err) {
+      console.warn('Failed to reload relationships', err)
+    }
+  }
+
+  async function openLinkAnimalModal() {
+    setLinkSearchQuery('')
+    setSelectedRelatedAnimalId(null)
+    setSelectedRelationshipType('bonded')
+    setLinkNotes('')
+    setError(null)
+    setShowLinkModal(true)
+    if (db && member && id) {
+      try {
+        const rows = await db.getAll<{
+          id: string
+          name: string | null
+          shelter_code: string
+          species: string
+          life_stage: 'adult' | 'child'
+        }>(
+          `SELECT id, name, shelter_code, species, life_stage
+           FROM animals
+           WHERE org_id = ? AND id != ? AND archived = 0
+           ORDER BY shelter_code ASC`,
+          [member.orgId, id],
+        )
+        setAvailableAnimals(rows)
+      } catch (err) {
+        console.warn('Failed to load animals for linking', err)
+      }
+    }
+  }
+
+  function closeLinkAnimalModal() {
+    setShowLinkModal(false)
+    setError(null)
+  }
+
+  async function onSaveLinkAnimal(e: FormEvent) {
+    e.preventDefault()
+    if (!db || !member || !id) return
+    if (!selectedRelatedAnimalId) {
+      setError('Please select an animal to link.')
+      return
+    }
+    setLinkBusy(true)
+    setError(null)
+    try {
+      await linkAnimals(db, {
+        orgId: member.orgId,
+        animalId: id,
+        relatedAnimalId: selectedRelatedAnimalId,
+        relationshipType: selectedRelationshipType,
+        notes: linkNotes.trim() || null,
+      })
+      setToast('Animals linked')
+      setShowLinkModal(false)
+      await reloadRelationships()
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Could not link animals. Try again.',
+      )
+    } finally {
+      setLinkBusy(false)
+    }
+  }
+
+  async function onUnlink(rel: AnimalRelationship) {
+    if (!db || !id) return
+    const targetName = rel.relatedAnimalName || rel.relatedShelterCode
+    const ok = await confirm({
+      title: 'Unlink animal?',
+      body: `Remove the relationship between this animal and ${targetName}?`,
+      confirmLabel: 'Unlink',
+      tone: 'danger',
+    })
+    if (!ok) return
+    try {
+      await unlinkAnimals(db, {
+        animalId: id,
+        relatedAnimalId: rel.relatedAnimalId,
+      })
+      setToast('Animal unlinked')
+      await reloadRelationships()
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Could not unlink animal. Try again.',
+      )
+    }
+  }
+
   async function reload() {
     if (!db || !id) return
-    const [nextAnimal, nextTreatments, assignments] = await Promise.all([
+    const [nextAnimal, nextTreatments, assignments, nextRelationships] = await Promise.all([
       getAnimal(db, id),
       listTreatmentsForAnimal(db, id),
       listAssignmentsForAnimal(db, id),
+      getAnimalRelationships(db, id).catch(() => []),
     ])
     setAnimal(nextAnimal)
     setTreatments(nextTreatments)
     setStatusId(assignments[0]?.status_id ?? nextAnimal?.status_id ?? null)
+    setRelationships(nextRelationships)
     if (member) {
       setOnChecklist(await isAnimalOnChecklist(db, member.orgId, id))
     }
@@ -499,6 +647,20 @@ export function AnimalDetailScreen() {
   const detailMeta = [animal.species, animal.sex, animal.markings]
     .filter(Boolean)
     .join(' · ')
+
+  const filteredAnimals = availableAnimals.filter((a) => {
+    if (a.id === id) return false
+    const q = linkSearchQuery.trim().toLowerCase()
+    if (!q) return true
+    return (
+      a.shelter_code.toLowerCase().includes(q) ||
+      Boolean(a.name && a.name.toLowerCase().includes(q))
+    )
+  })
+
+  const selectedRelatedAnimal = availableAnimals.find(
+    (a) => a.id === selectedRelatedAnimalId,
+  )
 
   return (
     <section className="screen">
@@ -986,7 +1148,7 @@ export function AnimalDetailScreen() {
               </div>
               <div className="characteristic-item">
                 <span className="characteristic-label">Shelter Code</span>
-                <span className="characteristic-value">
+                <span className="characteristic-value shelter-code">
                   {animal.shelter_code}
                 </span>
               </div>
@@ -997,6 +1159,107 @@ export function AnimalDetailScreen() {
                 </span>
               </div>
             </div>
+          </div>
+
+          <div
+            className="row"
+            style={{
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: '1.5rem',
+              marginBottom: '1rem',
+            }}
+          >
+            <h2 style={{ margin: 0 }}>Relationships</h2>
+            {member ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={openLinkAnimalModal}
+              >
+                + Link animal
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="relationships-card panel">
+            {relationships.length === 0 ? (
+              <p className="muted" style={{ margin: 0 }}>
+                No linked animals yet. Record family members, bonded pairs, or incompatibility warnings.
+              </p>
+            ) : (
+              <div className="relationships-list">
+                {relationships.map((rel) => {
+                  const label = RELATIONSHIP_LABELS[rel.relationshipType] ?? rel.relationshipType
+                  const tone = RELATIONSHIP_TONES[rel.relationshipType] ?? 'default'
+                  return (
+                    <div className="list-item list-item--row relationship-item" key={rel.id}>
+                      <div className="relationship-item__body">
+                        <div className="relationship-item__avatar">
+                          {rel.relatedPhotoUrl ? (
+                            <img
+                              src={rel.relatedPhotoUrl}
+                              alt={rel.relatedAnimalName || rel.relatedShelterCode}
+                              className="relationship-item__photo"
+                            />
+                          ) : (
+                            <AnimalLineArt
+                              species={rel.relatedSpecies}
+                              lifeStage={rel.relatedLifeStage}
+                              aspectRatio="square"
+                              className="relationship-item__line-art"
+                            />
+                          )}
+                        </div>
+                        <div className="relationship-item__info">
+                          <div className="relationship-item__headline">
+                            <Link
+                              to={`/animals/${rel.relatedAnimalId}`}
+                              className="relationship-item__link"
+                            >
+                              {rel.relatedAnimalName ? (
+                                <>
+                                  <strong className="relationship-item__name">
+                                    {rel.relatedAnimalName}
+                                  </strong>{' '}
+                                  <span className="relationship-item__code shelter-code muted">
+                                    {rel.relatedShelterCode}
+                                  </span>
+                                </>
+                              ) : (
+                                <strong className="relationship-item__code shelter-code">
+                                  {rel.relatedShelterCode}
+                                </strong>
+                              )}
+                            </Link>
+                            <StatusBadge label={label} tone={tone} />
+                          </div>
+                          {rel.notes?.trim() ? (
+                            <div className="relationship-item__notes list-item__notes">
+                              {rel.notes}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                      {member ? (
+                        <div className="list-item__actions">
+                          <Button
+                            type="button"
+                            variant="danger-ghost"
+                            className="btn--icon"
+                            aria-label={`Unlink ${rel.relatedAnimalName || rel.relatedShelterCode}`}
+                            title="Unlink animal"
+                            onClick={() => void onUnlink(rel)}
+                          >
+                            <Trash size={18} weight="bold" aria-hidden />
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       ) : null}
@@ -1204,6 +1467,124 @@ export function AnimalDetailScreen() {
               variant="ghost"
               onClick={closeEditDetailsModal}
               disabled={editDetailsBusy}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </ResponsiveSheetModal>
+
+      <ResponsiveSheetModal
+        isOpen={showLinkModal}
+        onClose={closeLinkAnimalModal}
+        title="Link animal"
+      >
+        <form className="stack" onSubmit={onSaveLinkAnimal}>
+          {selectedRelatedAnimal ? (
+            <div className="field">
+              <span>Animal to link</span>
+              <div className="animal-pick animal-pick--selected">
+                <span>
+                  {selectedRelatedAnimal.name ? (
+                    <strong>{selectedRelatedAnimal.name} · </strong>
+                  ) : null}
+                  <span className="shelter-code">
+                    {selectedRelatedAnimal.shelter_code}
+                  </span>
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="btn--icon"
+                  aria-label="Change animal"
+                  onClick={() => setSelectedRelatedAnimalId(null)}
+                >
+                  <X size={16} weight="bold" aria-hidden />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <TextField
+                label="Animal to link"
+                placeholder="Search by ID or name"
+                value={linkSearchQuery}
+                onChange={(e) => setLinkSearchQuery(e.target.value)}
+                autoComplete="off"
+              />
+              {filteredAnimals.length > 0 ? (
+                <ul
+                  className="animal-suggest"
+                  role="listbox"
+                  aria-label="Matching animals"
+                >
+                  {filteredAnimals.slice(0, 10).map((a) => (
+                    <li key={a.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        className="animal-suggest__item"
+                        onClick={() => setSelectedRelatedAnimalId(a.id)}
+                      >
+                        {a.name ? `${a.name} · ` : ''}
+                        <span className="shelter-code">{a.shelter_code}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : linkSearchQuery.trim() ? (
+                <p className="muted" style={{ margin: '0.25rem 0 0 0' }}>
+                  No animals found matching "{linkSearchQuery}"
+                </p>
+              ) : null}
+            </div>
+          )}
+
+          <div className="field">
+            <span>Relationship type</span>
+            <div
+              className="filter-chips"
+              role="group"
+              aria-label="Relationship type"
+            >
+              {RELATIONSHIP_TYPES.map((type) => (
+                <button
+                  key={type.value}
+                  type="button"
+                  className="chip"
+                  aria-pressed={selectedRelationshipType === type.value}
+                  onClick={() => setSelectedRelationshipType(type.value)}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <TextareaField
+            label="Notes"
+            hint="optional"
+            rows={2}
+            value={linkNotes}
+            onChange={(e) => setLinkNotes(e.target.value)}
+            placeholder="Notes about this relationship…"
+          />
+
+          {error ? <p className="form-error">{error}</p> : null}
+
+          <div className="responsive-modal__actions">
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={linkBusy || !selectedRelatedAnimalId}
+            >
+              Save
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={closeLinkAnimalModal}
+              disabled={linkBusy}
             >
               Cancel
             </Button>

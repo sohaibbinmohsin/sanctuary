@@ -1,6 +1,6 @@
 type StatusBadgeProps = {
   label: string
-  tone?: 'default' | 'amber' | 'muted' | 'forest'
+  tone?: 'default' | 'amber' | 'muted' | 'forest' | 'danger'
 }
 
 function toneFromLabel(label: string): StatusBadgeProps['tone'] {
@@ -12,6 +12,9 @@ function toneFromLabel(label: string): StatusBadgeProps['tone'] {
     lower.includes('treatment')
   ) {
     return 'amber'
+  }
+  if (lower.includes('incompatible')) {
+    return 'danger'
   }
   if (
     lower.includes('passed') ||
@@ -33,6 +36,8 @@ export function StatusBadge({ label, tone }: StatusBadgeProps) {
         ? 'status-badge status-badge--muted'
         : resolved === 'forest'
           ? 'status-badge status-badge--forest'
-          : 'status-badge'
+          : resolved === 'danger'
+            ? 'status-badge status-badge--danger'
+            : 'status-badge'
   return <span className={className}>{label}</span>
 }
