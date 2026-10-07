@@ -247,7 +247,7 @@ export function AddToChecklistScreen() {
         Cancel
       </Button>
       <Button
-        variant="accent"
+        variant="primary"
         disabled={selectedIds.size === 0 || confirming}
         onClick={() => void confirmAddToChecklist()}
       >

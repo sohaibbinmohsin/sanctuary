@@ -498,7 +498,7 @@ export function AnimalLineArt({
   const defaultLabel = `${normSpecies} ${normStage} illustration`
 
   return (
-    <div className={containerClasses}>
+    <div className={containerClasses} data-species={normSpecies} data-stage={normStage}>
       <svg
         className="animal-line-art__svg"
         viewBox="0 0 100 100"

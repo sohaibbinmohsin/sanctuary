@@ -4,7 +4,6 @@ import { useQuery } from '@powersync/react'
 import {
   ArrowLeft,
   ArrowRight,
-  Camera,
   CheckCircle,
   PencilSimple,
   Trash,
@@ -29,6 +28,7 @@ import {
 } from '@/features/treatments/domain/treatments'
 import type { PhotoRecord, TreatmentRecord } from '@/features/sync/powersync/schema'
 import { PhotoCapture } from '@/features/animals/components/PhotoCapture'
+import { AnimalLineArt } from '@/features/animals/components/AnimalLineArt'
 import { VerifiedPhotoBadge } from '@/features/public/components/VerifiedPhotoBadge'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { MoraleToast } from '@/shared/ui/MoraleToast'
@@ -474,10 +474,12 @@ export function AnimalDetailScreen() {
                 </button>
               </>
             ) : (
-              <span className="detail-hero__photo-empty">
-                <Camera size={28} weight="duotone" aria-hidden />
-                No photo yet
-              </span>
+              <AnimalLineArt
+                species={animal.species}
+                lifeStage={animal.life_stage || (animal as any).lifeStage}
+                aspectRatio="cover"
+                className="detail-hero__line-art"
+              />
             )}
           </div>
 
