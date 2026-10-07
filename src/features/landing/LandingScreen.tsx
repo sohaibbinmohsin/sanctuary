@@ -199,7 +199,6 @@ export function LandingScreen() {
       <section className="partners" id="partners" aria-labelledby="partners-heading">
         <div className="wrap">
           <div className="partners__intro reveal">
-            <span className="section-eyebrow">Frontline Partners</span>
             <h2 id="partners-heading">Rescues and shelters we build for.</h2>
             <p>
               Sanctuary is designed directly alongside frontline rescue networks, shelter
@@ -212,7 +211,7 @@ export function LandingScreen() {
               <div className="dossier__header-left">
                 <h3>Operational Network</h3>
               </div>
-              <div className="dossier__count">04 Active Partners</div>
+              <div className="dossier__count">05 Active Partners</div>
             </div>
 
             <div className="dossier__list">
@@ -232,7 +231,7 @@ export function LandingScreen() {
                     <h4>Tales of Second Chances</h4>
                     <div className="dossier__org-meta">
                       <span className="scope-tag">Shelter</span>
-                      <span>Lahore · 11+ Yrs</span>
+                      <span>Karachi · 11+ Yrs</span>
                     </div>
                   </div>
                 </div>
@@ -268,7 +267,7 @@ export function LandingScreen() {
                   <div className="dossier__org-info">
                     <h4>Police Animal Rescue Center</h4>
                     <div className="dossier__org-meta">
-                      <span className="scope-tag">Emergency</span>
+                      <span className="scope-tag">Enforcement</span>
                       <span>Punjab Police</span>
                     </div>
                   </div>
@@ -355,6 +354,43 @@ export function LandingScreen() {
                   <a
                     className="dossier__btn"
                     href="https://www.instagram.com/aws_lums/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span>Follow work</span>
+                    <ArrowSquareOut size={14} weight="bold" aria-hidden />
+                  </a>
+                </div>
+              </article>
+
+              <article className="dossier__row">
+                <div className="dossier__index">05</div>
+                <div className="dossier__org">
+                  <div className="dossier__logo">
+                    <img
+                      src="/partners/partner-gaza-animal-rescues.png"
+                      alt="Gaza Animal Rescues logo"
+                      width={44}
+                      height={44}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="dossier__org-info">
+                    <h4>Gaza Animal Rescues</h4>
+                    <div className="dossier__org-meta">
+                      <span className="scope-tag">Shelter</span>
+                      <span>Gaza · Frontline</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="dossier__desc">
+                  Direct emergency relief, feeding, and medical treatment for abandoned pets and
+                  injured animals through severe crisis conditions across Gaza.
+                </div>
+                <div className="dossier__action">
+                  <a
+                    className="dossier__btn"
+                    href="https://www.instagram.com/gazaanimalrescues/"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
