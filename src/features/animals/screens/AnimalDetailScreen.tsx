@@ -845,15 +845,17 @@ export function AnimalDetailScreen() {
               className="stub-callout stub-callout--clickable"
               aria-label="Rescue details needed. This animal was saved during quick field intake. Tap to add details."
             >
-              <div className="stub-callout__header">
-                <strong className="stub-callout__title">Rescue details needed</strong>
+              <div className="stub-callout__content">
+                <div className="stub-callout__text-block">
+                  <strong className="stub-callout__title">Rescue details needed</strong>
+                  <p className="stub-callout__body">
+                    This animal was saved during quick field intake.
+                  </p>
+                </div>
                 <span className="stub-callout__btn">
                   Add <ArrowRight size={14} weight="bold" aria-hidden />
                 </span>
               </div>
-              <p className="stub-callout__body">
-                This animal was saved during quick field intake.
-              </p>
             </Link>
           ) : detailMeta ? (
             <p className="muted" style={{ margin: 0 }}>
@@ -1318,7 +1320,7 @@ export function AnimalDetailScreen() {
             <Button type="submit" variant="primary" disabled={!notes.trim()}>
               {editingTreatmentId ? 'Save changes' : 'Save care note'}
             </Button>
-            <Button type="button" variant="ghost" onClick={resetCareForm}>
+            <Button type="button" variant="secondary" onClick={resetCareForm}>
               Cancel
             </Button>
           </div>
@@ -1359,7 +1361,7 @@ export function AnimalDetailScreen() {
             <Button type="submit" variant="primary">
               Save status
             </Button>
-            <Button type="button" variant="ghost" onClick={closeStatusModal}>
+            <Button type="button" variant="secondary" onClick={closeStatusModal}>
               Cancel
             </Button>
           </div>
@@ -1464,7 +1466,7 @@ export function AnimalDetailScreen() {
             </Button>
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               onClick={closeEditDetailsModal}
               disabled={editDetailsBusy}
             >
@@ -1582,7 +1584,7 @@ export function AnimalDetailScreen() {
             </Button>
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               onClick={closeLinkAnimalModal}
               disabled={linkBusy}
             >
