@@ -4687,6 +4687,43 @@ a.primary {
   }
 }
 
+/* ——— Characteristics / Details Tab ——— */
+
+.characteristics-card {
+  margin-top: 0.5rem;
+}
+
+.characteristics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.characteristic-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.characteristic-item--full {
+  grid-column: 1 / -1;
+}
+
+.characteristic-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.characteristic-value {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-ink);
+  word-break: break-word;
+}
+
 /* ——— Desktop / web ——— */
 
 @media (min-width: 768px) {

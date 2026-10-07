@@ -11,8 +11,11 @@ import {
 import { useDb } from '@/shared/hooks/useDb'
 import {
   getAnimal,
+  updateAnimal,
   type AnimalWithStatus,
+  type AnimalLifeStage,
 } from '@/features/animals/domain/animals'
+import { splitSpecies } from '@/features/animals/screens/AnimalIntakeScreen'
 import { listStatuses, type AnimalStatus } from '@/features/statuses/domain/statuses'
 import {
   listAssignmentsForAnimal,
@@ -53,6 +56,8 @@ import {
   removeFromChecklist,
 } from '@/features/checklist/domain/checklist'
 import { formatCareTimestamp } from '@/shared/lib/dates'
+
+const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
 
 const TREATMENT_LABELS: Record<TreatmentType, string> = {
   meds: 'Medicine',
@@ -135,9 +140,65 @@ export function AnimalDetailScreen() {
   const [statusNotes, setStatusNotes] = useState('')
   const [selectedTab, setSelectedTab] = useState<AnimalDetailTab | null>(null)
 
+  const [showEditDetailsModal, setShowEditDetailsModal] = useState(false)
+  const [editSpeciesPreset, setEditSpeciesPreset] = useState('Dog')
+  const [editSpeciesOther, setEditSpeciesOther] = useState('')
+  const [editLifeStage, setEditLifeStage] = useState<AnimalLifeStage>('adult')
+  const [editSex, setEditSex] = useState('')
+  const [editMarkings, setEditMarkings] = useState('')
+  const [editDetailsBusy, setEditDetailsBusy] = useState(false)
+
   useEffect(() => {
     setSelectedTab(null)
   }, [id])
+
+  function openEditDetailsModal() {
+    if (!animal) return
+    const { preset, other } = splitSpecies(animal.species)
+    setEditSpeciesPreset(preset)
+    setEditSpeciesOther(other)
+    setEditLifeStage(animal.life_stage ?? 'adult')
+    setEditSex(animal.sex ?? '')
+    setEditMarkings(animal.markings ?? '')
+    setError(null)
+    setShowEditDetailsModal(true)
+  }
+
+  function closeEditDetailsModal() {
+    setShowEditDetailsModal(false)
+    setError(null)
+  }
+
+  async function onSaveDetails(e: FormEvent) {
+    e.preventDefault()
+    if (!db || !id) return
+    const finalSpecies =
+      editSpeciesPreset === 'Other' ? editSpeciesOther.trim() : editSpeciesPreset
+    if (!finalSpecies) {
+      setError('Please choose or enter an animal species.')
+      return
+    }
+
+    setEditDetailsBusy(true)
+    setError(null)
+    try {
+      await updateAnimal(db, id, {
+        species: finalSpecies,
+        life_stage: editLifeStage,
+        sex: editSex.trim() || undefined,
+        markings: editMarkings.trim() || undefined,
+      })
+      setToast('Animal details updated.')
+      setShowEditDetailsModal(false)
+      await reload()
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Could not update animal details.',
+      )
+    } finally {
+      setEditDetailsBusy(false)
+    }
+  }
 
   async function reload() {
     if (!db || !id) return
@@ -893,9 +954,49 @@ export function AnimalDetailScreen() {
             }}
           >
             <h2 style={{ margin: 0 }}>Animal Details</h2>
+            {member ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={openEditDetailsModal}
+              >
+                Edit details
+              </Button>
+            ) : null}
           </div>
-          <div className="tab-panel__content" style={{ marginTop: '0.5rem' }}>
-            <p className="muted">Detailed characteristics and relationships will appear here.</p>
+          <div className="tab-panel__content characteristics-card panel">
+            <div className="characteristics-grid">
+              <div className="characteristic-item">
+                <span className="characteristic-label">Species & Life Stage</span>
+                <span className="characteristic-value">
+                  {animal.species} · {animal.life_stage === 'child' ? 'Child' : 'Adult'}
+                </span>
+              </div>
+              <div className="characteristic-item">
+                <span className="characteristic-label">Sex</span>
+                <span className="characteristic-value">
+                  {animal.sex?.trim() || 'Unknown'}
+                </span>
+              </div>
+              <div className="characteristic-item characteristic-item--full">
+                <span className="characteristic-label">Markings / Description</span>
+                <span className="characteristic-value">
+                  {animal.markings?.trim() || 'None recorded'}
+                </span>
+              </div>
+              <div className="characteristic-item">
+                <span className="characteristic-label">Shelter Code</span>
+                <span className="characteristic-value">
+                  {animal.shelter_code}
+                </span>
+              </div>
+              <div className="characteristic-item">
+                <span className="characteristic-label">Intake Date</span>
+                <span className="characteristic-value">
+                  {animal.intake_date || 'Unknown'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}
@@ -996,6 +1097,114 @@ export function AnimalDetailScreen() {
               Save status
             </Button>
             <Button type="button" variant="ghost" onClick={closeStatusModal}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </ResponsiveSheetModal>
+
+      <ResponsiveSheetModal
+        isOpen={showEditDetailsModal}
+        onClose={closeEditDetailsModal}
+        title="Edit details"
+      >
+        <form className="stack" onSubmit={onSaveDetails}>
+          <div className="field">
+            <span>Animal species</span>
+            <div className="filter-chips" role="group" aria-label="Animal species">
+              {SPECIES_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className="chip"
+                  aria-pressed={editSpeciesPreset === preset}
+                  onClick={() => setEditSpeciesPreset(preset)}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {editSpeciesPreset === 'Other' ? (
+            <TextField
+              label="Specify species"
+              value={editSpeciesOther}
+              onChange={(e) => setEditSpeciesOther(e.target.value)}
+              required
+              placeholder="e.g. Alpaca, Goat, Rabbit…"
+            />
+          ) : null}
+
+          <div className="field">
+            <span>Life stage</span>
+            <div className="segmented" role="group" aria-label="Life stage">
+              {(
+                [
+                  { value: 'adult', label: 'Adult' },
+                  { value: 'child', label: 'Child' },
+                ] as const
+              ).map((stage) => (
+                <button
+                  key={stage.value}
+                  type="button"
+                  className="segmented__btn"
+                  aria-pressed={editLifeStage === stage.value}
+                  onClick={() => setEditLifeStage(stage.value)}
+                >
+                  {stage.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <span>Sex</span>
+            <div className="segmented" role="group" aria-label="Sex">
+              {(['Female', 'Male', 'Unknown'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className="segmented__btn"
+                  aria-pressed={
+                    editSex === option ||
+                    (option === 'Unknown' && (!editSex || editSex === 'Unknown'))
+                  }
+                  onClick={() =>
+                    setEditSex(option === 'Unknown' ? '' : option)
+                  }
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <TextareaField
+            label="Markings"
+            hint="optional"
+            rows={3}
+            value={editMarkings}
+            onChange={(e) => setEditMarkings(e.target.value)}
+            placeholder="Colors, scars, collar tags, distinctive markings…"
+          />
+
+          {error ? <p className="form-error">{error}</p> : null}
+
+          <div className="responsive-modal__actions">
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={editDetailsBusy}
+            >
+              Save
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={closeEditDetailsModal}
+              disabled={editDetailsBusy}
+            >
               Cancel
             </Button>
           </div>
