@@ -34,7 +34,7 @@ export type PlaygroundAnimalFixture = {
 
 export type PlaygroundTreatmentFixture = {
   animalId: string
-  treatmentType: 'meds' | 'vet' | 'procedure' | 'other' | 'intake'
+  treatmentType: 'meds' | 'vet' | 'procedure' | 'other' | 'intake' | 'status'
   notes: string
   treatedAt: string
 }

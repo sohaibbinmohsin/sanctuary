@@ -73,9 +73,6 @@ export function AddToChecklistScreen() {
   const [animals, setAnimals] = useState<AnimalWithStatus[]>([])
   const deferredQuery = useDeferredValue(filters.query)
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
-  const [verifiedAnimalIds, setVerifiedAnimalIds] = useState<
-    Record<string, boolean>
-  >({})
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<AnimalsView>(() => readStoredView())
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
@@ -106,10 +103,8 @@ export function AddToChecklistScreen() {
         setAnimals(rows)
 
         const urls: Record<string, string> = {}
-        const verified: Record<string, boolean> = {}
         for (const animal of rows.slice(0, 60)) {
           const photos = await listPhotosForAnimal(db, animal.id)
-          verified[animal.id] = photos.some((p) => Boolean(p.verified))
           const first = photos[0]
           if (!first) continue
           const remote = publicPhotoUrl(first.r2_key)
@@ -126,7 +121,6 @@ export function AddToChecklistScreen() {
         }
         if (!cancelled) {
           setPhotoUrls(urls)
-          setVerifiedAnimalIds(verified)
         }
       } catch (err) {
         console.warn('Animal search failed', err)
@@ -395,7 +389,7 @@ export function AddToChecklistScreen() {
                 <AnimalCard
                   animal={animal}
                   photoUrl={photoUrls[animal.id]}
-                  hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
+                  hasVerifiedPhoto={false}
                   variant={view}
                 />
                 <span className="animal-card-selectable__indicator" aria-hidden>

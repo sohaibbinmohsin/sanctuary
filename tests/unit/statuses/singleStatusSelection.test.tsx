@@ -5,10 +5,10 @@ import { setSingleStatusAssignment } from '@/features/statuses/domain/assignment
 import type { AnimalStatus } from '@/features/statuses/domain/statuses'
 
 const mockStatuses: AnimalStatus[] = [
-  { id: 'st-intake', org_id: 'org-1', label: 'Intake', sort_order: 1, counts_as_in_care: 1, archived: 0, is_default_arrival: 1, created_at: '', updated_at: '' },
-  { id: 'st-foster', org_id: 'org-1', label: 'Foster', sort_order: 2, counts_as_in_care: 1, archived: 0, is_default_arrival: 0, created_at: '', updated_at: '' },
-  { id: 'st-adopted', org_id: 'org-1', label: 'Adopted', sort_order: 3, counts_as_in_care: 0, archived: 0, is_default_arrival: 0, created_at: '', updated_at: '' },
-  { id: 'st-archived', org_id: 'org-1', label: 'Old Status', sort_order: 4, counts_as_in_care: 0, archived: 1, is_default_arrival: 0, created_at: '', updated_at: '' },
+  { id: 'st-intake', org_id: 'org-1', label: 'Intake', sort_order: 1, counts_as_in_care: 1, archived: 0, created_at: '' },
+  { id: 'st-foster', org_id: 'org-1', label: 'Foster', sort_order: 2, counts_as_in_care: 1, archived: 0, created_at: '' },
+  { id: 'st-adopted', org_id: 'org-1', label: 'Adopted', sort_order: 3, counts_as_in_care: 0, archived: 0, created_at: '' },
+  { id: 'st-archived', org_id: 'org-1', label: 'Old Status', sort_order: 4, counts_as_in_care: 0, archived: 1, created_at: '' },
 ]
 
 describe('StatusSingleSelect', () => {

@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 import { useQuery } from '@powersync/react'
 import {
   ArrowLeft,
+  ArrowRight,
   Camera,
   CheckCircle,
   PencilSimple,
@@ -592,17 +593,21 @@ export function AnimalDetailScreen() {
           </div>
 
           {animal.species === 'Unknown' ? (
-            <div className="stub-callout">
+            <Link
+              to={`/animals/${animal.id}/edit`}
+              className="stub-callout stub-callout--clickable"
+              aria-label="Rescue details needed. This animal was saved during quick field intake. Tap to add details."
+            >
               <div className="stub-callout__header">
                 <strong className="stub-callout__title">Rescue details needed</strong>
-                <Link to={`/animals/${animal.id}/edit`} className="stub-callout__btn">
-                  Add
-                </Link>
+                <span className="stub-callout__btn">
+                  Add <ArrowRight size={14} weight="bold" aria-hidden />
+                </span>
               </div>
               <p className="stub-callout__body">
                 This animal was saved during quick field intake.
               </p>
-            </div>
+            </Link>
           ) : detailMeta ? (
             <p className="muted" style={{ margin: 0 }}>
               {detailMeta}
@@ -624,7 +629,7 @@ export function AnimalDetailScreen() {
           className={`tab-btn${activeTab === 'care' ? ' is-active' : ''}`}
           onClick={() => setActiveTab('care')}
         >
-          Care History
+          Care
         </button>
         <button
           type="button"
@@ -669,14 +674,35 @@ export function AnimalDetailScreen() {
                       alignItems: 'flex-start',
                     }}
                   >
-                    <span className="timeline-dot" aria-hidden />
-                    <div>
-                      <strong>{title}</strong>{' '}
-                      <span className="muted">
-                        {t.treated_at
-                          ? formatCareTimestamp(t.treated_at)
-                          : 'Unknown date'}
-                      </span>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '0.75rem',
+                        height: '1.5rem',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <span className="timeline-dot" aria-hidden />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          minHeight: '1.5rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '0.35rem',
+                        }}
+                      >
+                        <strong>{title}</strong>{' '}
+                        <span className="muted">
+                          {t.treated_at
+                            ? formatCareTimestamp(t.treated_at)
+                            : 'Unknown date'}
+                        </span>
+                      </div>
                       {t.notes?.trim() ? (
                         <div className="list-item__notes">{t.notes}</div>
                       ) : null}
