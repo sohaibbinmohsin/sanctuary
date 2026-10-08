@@ -87,7 +87,8 @@ describe('Care and Timeline tabs on AnimalDetailScreen', () => {
     expect(careTab).toHaveAttribute('aria-selected', 'false')
 
     expect(screen.getByText('Moved to foster')).toBeInTheDocument()
-    expect(screen.getByText('Arrived')).toBeInTheDocument()
+    expect(screen.getAllByText('Intake')[0]).toBeInTheDocument()
+    expect(screen.queryByText('Arrived')).not.toBeInTheDocument()
     expect(screen.queryByText('Given antibiotic')).toBeNull()
   })
 

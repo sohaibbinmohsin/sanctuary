@@ -11,6 +11,7 @@ import {
   CircleNotch,
   ImageSquare,
   Plus,
+  SealCheck,
   WarningCircle,
 } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
@@ -23,12 +24,13 @@ import {
 } from '@/features/photos/domain/photos'
 import { requestCaptureSession } from '@/shared/lib/r2/captureSession'
 import { isPlaygroundMode } from '@/features/playground/mode'
-import { InAppCamera } from '@/features/animals/components/InAppCamera'
 import { Button } from '@/shared/ui/Button'
 
 type PhotoCaptureProps = {
   orgId: string
   animalId: string
+  shelterCode?: string | null
+  animalName?: string | null
   onQueued?: () => void
   onError?: (message: string) => void
 }
@@ -36,21 +38,27 @@ type PhotoCaptureProps = {
 type MenuPos = { top: number; left: number }
 
 /**
- * Verified-camera flow state. `captureToken` is only ever set on the
- * `active` stage after a successful online session mint — offline and
- * gallery captures always go through with no token (never verified, and
- * never upgraded later).
+ * Verified-camera flow state. `pendingSessionToken` is set after a successful
+ * online session mint — offline and gallery captures always go through with no
+ * token (never verified, and never upgraded later).
  */
 type CameraStage =
   | { kind: 'idle' }
   | { kind: 'minting' }
   | { kind: 'offline-warn' }
   | { kind: 'retry-warn' }
-  | { kind: 'active'; captureToken: string | null }
+
+type ReviewPhoto = {
+  blob: Blob
+  previewUrl: string
+  captureToken: string | null
+}
 
 export function PhotoCapture({
   orgId,
   animalId,
+  shelterCode,
+  animalName,
   onQueued,
   onError,
 }: PhotoCaptureProps) {
@@ -59,11 +67,17 @@ export function PhotoCapture({
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null)
   const [cameraStage, setCameraStage] = useState<CameraStage>({ kind: 'idle' })
-  const cameraFlowActive = cameraStage.kind !== 'idle'
+  const [pendingSessionToken, setPendingSessionToken] = useState<string | null>(null)
+  const [reviewPhoto, setReviewPhoto] = useState<ReviewPhoto | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const cameraFlowActive =
+    cameraStage.kind !== 'idle' || Boolean(reviewPhoto) || isSaving
 
   async function refreshPending() {
     if (!db) return
@@ -121,6 +135,30 @@ export function PhotoCapture({
       window.removeEventListener('scroll', onScroll, true)
     }
   }, [menuOpen])
+
+  useEffect(() => {
+    return () => {
+      if (reviewPhoto?.previewUrl) {
+        URL.revokeObjectURL(reviewPhoto.previewUrl)
+      }
+    }
+  }, [reviewPhoto?.previewUrl])
+
+  useEffect(() => {
+    if (!reviewPhoto) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !isSaving) {
+        onCancelReview()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = prev
+    }
+  }, [reviewPhoto, isSaving])
 
   async function saveCameraPhoto(blob: Blob, captureToken?: string) {
     if (!db) return
@@ -180,11 +218,13 @@ export function PhotoCapture({
     }
   }
 
-  async function mintSessionAndOpenCamera() {
+  async function mintSessionAndTriggerCamera() {
     setCameraStage({ kind: 'minting' })
     try {
       const session = await requestCaptureSession({ animalId })
-      setCameraStage({ kind: 'active', captureToken: session.token })
+      setPendingSessionToken(session.token)
+      setCameraStage({ kind: 'idle' })
+      cameraInputRef.current?.click()
     } catch {
       setCameraStage({ kind: 'retry-warn' })
     }
@@ -193,39 +233,86 @@ export function PhotoCapture({
   function onTakePhotoClick() {
     if (cameraFlowActive) return
     setMenuOpen(false)
-    // Playground has no auth to mint a session with — open the camera straight
-    // away instead of failing into the "not verified" warning.
+    // Playground has no auth to mint a session with — open native camera directly
     if (isPlaygroundMode()) {
-      setCameraStage({ kind: 'active', captureToken: null })
+      setPendingSessionToken(null)
+      setCameraStage({ kind: 'idle' })
+      cameraInputRef.current?.click()
       return
     }
     if (!navigator.onLine) {
       setCameraStage({ kind: 'offline-warn' })
       return
     }
-    void mintSessionAndOpenCamera()
+    void mintSessionAndTriggerCamera()
   }
 
   function onPlusClick() {
     if (cameraFlowActive) return
-    if (canTakePhoto) {
+    if (canTakePhoto || isPlaygroundMode()) {
       setMenuOpen((open) => !open)
       return
     }
     galleryRef.current?.click()
   }
 
-  function onCameraCapture(blob: Blob) {
-    const stage = cameraStage
-    setCameraStage({ kind: 'idle' })
-    void saveCameraPhoto(
-      blob,
-      stage.kind === 'active' ? (stage.captureToken ?? undefined) : undefined,
-    )
+  function onCameraCaptureSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const previewUrl = URL.createObjectURL(file)
+    setReviewPhoto({
+      blob: file,
+      previewUrl,
+      captureToken: pendingSessionToken,
+    })
+    e.target.value = ''
   }
 
-  function onCameraCancel() {
+  async function onConfirmSavePhoto() {
+    if (!reviewPhoto || isSaving) return
+    setIsSaving(true)
+    try {
+      await saveCameraPhoto(
+        reviewPhoto.blob,
+        reviewPhoto.captureToken ?? undefined,
+      )
+      URL.revokeObjectURL(reviewPhoto.previewUrl)
+      setReviewPhoto(null)
+      setPendingSessionToken(null)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  function onRetakePhoto() {
+    if (isSaving) return
+    if (reviewPhoto) {
+      URL.revokeObjectURL(reviewPhoto.previewUrl)
+      setReviewPhoto(null)
+    }
+    // Re-trigger native camera while retaining pendingSessionToken
+    cameraInputRef.current?.click()
+  }
+
+  function onCancelReview() {
+    if (isSaving) return
+    if (reviewPhoto) {
+      URL.revokeObjectURL(reviewPhoto.previewUrl)
+      setReviewPhoto(null)
+    }
+    setPendingSessionToken(null)
+  }
+
+  function onOfflineProceed() {
     setCameraStage({ kind: 'idle' })
+    setPendingSessionToken(null)
+    cameraInputRef.current?.click()
+  }
+
+  function onRetryWarnProceed() {
+    setCameraStage({ kind: 'idle' })
+    setPendingSessionToken(null)
+    cameraInputRef.current?.click()
   }
 
   return (
@@ -239,6 +326,14 @@ export function PhotoCapture({
           hidden
           onChange={(e) => void onFiles(e.target.files, galleryRef.current)}
         />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={onCameraCaptureSelected}
+        />
         <button
           ref={buttonRef}
           type="button"
@@ -251,8 +346,8 @@ export function PhotoCapture({
                 ? `Add photo, ${pending} waiting to upload`
                 : 'Add photo'
           }
-          aria-expanded={canTakePhoto ? menuOpen : undefined}
-          aria-haspopup={canTakePhoto ? 'menu' : undefined}
+          aria-expanded={(canTakePhoto || isPlaygroundMode()) ? menuOpen : undefined}
+          aria-haspopup={(canTakePhoto || isPlaygroundMode()) ? 'menu' : undefined}
           title={
             pending > 0
               ? `${pending} waiting to upload`
@@ -268,6 +363,7 @@ export function PhotoCapture({
           ) : null}
         </button>
       </div>
+
       {cameraStage.kind === 'minting'
         ? createPortal(
             <div className="confirm-root" role="presentation">
@@ -296,6 +392,7 @@ export function PhotoCapture({
             document.body,
           )
         : null}
+
       {menuOpen && menuPos
         ? createPortal(
             <div
@@ -327,9 +424,70 @@ export function PhotoCapture({
             document.body,
           )
         : null}
-      {cameraStage.kind === 'active' ? (
-        <InAppCamera onCapture={onCameraCapture} onCancel={onCameraCancel} />
-      ) : null}
+
+      {reviewPhoto
+        ? createPortal(
+            <div className="camera-confirm-dialog" role="dialog" aria-modal="true">
+              <div className="camera-confirm-backdrop" onClick={onCancelReview} />
+              <div className="camera-confirm-card camera-confirm-sheet">
+                <h2 className="confirm-card__title">Photo captured</h2>
+
+                {/* Image Card with Tag and ID on it */}
+                <div className="confirm-image-card">
+                  <div
+                    className="confirm-image-card__img"
+                    style={{ backgroundImage: `url(${reviewPhoto.previewUrl})` }}
+                  />
+                  <div className="confirm-image-card__overlay">
+                    <span className="shelter-code">
+                      {shelterCode || animalName || 'Animal photo'}
+                    </span>
+                    {reviewPhoto.captureToken ? (
+                      <span className="confirm-image-card__badge verified-badge">
+                        <SealCheck size={14} weight="fill" />
+                        Verified photo
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="confirm-card__actions camera-confirm-actions">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    block
+                    onClick={() => void onConfirmSavePhoto()}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Saving photo…' : 'Save photo'}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    block
+                    onClick={onRetakePhoto}
+                    disabled={isSaving}
+                  >
+                    Retake photo
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    block
+                    onClick={onCancelReview}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
       {cameraStage.kind === 'offline-warn'
         ? createPortal(
             <CameraWarningDialog
@@ -347,7 +505,7 @@ export function PhotoCapture({
               <Button
                 type="button"
                 variant="primary"
-                onClick={() => setCameraStage({ kind: 'active', captureToken: null })}
+                onClick={onOfflineProceed}
               >
                 Proceed
               </Button>
@@ -355,6 +513,7 @@ export function PhotoCapture({
             document.body,
           )
         : null}
+
       {cameraStage.kind === 'retry-warn'
         ? createPortal(
             <CameraWarningDialog
@@ -367,7 +526,7 @@ export function PhotoCapture({
                 type="button"
                 variant="primary"
                 block
-                onClick={() => void mintSessionAndOpenCamera()}
+                onClick={() => void mintSessionAndTriggerCamera()}
               >
                 Retry
               </Button>
@@ -375,7 +534,7 @@ export function PhotoCapture({
                 type="button"
                 variant="secondary"
                 block
-                onClick={() => setCameraStage({ kind: 'active', captureToken: null })}
+                onClick={onRetryWarnProceed}
               >
                 Proceed unverified
               </Button>

@@ -17,7 +17,6 @@ import { Button } from '@/shared/ui/Button'
 import { TextareaField, TextField } from '@/shared/ui/Field'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
-import { StatusSingleSelect } from '@/features/animals/components/StatusSingleSelect'
 import {
   deletePhotosForAnimal,
   processPhotoQueue,
@@ -28,7 +27,6 @@ import {
   type StagedPhoto,
 } from '@/features/animals/components/IntakePhotoPicker'
 import { isPlaygroundMode } from '@/features/playground/mode'
-import { CreateStatusModal } from '@/features/statuses/components/CreateStatusModal'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
 
@@ -62,6 +60,10 @@ export function AnimalIntakeScreen() {
   const [intakeDate, setIntakeDate] = useState(
     () => new Date().toISOString().slice(0, 10),
   )
+  const [intakeTime, setIntakeTime] = useState(() => {
+    const d = new Date()
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  })
   const [shelterCode, setShelterCode] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -80,7 +82,6 @@ export function AnimalIntakeScreen() {
       }
     }
   }, [])
-  const [showAddStatusModal, setShowAddStatusModal] = useState(false)
 
   useEffect(() => {
     if (!db || !member || isEdit) return
@@ -175,19 +176,34 @@ export function AnimalIntakeScreen() {
         navigate(`/animals/${animalId}`, { replace: true })
         return
       }
-      if (!statusId) {
-        throw new Error('Please choose an animal type and status.')
+      let effectiveStatusId = statusId
+      if (!effectiveStatusId) {
+        const firstInCare = statuses.find(
+          (row) => row.counts_as_in_care === 1 || row.label.toLowerCase() === 'intake',
+        ) ?? statuses[0]
+        effectiveStatusId = firstInCare?.id ?? null
+      }
+      if (!effectiveStatusId) {
+        const rows = await listStatuses(db, member.orgId)
+        const firstInCare = rows.find(
+          (row) => row.counts_as_in_care === 1 || row.label.toLowerCase() === 'intake',
+        ) ?? rows[0]
+        effectiveStatusId = firstInCare?.id ?? null
+      }
+      if (!effectiveStatusId) {
+        throw new Error('Could not find intake status.')
       }
       const animal = await createAnimal(db, {
         orgId: member.orgId,
         prefix: member.orgInitials,
         species,
-        statusIds: [statusId],
+        statusIds: [effectiveStatusId],
         name,
         sex,
         markings,
         notes,
         intakeDate,
+        intakeTime,
       })
 
       for (const photo of stagedPhotos) {
@@ -342,18 +358,27 @@ export function AnimalIntakeScreen() {
         {isEdit ? null : (
           <div className="panel stack">
             <p className="section-label">Arrival</p>
-            <StatusSingleSelect
-              statuses={statuses}
-              value={statusId}
-              onChange={setStatusId}
-              onAddStatus={() => setShowAddStatusModal(true)}
-            />
-            <TextField
-              label="Date arrived"
-              type="date"
-              value={intakeDate}
-              onChange={(e) => setIntakeDate(e.target.value)}
-            />
+            <div
+              className="arrival-datetime-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 'var(--space-3)',
+              }}
+            >
+              <TextField
+                label="Date arrived"
+                type="date"
+                value={intakeDate}
+                onChange={(e) => setIntakeDate(e.target.value)}
+              />
+              <TextField
+                label="Time arrived"
+                type="time"
+                value={intakeTime}
+                onChange={(e) => setIntakeTime(e.target.value)}
+              />
+            </div>
             <TextareaField
               label="Notes"
               hint="optional — saved to the care log"
@@ -390,16 +415,7 @@ export function AnimalIntakeScreen() {
         </div>
       </form>
       <MoraleToast message={toast} onDone={() => setToast(null)} />
-      {showAddStatusModal && member ? (
-        <CreateStatusModal
-          orgId={member.orgId}
-          onClose={() => setShowAddStatusModal(false)}
-          onCreated={(newStatus) => {
-            setStatuses((prev) => [...prev, newStatus])
-            setStatusId(newStatus.id)
-          }}
-        />
-      ) : null}
+
     </section>
   )
 }

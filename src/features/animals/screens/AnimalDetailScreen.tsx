@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@powersync/react'
 import {
   ArrowLeft,
@@ -11,6 +11,7 @@ import {
 } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
+  archiveAnimal,
   getAnimal,
   updateAnimal,
   type AnimalWithStatus,
@@ -49,6 +50,7 @@ import { SelectField, TextareaField, TextField } from '@/shared/ui/Field'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import {
   deletePhoto,
+  deletePhotosForAnimal,
   getLocalPhoto,
 } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
@@ -96,8 +98,8 @@ const TREATMENT_LABELS: Record<TreatmentType, string> = {
   vet: 'Vet visit',
   procedure: 'Procedure',
   other: 'Other care',
-  intake: 'Arrived',
-  arrived: 'Arrived',
+  intake: 'Intake',
+  arrived: 'Intake',
   status: 'Status',
 }
 
@@ -130,6 +132,7 @@ async function resolvePhotoUrl(photo: PhotoRecord): Promise<string | null> {
 
 export function AnimalDetailScreen() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const location = useLocation()
   const backState = location.state as
     | { backTo?: string; backLabel?: string }
@@ -176,6 +179,7 @@ export function AnimalDetailScreen() {
   const [editSpeciesPreset, setEditSpeciesPreset] = useState('Dog')
   const [editSpeciesOther, setEditSpeciesOther] = useState('')
   const [editLifeStage, setEditLifeStage] = useState<AnimalLifeStage>('adult')
+  const [editName, setEditName] = useState('')
   const [editSex, setEditSex] = useState('')
   const [editMarkings, setEditMarkings] = useState('')
   const [editDetailsBusy, setEditDetailsBusy] = useState(false)
@@ -207,6 +211,7 @@ export function AnimalDetailScreen() {
     setEditSpeciesPreset(preset)
     setEditSpeciesOther(other)
     setEditLifeStage(animal.life_stage ?? 'adult')
+    setEditName(animal.name ?? '')
     setEditSex(animal.sex ?? '')
     setEditMarkings(animal.markings ?? '')
     setError(null)
@@ -234,6 +239,7 @@ export function AnimalDetailScreen() {
       await updateAnimal(db, id, {
         species: finalSpecies,
         life_stage: editLifeStage,
+        name: editName.trim() || undefined,
         sex: editSex.trim() || undefined,
         markings: editMarkings.trim() || undefined,
       })
@@ -242,9 +248,37 @@ export function AnimalDetailScreen() {
       await reload()
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Could not update animal details.',
+        err instanceof Error
+          ? err.message
+          : 'Could not update details. Try again.',
       )
     } finally {
+      setEditDetailsBusy(false)
+    }
+  }
+
+  async function onRemoveAnimalFromModal() {
+    if (!db || !animal || editDetailsBusy) return
+    const label = animal.shelter_code || animal.name?.trim() || 'this animal'
+    const ok = await confirm({
+      title: `Remove ${label}?`,
+      body: 'They will leave your Animals list. Use this if the record was added by mistake.',
+      confirmLabel: 'Remove animal',
+      tone: 'danger',
+    })
+    if (!ok) return
+    setEditDetailsBusy(true)
+    try {
+      await deletePhotosForAnimal(db, animal.id)
+      await archiveAnimal(db, animal.id)
+      closeEditDetailsModal()
+      navigate('/animals', { replace: true })
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not remove animal. Try again.',
+      )
       setEditDetailsBusy(false)
     }
   }
@@ -734,6 +768,8 @@ export function AnimalDetailScreen() {
                 <PhotoCapture
                   orgId={member.orgId}
                   animalId={animal.id}
+                  shelterCode={animal.shelter_code}
+                  animalName={animal.name}
                   onQueued={() => void reload()}
                   onError={setError}
                 />
@@ -802,11 +838,12 @@ export function AnimalDetailScreen() {
                   {animal.name?.trim() || animal.shelter_code}
                 </h1>
                 <Button
-                  to={`/animals/${animal.id}/edit`}
+                  type="button"
                   variant="ghost"
                   className="btn--icon btn--inline-edit"
                   aria-label="Edit animal"
                   title="Edit"
+                  onClick={() => openEditDetailsModal()}
                 >
                   <PencilSimple size={18} weight="bold" aria-hidden />
                 </Button>
@@ -833,17 +870,25 @@ export function AnimalDetailScreen() {
               ) : null}
             </div>
             {animal.name?.trim() ? (
-              <p className="detail-hero__title shelter-code">
+              <p className="detail-hero__sub-id shelter-code">
                 {animal.shelter_code}
               </p>
             ) : null}
           </div>
 
           {animal.species === 'Unknown' ? (
-            <Link
-              to={`/animals/${animal.id}/edit`}
+            <div
+              role="button"
+              tabIndex={0}
               className="stub-callout stub-callout--clickable"
               aria-label="Rescue details needed. This animal was saved during quick field intake. Tap to add details."
+              onClick={() => openEditDetailsModal()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  openEditDetailsModal()
+                }
+              }}
             >
               <div className="stub-callout__content">
                 <div className="stub-callout__text-block">
@@ -852,11 +897,18 @@ export function AnimalDetailScreen() {
                     This animal was saved during quick field intake.
                   </p>
                 </div>
-                <span className="stub-callout__btn">
+                <button
+                  type="button"
+                  className="stub-callout__btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openEditDetailsModal()
+                  }}
+                >
                   Add <ArrowRight size={14} weight="bold" aria-hidden />
-                </span>
+                </button>
               </div>
-            </Link>
+            </div>
           ) : detailMeta ? (
             <p className="muted" style={{ margin: 0 }}>
               {detailMeta}
@@ -1056,7 +1108,7 @@ export function AnimalDetailScreen() {
             })}
             {arrivalTreatments.map((t) => {
               const type = t.treatment_type as TreatmentType
-              const label = TREATMENT_LABELS[type] ?? 'Arrived'
+              const label = TREATMENT_LABELS[type] ?? (animal.status_label || 'Intake')
               return (
                 <div className="timeline-entry" key={t.id}>
                   <div className="timeline-track">
@@ -1085,12 +1137,12 @@ export function AnimalDetailScreen() {
                 </div>
                 <div className="timeline-item">
                   <div className="timeline-item__primary">
-                    <StatusBadge label="Arrived" tone="forest" />
+                    <StatusBadge label={animal.status_label || 'Intake'} tone="forest" />
                   </div>
                   <div className="timeline-item__timestamp muted">
                     {animal.intake_date
                       ? formatCareTimestamp(`${animal.intake_date}T12:00:00`)
-                      : 'Arrival'}
+                      : 'Intake'}
                   </div>
                   {animal.notes?.trim() ? (
                     <div className="timeline-item__notes">{animal.notes}</div>
@@ -1423,6 +1475,14 @@ export function AnimalDetailScreen() {
             </div>
           </div>
 
+          <TextField
+            label="Name"
+            hint="optional"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="If they have one"
+          />
+
           <div className="field">
             <span>Sex</span>
             <div className="segmented" role="group" aria-label="Sex">
@@ -1471,6 +1531,25 @@ export function AnimalDetailScreen() {
               disabled={editDetailsBusy}
             >
               Cancel
+            </Button>
+          </div>
+
+          <div
+            className="edit-modal-danger-zone"
+            style={{
+              marginTop: 'var(--space-3)',
+              paddingTop: 'var(--space-3)',
+              borderTop: '1px solid var(--color-border)',
+            }}
+          >
+            <Button
+              type="button"
+              variant="danger"
+              block
+              disabled={editDetailsBusy}
+              onClick={() => void onRemoveAnimalFromModal()}
+            >
+              <Trash size={16} weight="bold" /> Remove animal
             </Button>
           </div>
         </form>

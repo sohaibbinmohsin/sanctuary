@@ -59,7 +59,7 @@ describe('Inline edit and word-based Daily Care button', () => {
       </MemoryRouter>
     )
 
-    const editBtn = await screen.findByRole('link', { name: /Edit animal/i })
+    const editBtn = await screen.findByRole('button', { name: /Edit animal/i })
     expect(editBtn).toBeInTheDocument()
 
     const careBtn = await screen.findByRole('button', { name: /Add to Daily Care/i })

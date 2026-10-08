@@ -27,6 +27,8 @@ export type CreateAnimalInput = {
   markings?: string
   notes?: string
   intakeDate?: string
+  intakeTime?: string
+  arrivalTimestamp?: string
 }
 
 export type AnimalSearchFilters = {
@@ -96,12 +98,18 @@ export async function createAnimal(
     statusIds: input.statusIds,
   })
 
+  const treatedAt =
+    input.arrivalTimestamp ??
+    (input.intakeTime && intake_date
+      ? `${intake_date}T${input.intakeTime}:00`
+      : arrivalTimestampFromIntakeDate(intake_date, nowDate))
+
   await addTreatment(db, {
     orgId: input.orgId,
     animalId: id,
     treatmentType: 'arrived',
     notes: notes ?? undefined,
-    treatedAt: arrivalTimestampFromIntakeDate(intake_date, nowDate),
+    treatedAt,
   })
 
   const created = await getAnimal(db, id)

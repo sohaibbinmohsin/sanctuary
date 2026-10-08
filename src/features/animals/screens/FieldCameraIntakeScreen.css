@@ -217,8 +217,7 @@
 }
 
 /* Review Dialog / Confirm Sheet Modal */
-.camera-confirm-dialog,
-.confirm-root {
+.camera-confirm-dialog {
   position: fixed;
   inset: 0;
   z-index: 10000;
@@ -243,8 +242,7 @@
   }
 }
 
-.camera-confirm-backdrop,
-.confirm-backdrop {
+.camera-confirm-backdrop {
   position: absolute;
   inset: 0;
   border: none;
@@ -253,8 +251,7 @@
 }
 
 .camera-confirm-card,
-.camera-confirm-sheet,
-.confirm-card {
+.camera-confirm-sheet {
   position: relative;
   z-index: 2;
   width: 100% !important;

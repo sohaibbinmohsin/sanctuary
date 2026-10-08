@@ -50,5 +50,11 @@ describe('AnimalDetailScreen header alignment', () => {
     expect(parentRow).toBeInTheDocument()
     expect(parentRow?.querySelector('.btn--inline-edit')).toBeInTheDocument()
     expect(parentRow?.querySelector('.animal-daily-care-btn')).toBeInTheDocument()
+
+    // Named animal should render smaller subtitle ID
+    const subId = document.querySelector('.detail-hero__sub-id')
+    expect(subId).toBeInTheDocument()
+    expect(subId).toHaveTextContent('MS-0001')
+    expect(subId?.classList.contains('shelter-code')).toBe(true)
   })
 })
