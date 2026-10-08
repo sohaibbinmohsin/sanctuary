@@ -5,24 +5,32 @@ type StatusBadgeProps = {
 
 function toneFromLabel(label: string): StatusBadgeProps['tone'] {
   const lower = label.toLowerCase()
+  if (lower.includes('critical') || lower.includes('incompatible')) {
+    return 'danger'
+  }
   if (
     lower.includes('quarantine') ||
     lower.includes('urgent') ||
-    lower.includes('critical') ||
     lower.includes('treatment')
   ) {
     return 'amber'
   }
-  if (lower.includes('incompatible')) {
-    return 'danger'
-  }
   if (
     lower.includes('passed') ||
+    lower.includes('deceased') ||
     lower.includes('archived') ||
     lower.includes('adopted') ||
+    lower.includes('transferred') ||
     lower.includes('released')
   ) {
     return 'muted'
+  }
+  if (
+    lower.includes('intake') ||
+    lower.includes('in sanctuary') ||
+    lower.includes('healthy')
+  ) {
+    return 'forest'
   }
   return 'default'
 }

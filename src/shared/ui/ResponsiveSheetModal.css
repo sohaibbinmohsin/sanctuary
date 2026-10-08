@@ -12,6 +12,14 @@
   animation: responsive-modal-fade-in 200ms ease-out forwards;
 }
 
+.responsive-modal-root:nth-of-type(n+2) {
+  z-index: 10100;
+}
+
+.responsive-modal-root:nth-of-type(n+3) {
+  z-index: 10200;
+}
+
 @keyframes responsive-modal-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }

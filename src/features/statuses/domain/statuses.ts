@@ -16,12 +16,25 @@ export type CreateStatusInput = {
   countsAsInCare?: boolean
 }
 
-export const REQUIRED_STATUS_LABELS = ['intake', 'transferred'] as const
+export const DEFAULT_STATUS_DEFS = [
+  { label: 'Intake', countsAsInCare: 1 },
+  { label: 'Quarantine', countsAsInCare: 1 },
+  { label: 'Treatment', countsAsInCare: 1 },
+  { label: 'Critical', countsAsInCare: 1 },
+  { label: 'In sanctuary', countsAsInCare: 1 },
+  { label: 'Adopted', countsAsInCare: 0 },
+  { label: 'Transferred', countsAsInCare: 0 },
+  { label: 'Deceased', countsAsInCare: 0 },
+] as const
+
+export const REQUIRED_STATUS_LABELS = DEFAULT_STATUS_DEFS.map((s) =>
+  s.label.toLowerCase(),
+)
 
 export function isRequiredStatus(label: string): boolean {
-  return REQUIRED_STATUS_LABELS.includes(
-    label.trim().toLowerCase() as (typeof REQUIRED_STATUS_LABELS)[number],
-  )
+  if (!label) return false
+  const lower = label.trim().toLowerCase()
+  return REQUIRED_STATUS_LABELS.includes(lower)
 }
 
 export async function ensureRequiredStatuses(
@@ -33,36 +46,24 @@ export async function ensureRequiredStatuses(
     [orgId],
   )
   const now = new Date().toISOString()
+  let maxOrder = existing.reduce((m, s) => Math.max(m, s.sort_order || 0), 0)
 
-  const hasIntake = existing.find(
-    (s) => s.label.trim().toLowerCase() === 'intake',
-  )
-  if (!hasIntake) {
-    await db.execute(
-      `INSERT INTO animal_statuses (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
-       VALUES (?, ?, 'Intake', 1, 1, 0, ?)`,
-      [crypto.randomUUID(), orgId, now],
+  for (const def of DEFAULT_STATUS_DEFS) {
+    const match = existing.find(
+      (s) => s.label && s.label.trim().toLowerCase() === def.label.toLowerCase(),
     )
-  } else if (hasIntake.archived) {
-    await db.execute(`UPDATE animal_statuses SET archived = 0 WHERE id = ?`, [
-      hasIntake.id,
-    ])
-  }
-
-  const hasTransferred = existing.find(
-    (s) => s.label.trim().toLowerCase() === 'transferred',
-  )
-  if (!hasTransferred) {
-    const maxOrder = existing.reduce((m, s) => Math.max(m, s.sort_order), 1)
-    await db.execute(
-      `INSERT INTO animal_statuses (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
-       VALUES (?, ?, 'Transferred', ?, 0, 0, ?)`,
-      [crypto.randomUUID(), orgId, maxOrder + 1, now],
-    )
-  } else if (hasTransferred.archived) {
-    await db.execute(`UPDATE animal_statuses SET archived = 0 WHERE id = ?`, [
-      hasTransferred.id,
-    ])
+    if (!match) {
+      maxOrder += 1
+      await db.execute(
+        `INSERT INTO animal_statuses (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
+         VALUES (?, ?, ?, ?, ?, 0, ?)`,
+        [crypto.randomUUID(), orgId, def.label, maxOrder, def.countsAsInCare, now],
+      )
+    } else if (match.archived) {
+      await db.execute(`UPDATE animal_statuses SET archived = 0 WHERE id = ?`, [
+        match.id,
+      ])
+    }
   }
 }
 
@@ -169,7 +170,7 @@ export async function archiveStatus(
     [id],
   )
   if (existing && isRequiredStatus(existing.label)) {
-    throw new Error('The "Intake" and "Transferred" statuses are required and cannot be removed.')
+    throw new Error(`The status "${existing.label}" is a default status and cannot be removed.`)
   }
   await db.execute(`UPDATE animal_statuses SET archived = 1 WHERE id = ?`, [id])
 }

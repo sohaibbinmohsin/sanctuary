@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { ResponsiveSheetModal } from '@/shared/ui/ResponsiveSheetModal'
 
 describe('ResponsiveSheetModal', () => {
-  it('renders modal when open with title, children, backdrop, and calls onClose on backdrop click or close button', () => {
+  it('renders modal when open with title, children, backdrop, without header cross, and calls onClose on backdrop click', () => {
     const onClose = vi.fn()
     const { rerender } = render(
       <ResponsiveSheetModal isOpen={false} onClose={onClose} title="Update Status">
@@ -23,14 +23,13 @@ describe('ResponsiveSheetModal', () => {
     expect(screen.getByText('Update Status')).toBeInTheDocument()
     expect(screen.getByText('Form Content')).toBeInTheDocument()
 
-    const closeBtn = screen.getByLabelText(/Close modal/i)
-    fireEvent.click(closeBtn)
-    expect(onClose).toHaveBeenCalledTimes(1)
+    // Header close cross should NOT be rendered
+    expect(screen.queryByLabelText(/Close modal/i)).toBeNull()
 
     const backdrop = document.querySelector('.responsive-modal__backdrop')
     expect(backdrop).toBeInTheDocument()
     fireEvent.click(backdrop!)
-    expect(onClose).toHaveBeenCalledTimes(2)
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('closes on Escape key press when open and cleans up listeners', () => {

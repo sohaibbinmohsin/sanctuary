@@ -261,9 +261,9 @@ export function AnimalDetailScreen() {
     if (!db || !animal || editDetailsBusy) return
     const label = animal.shelter_code || animal.name?.trim() || 'this animal'
     const ok = await confirm({
-      title: `Remove ${label}?`,
+      title: `Delete ${label}?`,
       body: 'They will leave your Animals list. Use this if the record was added by mistake.',
-      confirmLabel: 'Remove animal',
+      confirmLabel: 'Delete animal',
       tone: 'danger',
     })
     if (!ok) return
@@ -1340,30 +1340,34 @@ export function AnimalDetailScreen() {
           </div>
 
           {member ? (
-            <div className="danger-zone" style={{ marginTop: '2rem' }}>
-              <div className="danger-zone__row">
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: 'var(--text-base)',
-                    fontWeight: 600,
-                    color: 'var(--color-danger, #b42318)',
-                  }}
-                >
-                  Remove animal
-                </h3>
-                <Button
-                  type="button"
-                  variant="danger"
-                  disabled={editDetailsBusy}
-                  onClick={() => void onRemoveAnimal()}
-                >
-                  <Trash size={16} weight="bold" /> Remove animal
-                </Button>
-              </div>
-              <p className="muted danger-zone__copy" style={{ fontSize: 'var(--text-sm)' }}>
+            <div className="danger-zone">
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 'var(--text-base)',
+                  fontWeight: 600,
+                  color: 'var(--color-danger, #b42318)',
+                }}
+              >
+                Delete animal
+              </h3>
+              <p
+                className="muted danger-zone__copy"
+                style={{
+                  fontSize: 'var(--text-sm)',
+                  margin: 'var(--space-1) 0 var(--space-3)',
+                }}
+              >
                 Permanently remove this animal record and all associated photos from active care.
               </p>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={editDetailsBusy}
+                onClick={() => void onRemoveAnimal()}
+              >
+                <Trash size={16} weight="bold" /> Delete animal
+              </Button>
             </div>
           ) : null}
         </div>
@@ -1598,7 +1602,12 @@ export function AnimalDetailScreen() {
       <ResponsiveSheetModal
         isOpen={showLinkModal}
         onClose={closeLinkAnimalModal}
-        title="Link animal"
+        title={
+          selectedRelatedAnimalId &&
+          relationships.some((r) => r.relatedAnimalId === selectedRelatedAnimalId)
+            ? 'Update relationship'
+            : 'Link animal'
+        }
       >
         <form className="stack" onSubmit={onSaveLinkAnimal}>
           {selectedRelatedAnimal ? (
@@ -1645,7 +1654,16 @@ export function AnimalDetailScreen() {
                         type="button"
                         role="option"
                         className="animal-suggest__item"
-                        onClick={() => setSelectedRelatedAnimalId(a.id)}
+                        onClick={() => {
+                          setSelectedRelatedAnimalId(a.id)
+                          const existing = relationships.find(
+                            (r) => r.relatedAnimalId === a.id,
+                          )
+                          if (existing) {
+                            setSelectedRelationshipType(existing.relationshipType)
+                            setLinkNotes(existing.notes || '')
+                          }
+                        }}
                       >
                         {a.name ? `${a.name} · ` : ''}
                         <span className="shelter-code">{a.shelter_code}</span>
@@ -1699,7 +1717,10 @@ export function AnimalDetailScreen() {
               variant="primary"
               disabled={linkBusy || !selectedRelatedAnimalId}
             >
-              Save
+              {selectedRelatedAnimalId &&
+              relationships.some((r) => r.relatedAnimalId === selectedRelatedAnimalId)
+                ? 'Update'
+                : 'Save'}
             </Button>
             <Button
               type="button"

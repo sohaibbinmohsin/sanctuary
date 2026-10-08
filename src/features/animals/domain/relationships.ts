@@ -125,6 +125,15 @@ export async function linkAnimals(
 
   await db.writeTransaction(async (tx) => {
     await tx.execute(
+      `DELETE FROM animal_relationships WHERE animal_id = ? AND related_animal_id = ?`,
+      [input.animalId, input.relatedAnimalId],
+    )
+    await tx.execute(
+      `DELETE FROM animal_relationships WHERE animal_id = ? AND related_animal_id = ?`,
+      [input.relatedAnimalId, input.animalId],
+    )
+
+    await tx.execute(
       `INSERT INTO animal_relationships (
         id, org_id, animal_id, related_animal_id, relationship_type, notes, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,

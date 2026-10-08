@@ -4788,6 +4788,7 @@ a.primary {
   max-width: min(90vw, 24rem);
   z-index: var(--z-toast);
   font-size: var(--text-sm);
+  text-align: center;
   box-shadow: var(--shadow-lg);
   animation: toast-in var(--duration) var(--ease-out);
 }

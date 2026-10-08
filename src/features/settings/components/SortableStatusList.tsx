@@ -97,19 +97,15 @@ function SortableStatusRow({
           onChange={(value) => onInCareChange(status.id, value === '1')}
         />
       </div>
-      <Button
-        type="button"
-        variant="danger-ghost"
-        disabled={isRequiredStatus(status.label)}
-        title={
-          isRequiredStatus(status.label)
-            ? 'Intake and Transferred statuses are required and cannot be hidden'
-            : undefined
-        }
-        onClick={() => onHide(status)}
-      >
-        Hide
-      </Button>
+      {!isRequiredStatus(status.label) ? (
+        <Button
+          type="button"
+          variant="danger-ghost"
+          onClick={() => onHide(status)}
+        >
+          Hide
+        </Button>
+      ) : null}
     </div>
   )
 }

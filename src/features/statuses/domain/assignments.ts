@@ -1,5 +1,6 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
 import { addTreatment } from '@/features/treatments/domain/treatments'
+import { addAnimalsToChecklist } from '@/features/checklist/domain/checklist'
 
 export type AssignedStatus = {
   status_id: string
@@ -159,6 +160,21 @@ export async function replaceAnimalStatuses(
       treatedAt: now,
     })
   }
+
+  const isTreatmentOrCritical = selectedStatuses.some((s) => {
+    const lbl = s.label.trim().toLowerCase()
+    return lbl === 'treatment' || lbl === 'critical'
+  })
+  if (isTreatmentOrCritical) {
+    try {
+      await addAnimalsToChecklist(db, {
+        orgId: input.orgId,
+        animalIds: [input.animalId],
+      })
+    } catch (err) {
+      console.warn('Failed to auto-add animal to checklist on status change:', err)
+    }
+  }
 }
 
 export async function setSingleStatusAssignment(
@@ -188,5 +204,28 @@ export async function setSingleStatusAssignment(
       [input.statusId, now, input.animalId],
     )
   })
+
+  try {
+    const statusRow = typeof db.getOptional === 'function'
+      ? await db.getOptional<{ label: string }>(
+          'SELECT label FROM animal_statuses WHERE id = ?',
+          [input.statusId],
+        )
+      : typeof db.getAll === 'function'
+        ? (await db.getAll<{ label: string }>(
+            'SELECT label FROM animal_statuses WHERE id = ?',
+            [input.statusId],
+          ))[0]
+        : null
+    const lbl = statusRow?.label?.trim().toLowerCase()
+    if (lbl === 'treatment' || lbl === 'critical') {
+      await addAnimalsToChecklist(db, {
+        orgId: input.orgId,
+        animalIds: [input.animalId],
+      })
+    }
+  } catch (err) {
+    console.warn('Failed to auto-add animal to checklist on status change:', err)
+  }
 }
 
