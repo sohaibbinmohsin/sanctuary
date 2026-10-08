@@ -1340,18 +1340,11 @@ export function AnimalDetailScreen() {
           </div>
 
           {member ? (
-            <div
-              className="animal-detail-danger-card panel"
-              style={{
-                marginTop: '1.5rem',
-                border: '1px solid var(--color-danger-soft, #fdecec)',
-                background: 'var(--color-surface)',
-              }}
-            >
-              <div style={{ marginBottom: '0.75rem' }}>
+            <div className="danger-zone" style={{ marginTop: '2rem' }}>
+              <div className="danger-zone__row">
                 <h3
                   style={{
-                    margin: '0 0 0.25rem 0',
+                    margin: 0,
                     fontSize: 'var(--text-base)',
                     fontWeight: 600,
                     color: 'var(--color-danger, #b42318)',
@@ -1359,18 +1352,18 @@ export function AnimalDetailScreen() {
                 >
                   Remove animal
                 </h3>
-                <p className="muted" style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
-                  Permanently remove this animal record and all associated photos from active care.
-                </p>
+                <Button
+                  type="button"
+                  variant="danger"
+                  disabled={editDetailsBusy}
+                  onClick={() => void onRemoveAnimal()}
+                >
+                  <Trash size={16} weight="bold" /> Remove animal
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="danger"
-                disabled={editDetailsBusy}
-                onClick={() => void onRemoveAnimal()}
-              >
-                <Trash size={16} weight="bold" /> Remove animal
-              </Button>
+              <p className="muted danger-zone__copy" style={{ fontSize: 'var(--text-sm)' }}>
+                Permanently remove this animal record and all associated photos from active care.
+              </p>
             </div>
           ) : null}
         </div>

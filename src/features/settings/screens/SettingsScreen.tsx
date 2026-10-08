@@ -499,7 +499,7 @@ export function SettingsScreen() {
   ).slice(0, 3)
 
   return (
-    <section className="screen">
+    <section className="screen settings-screen">
       <PageHeader
         title="Settings"
         subtitle={

@@ -12,6 +12,7 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
@@ -1314,6 +1315,47 @@ a.primary {
     background: transparent;
     padding: var(--space-2) 0;
   }
+}
+
+.settings-screen .panel,
+.settings-grid .panel,
+.settings-screen .panel--soft {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 640px) {
+  .settings-screen .panel,
+  .settings-grid .panel,
+  .settings-screen .panel--soft {
+    background: var(--color-white) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: var(--space-4) !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+}
+
+/* Custom tap cards according to shapes and brand tap color */
+.animal-card:active,
+.animal-card--full-bleed:active,
+.animal-card--list:active,
+.checklist-card:active,
+.checklist-row:active,
+.panel--clickable:active,
+.stub-callout:active {
+  transform: scale(0.985);
+  transition: transform 0.08s ease;
+}
+
+.animal-card:active,
+.animal-card--full-bleed:active,
+.animal-card--list:active {
+  border-color: var(--color-forest);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-forest) 25%, transparent);
 }
 
 .section-label {

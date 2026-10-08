@@ -10,8 +10,8 @@ import {
 import { useQuery } from '@powersync/react'
 import { useSearchParams } from 'react-router-dom'
 import { useDb } from '@/shared/hooks/useDb'
-import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
 import { useSyncStatus } from '@/shared/hooks/useSyncStatus'
+import { AddAnimalSplitButton } from '@/features/animals/components/AddAnimalSplitButton'
 import { emptyAnimalListState } from '@/shared/lib/animals/emptyAnimalListState'
 import { AnimalCard } from '@/features/animals/components/AnimalCard'
 import {
@@ -47,8 +47,6 @@ function readStoredView(): AnimalsView {
 }
 
 export function AnimalsListScreen() {
-  const canTakePhoto = useCanTakePhoto()
-  const addAnimalTarget = canTakePhoto ? '/animals/camera' : '/animals/new'
   const db = useDb()
   const { member, loading: memberLoading } = useCurrentMember()
   const sync = useSyncStatus()
@@ -202,9 +200,7 @@ export function AnimalsListScreen() {
         subtitle={subtitle}
         actions={
           animals.length > 0 || hasFilters ? (
-            <Button to={addAnimalTarget} variant="accent">
-              Add animal
-            </Button>
+            <AddAnimalSplitButton />
           ) : undefined
         }
       />
@@ -292,7 +288,7 @@ export function AnimalsListScreen() {
               : 'Start by adding the first animal in your care.'
           }
           actionLabel={hasFilters ? undefined : 'Add animal'}
-          actionTo={hasFilters ? undefined : addAnimalTarget}
+          actionTo={hasFilters ? undefined : '/animals/new'}
         />
       ) : (
         <div className={listClassName}>

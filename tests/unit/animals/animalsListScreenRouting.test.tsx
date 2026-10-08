@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { AnimalsListScreen } from '@/features/animals/screens/AnimalsListScreen'
-import * as canTakeModule from '@/shared/hooks/useCanTakePhoto'
+import * as animalsDomain from '@/features/animals/domain/animals'
 
 vi.mock('@/shared/hooks/useDb', () => ({
   useDb: () => ({
@@ -34,9 +34,27 @@ vi.mock('@powersync/react', () => ({
   useQuery: () => ({ data: [{ n: 1 }] }),
 }))
 
-describe('AnimalsListScreen "Add animal" button target', () => {
-  it('links to /animals/camera on mobile devices with camera support', async () => {
-    vi.spyOn(canTakeModule, 'useCanTakePhoto').mockReturnValue(true)
+describe('AnimalsListScreen Add Animal button integration', () => {
+  it('renders AddAnimalSplitButton in page header actions when animals exist', async () => {
+    vi.spyOn(animalsDomain, 'searchAnimals').mockResolvedValue([
+      {
+        id: 'anim-1',
+        org_id: 'org-1',
+        shelter_code: 'TS-0001',
+        name: 'Barnaby',
+        species: 'Dog',
+        intake_date: '2026-10-01',
+        status_id: 'st-1',
+        status_label: 'Intake',
+        sex: 'Male',
+        markings: null,
+        notes: null,
+        life_stage: 'adult',
+        archived: 0,
+        created_at: '2026-10-01T00:00:00Z',
+        updated_at: '2026-10-01T00:00:00Z',
+      } as animalsDomain.AnimalWithStatus,
+    ])
 
     render(
       <MemoryRouter>
@@ -44,12 +62,15 @@ describe('AnimalsListScreen "Add animal" button target', () => {
       </MemoryRouter>,
     )
 
-    const addButtons = await screen.findAllByRole('link', { name: /add animal/i })
-    expect(addButtons[0]).toHaveAttribute('href', '/animals/camera')
+    const addBtn = await screen.findByRole('button', { name: /^Add animal$/i })
+    expect(addBtn).toBeInTheDocument()
+
+    const toggleBtn = screen.getByRole('button', { name: /Add animal options/i })
+    expect(toggleBtn).toBeInTheDocument()
   })
 
-  it('links to /animals/new on desktop browsers without camera support', async () => {
-    vi.spyOn(canTakeModule, 'useCanTakePhoto').mockReturnValue(false)
+  it('renders EmptyState linking to /animals/new when no animals exist', async () => {
+    vi.spyOn(animalsDomain, 'searchAnimals').mockResolvedValue([])
 
     render(
       <MemoryRouter>
@@ -57,7 +78,7 @@ describe('AnimalsListScreen "Add animal" button target', () => {
       </MemoryRouter>,
     )
 
-    const addButtons = await screen.findAllByRole('link', { name: /add animal/i })
-    expect(addButtons[0]).toHaveAttribute('href', '/animals/new')
+    const addLink = await screen.findByRole('link', { name: /^Add animal$/i })
+    expect(addLink).toHaveAttribute('href', '/animals/new')
   })
 })

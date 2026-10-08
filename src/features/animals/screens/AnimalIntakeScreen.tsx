@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Trash } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
@@ -47,6 +47,8 @@ export function AnimalIntakeScreen() {
   const isEdit = Boolean(animalId)
   const db = useDb()
   const navigate = useNavigate()
+  const location = useLocation()
+  const locationState = location.state as { initialPhoto?: File | Blob } | null
   const { member } = useCurrentMember()
   const confirm = useConfirm()
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
@@ -82,6 +84,22 @@ export function AnimalIntakeScreen() {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (locationState?.initialPhoto && stagedPhotos.length === 0) {
+      const file = locationState.initialPhoto
+      const photo: StagedPhoto = {
+        id: crypto.randomUUID(),
+        blob: file,
+        previewUrl: URL.createObjectURL(file),
+        captureSource: 'camera',
+      }
+      setStagedPhotos([photo])
+      if (typeof window !== 'undefined' && window.history?.replaceState) {
+        window.history.replaceState({}, document.title)
+      }
+    }
+  }, [locationState, stagedPhotos.length])
 
   useEffect(() => {
     if (!db || !member || isEdit) return
