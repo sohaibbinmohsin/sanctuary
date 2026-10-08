@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Trash } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
@@ -26,6 +26,7 @@ import {
   IntakePhotoPicker,
   type StagedPhoto,
 } from '@/features/animals/components/IntakePhotoPicker'
+import { consumePendingIntakePhotos } from '@/features/animals/domain/intakePhotoStore'
 import { isPlaygroundMode } from '@/features/playground/mode'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
@@ -48,12 +49,16 @@ export function AnimalIntakeScreen() {
   const db = useDb()
   const navigate = useNavigate()
   const location = useLocation()
-  const locationState = location.state as { initialPhoto?: File | Blob } | null
+  const locationState = location.state as {
+    initialPhoto?: File | Blob
+    initialPhotos?: (File | Blob)[]
+  } | null
   const { member } = useCurrentMember()
   const confirm = useConfirm()
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
   const [speciesPreset, setSpeciesPreset] = useState('Dog')
   const [speciesOther, setSpeciesOther] = useState('')
+  const [lifeStage, setLifeStage] = useState<'adult' | 'child'>('adult')
   const [statusId, setStatusId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [sex, setSex] = useState('')
@@ -73,31 +78,47 @@ export function AnimalIntakeScreen() {
   const [removing, setRemoving] = useState(false)
   const [loading, setLoading] = useState(isEdit)
   const [notFound, setNotFound] = useState(false)
-  const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>([])
-  const stagedPhotosRef = useRef<StagedPhoto[]>([])
-  stagedPhotosRef.current = stagedPhotos
-
-  useEffect(() => {
-    return () => {
-      for (const photo of stagedPhotosRef.current) {
-        URL.revokeObjectURL(photo.previewUrl)
-      }
+  const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>(() => {
+    const fromStore = consumePendingIntakePhotos()
+    if (fromStore.length > 0) return fromStore
+    const locPhotos: (File | Blob)[] = []
+    if (locationState?.initialPhotos && locationState.initialPhotos.length > 0) {
+      locPhotos.push(...locationState.initialPhotos)
+    } else if (locationState?.initialPhoto) {
+      locPhotos.push(locationState.initialPhoto)
     }
-  }, [])
-
-  useEffect(() => {
-    if (locationState?.initialPhoto && stagedPhotos.length === 0) {
-      const file = locationState.initialPhoto
-      const photo: StagedPhoto = {
+    if (locPhotos.length > 0) {
+      return locPhotos.map((file) => ({
         id: crypto.randomUUID(),
         blob: file,
         previewUrl: URL.createObjectURL(file),
         captureSource: 'camera',
-      }
-      setStagedPhotos([photo])
-      if (typeof window !== 'undefined' && window.history?.replaceState) {
-        window.history.replaceState({}, document.title)
-      }
+      }))
+    }
+    return []
+  })
+
+  useEffect(() => {
+    const fromStore = consumePendingIntakePhotos()
+    if (fromStore.length > 0) {
+      setStagedPhotos((current) => [...current, ...fromStore])
+      return
+    }
+    const locPhotos: (File | Blob)[] = []
+    if (locationState?.initialPhotos && locationState.initialPhotos.length > 0) {
+      locPhotos.push(...locationState.initialPhotos)
+    } else if (locationState?.initialPhoto) {
+      locPhotos.push(locationState.initialPhoto)
+    }
+    if (locPhotos.length > 0 && stagedPhotos.length === 0) {
+      setStagedPhotos(
+        locPhotos.map((file) => ({
+          id: crypto.randomUUID(),
+          blob: file,
+          previewUrl: URL.createObjectURL(file),
+          captureSource: 'camera',
+        })),
+      )
     }
   }, [locationState, stagedPhotos.length])
 
@@ -130,6 +151,7 @@ export function AnimalIntakeScreen() {
         const { preset, other } = splitSpecies(animal.species)
         setSpeciesPreset(preset)
         setSpeciesOther(other)
+        setLifeStage((animal.life_stage as 'adult' | 'child') || 'adult')
         setName(animal.name ?? '')
         setSex(animal.sex ?? '')
         setMarkings(animal.markings ?? '')
@@ -187,6 +209,7 @@ export function AnimalIntakeScreen() {
       if (isEdit && animalId) {
         await updateAnimal(db, animalId, {
           species,
+          life_stage: lifeStage,
           name,
           sex,
           markings,
@@ -215,6 +238,7 @@ export function AnimalIntakeScreen() {
         orgId: member.orgId,
         prefix: member.orgInitials,
         species,
+        life_stage: lifeStage,
         statusIds: [effectiveStatusId],
         name,
         sex,
@@ -316,6 +340,27 @@ export function AnimalIntakeScreen() {
               placeholder="e.g. Goat"
             />
           ) : null}
+          <div className="field">
+            <span>Life stage</span>
+            <div className="segmented" role="group" aria-label="Life stage">
+              {(
+                [
+                  { value: 'adult', label: 'Adult' },
+                  { value: 'child', label: 'Child' },
+                ] as const
+              ).map((stage) => (
+                <button
+                  key={stage.value}
+                  type="button"
+                  className="segmented__btn"
+                  aria-pressed={lifeStage === stage.value}
+                  onClick={() => setLifeStage(stage.value)}
+                >
+                  {stage.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <TextField
             label="Name"
             hint="optional"
@@ -331,7 +376,10 @@ export function AnimalIntakeScreen() {
                   key={option}
                   type="button"
                   className="segmented__btn"
-                  aria-pressed={sex === option || (option === 'Unknown' && sex === '')}
+                  aria-pressed={
+                    sex === option ||
+                    (option === 'Unknown' && (!sex || sex === 'Unknown'))
+                  }
                   onClick={() =>
                     setSex(option === 'Unknown' ? '' : option)
                   }

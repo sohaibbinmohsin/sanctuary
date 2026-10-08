@@ -209,12 +209,19 @@ export function IntakePhotoPicker({
         ref={cameraInputRef}
         type="file"
         accept="image/*"
+        multiple
         capture="environment"
         hidden
         onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) {
-            onCameraCapture(file)
+          const files = Array.from(e.target.files || [])
+          if (files.length > 0) {
+            const newPhotos: StagedPhoto[] = files.map((file) => ({
+              id: crypto.randomUUID(),
+              blob: file,
+              previewUrl: URL.createObjectURL(file),
+              captureSource: 'camera',
+            }))
+            onAddPhotos(newPhotos)
           }
           e.target.value = ''
         }}

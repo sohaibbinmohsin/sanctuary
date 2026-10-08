@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Camera, CaretDown, FileText } from '@phosphor-icons/react'
 import { useIsMobile } from '@/shared/hooks/useIsMobile'
+import { stageIntakePhotos } from '@/features/animals/domain/intakePhotoStore'
 import { ResponsiveSheetModal } from '@/shared/ui/ResponsiveSheetModal'
 import './AddAnimalSplitButton.css'
 
@@ -59,9 +60,12 @@ export function AddAnimalSplitButton() {
   }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) {
-      navigate('/animals/new', { state: { initialPhoto: file } })
+    const files = Array.from(e.target.files || [])
+    if (files.length > 0) {
+      stageIntakePhotos(files, 'camera')
+      navigate('/animals/new', {
+        state: { initialPhoto: files[0] },
+      })
     }
     e.target.value = ''
   }
@@ -91,6 +95,7 @@ export function AddAnimalSplitButton() {
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        multiple
         capture="environment"
         style={{ display: 'none' }}
         aria-label="Take animal photo"
