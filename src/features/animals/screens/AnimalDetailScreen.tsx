@@ -257,7 +257,7 @@ export function AnimalDetailScreen() {
     }
   }
 
-  async function onRemoveAnimalFromModal() {
+  async function onRemoveAnimal() {
     if (!db || !animal || editDetailsBusy) return
     const label = animal.shelter_code || animal.name?.trim() || 'this animal'
     const ok = await confirm({
@@ -271,7 +271,6 @@ export function AnimalDetailScreen() {
     try {
       await deletePhotosForAnimal(db, animal.id)
       await archiveAnimal(db, animal.id)
-      closeEditDetailsModal()
       navigate('/animals', { replace: true })
     } catch (err) {
       setError(
@@ -471,18 +470,25 @@ export function AnimalDetailScreen() {
   function openStatusModal() {
     setStatusEffectiveAt(toDatetimeLocalValue(new Date().toISOString()))
     setStatusNotes('')
+    setStatusId(null)
+    setError(null)
     setShowStatusModal(true)
   }
 
   function closeStatusModal() {
     setShowStatusModal(false)
     setStatusNotes('')
-    setStatusId(animal?.status_id ?? null)
+    setStatusId(null)
+    setError(null)
   }
 
   async function onSaveStatusForm(e: FormEvent) {
     e.preventDefault()
-    if (!db || !id || !member || !statusId) return
+    if (!statusId) {
+      setError('Please select a new status.')
+      return
+    }
+    if (!db || !id || !member) return
     setError(null)
     try {
       const effectiveIso = new Date(statusEffectiveAt).toISOString()
@@ -651,12 +657,29 @@ export function AnimalDetailScreen() {
   const careTreatments = treatments.filter(
     (t) => t.treatment_type !== 'status' && !isArrivalTreatmentType(t.treatment_type),
   )
-  const timelineTreatments = treatments.filter(
-    (t) => t.treatment_type === 'status',
-  )
   const arrivalTreatments = treatments.filter(
     (t) => isArrivalTreatmentType(t.treatment_type),
   )
+  const arrivalDateOrTime =
+    arrivalTreatments[0]?.treated_at || animal.intake_date || ''
+  const timelineTreatments = treatments.filter((t) => {
+    if (t.treatment_type !== 'status') return false
+    const trimmedNotes = t.notes?.trim()
+    const isIntakeStatus =
+      trimmedNotes?.toLowerCase() === 'intake' ||
+      (!trimmedNotes &&
+        (animal.status_label || 'intake').toLowerCase() === 'intake')
+
+    // If arrival milestone already displays Intake, do not show duplicate Intake status entry on arrival date
+    if (isIntakeStatus && (hasArrivalEntry || showLegacyArrival)) {
+      const tTime = t.treated_at ? t.treated_at.slice(0, 10) : ''
+      const aTime = arrivalDateOrTime ? arrivalDateOrTime.slice(0, 10) : ''
+      if (!tTime || !aTime || tTime === aTime) {
+        return false
+      }
+    }
+    return true
+  })
 
   const hasCareNotes = careTreatments.length > 0
   const defaultTab: AnimalDetailTab = hasCareNotes ? 'care' : 'timeline'
@@ -685,7 +708,7 @@ export function AnimalDetailScreen() {
   const filteredAnimals = availableAnimals.filter((a) => {
     if (a.id === id) return false
     const q = linkSearchQuery.trim().toLowerCase()
-    if (!q) return true
+    if (!q) return false
     return (
       a.shelter_code.toLowerCase().includes(q) ||
       Boolean(a.name && a.name.toLowerCase().includes(q))
@@ -1231,7 +1254,7 @@ export function AnimalDetailScreen() {
                 variant="secondary"
                 onClick={openLinkAnimalModal}
               >
-                + Link animal
+                Link animal
               </Button>
             ) : null}
           </div>
@@ -1315,6 +1338,41 @@ export function AnimalDetailScreen() {
               </div>
             )}
           </div>
+
+          {member ? (
+            <div
+              className="animal-detail-danger-card panel"
+              style={{
+                marginTop: '1.5rem',
+                border: '1px solid var(--color-danger-soft, #fdecec)',
+                background: 'var(--color-surface)',
+              }}
+            >
+              <div style={{ marginBottom: '0.75rem' }}>
+                <h3
+                  style={{
+                    margin: '0 0 0.25rem 0',
+                    fontSize: 'var(--text-base)',
+                    fontWeight: 600,
+                    color: 'var(--color-danger, #b42318)',
+                  }}
+                >
+                  Remove animal
+                </h3>
+                <p className="muted" style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+                  Permanently remove this animal record and all associated photos from active care.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={editDetailsBusy}
+                onClick={() => void onRemoveAnimal()}
+              >
+                <Trash size={16} weight="bold" /> Remove animal
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -1389,9 +1447,17 @@ export function AnimalDetailScreen() {
             Select new status
           </p>
           <StatusSingleSelect
-            statuses={statuses}
+            statuses={statuses.filter(
+              (s) =>
+                s.id !== animal?.status_id &&
+                s.label?.trim().toLowerCase() !==
+                  animal?.status_label?.trim().toLowerCase(),
+            )}
             value={statusId}
-            onChange={(nextId) => setStatusId(nextId)}
+            onChange={(nextId) => {
+              setStatusId(nextId)
+              setError(null)
+            }}
             onAddStatus={() => setShowAddStatusModal(true)}
           />
           <TextField
@@ -1410,7 +1476,7 @@ export function AnimalDetailScreen() {
           />
           {error ? <p className="form-error">{error}</p> : null}
           <div className="responsive-modal__actions">
-            <Button type="submit" variant="primary">
+            <Button type="submit" variant="primary" disabled={!statusId}>
               Save status
             </Button>
             <Button type="button" variant="secondary" onClick={closeStatusModal}>
@@ -1531,25 +1597,6 @@ export function AnimalDetailScreen() {
               disabled={editDetailsBusy}
             >
               Cancel
-            </Button>
-          </div>
-
-          <div
-            className="edit-modal-danger-zone"
-            style={{
-              marginTop: 'var(--space-3)',
-              paddingTop: 'var(--space-3)',
-              borderTop: '1px solid var(--color-border)',
-            }}
-          >
-            <Button
-              type="button"
-              variant="danger"
-              block
-              disabled={editDetailsBusy}
-              onClick={() => void onRemoveAnimalFromModal()}
-            >
-              <Trash size={16} weight="bold" /> Remove animal
             </Button>
           </div>
         </form>

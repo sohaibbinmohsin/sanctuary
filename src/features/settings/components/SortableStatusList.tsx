@@ -17,7 +17,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DotsSixVertical } from '@phosphor-icons/react'
-import type { AnimalStatus } from '@/features/statuses/domain/statuses'
+import { isRequiredStatus, type AnimalStatus } from '@/features/statuses/domain/statuses'
 import { Button } from '@/shared/ui/Button'
 import { SelectField } from '@/shared/ui/SelectField'
 
@@ -97,7 +97,17 @@ function SortableStatusRow({
           onChange={(value) => onInCareChange(status.id, value === '1')}
         />
       </div>
-      <Button type="button" variant="danger-ghost" onClick={() => onHide(status)}>
+      <Button
+        type="button"
+        variant="danger-ghost"
+        disabled={isRequiredStatus(status.label)}
+        title={
+          isRequiredStatus(status.label)
+            ? 'Intake and Transferred statuses are required and cannot be hidden'
+            : undefined
+        }
+        onClick={() => onHide(status)}
+      >
         Hide
       </Button>
     </div>

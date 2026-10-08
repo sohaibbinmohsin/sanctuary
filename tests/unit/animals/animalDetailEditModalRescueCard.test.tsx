@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AnimalDetailScreen } from '@/features/animals/screens/AnimalDetailScreen'
 import * as animalsDomain from '@/features/animals/domain/animals'
@@ -77,11 +77,25 @@ describe('AnimalDetailScreen Rescue Card and Edit Modal Actions', () => {
     // Name field should be editable
     expect(screen.getByLabelText(/name/i)).toBeInTheDocument()
 
-    // Remove animal button should be present at the bottom of the modal
-    const removeBtn = screen.getByRole('button', { name: /remove animal/i })
-    expect(removeBtn).toBeInTheDocument()
+    // Edit details sheet modal should NOT have the remove animal button
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).queryByRole('button', { name: /remove animal/i })).not.toBeInTheDocument()
 
-    // Click Remove animal
+    // Close the edit modal
+    fireEvent.click(within(dialog).getByRole('button', { name: /cancel/i }))
+
+    // Switch to Details tab
+    const detailsTab = screen.getByRole('tab', { name: /details/i })
+    fireEvent.click(detailsTab)
+
+    // Details tab should have Remove animal danger section
+    expect(screen.getByRole('heading', { level: 3, name: 'Remove animal' })).toBeInTheDocument()
+    expect(
+      screen.getByText(/permanently remove this animal record and all associated photos/i),
+    ).toBeInTheDocument()
+
+    // Click Remove animal button in Details tab
+    const removeBtn = screen.getByRole('button', { name: /remove animal/i })
     fireEvent.click(removeBtn)
 
     await waitFor(() => {

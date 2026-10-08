@@ -112,7 +112,7 @@ describe('AnimalDetailScreen Relationships', () => {
     fireEvent.click(detailsTab)
 
     expect(screen.getByRole('heading', { level: 2, name: 'Relationships' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /\+ Link animal/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Link animal$/i })).toBeInTheDocument()
     expect(
       screen.getByText(
         'No linked animals yet. Record family members, bonded pairs, or incompatibility warnings.',
@@ -268,7 +268,7 @@ describe('AnimalDetailScreen Relationships', () => {
     const detailsTab = await screen.findByRole('tab', { name: /Details/i })
     fireEvent.click(detailsTab)
 
-    const linkBtn = screen.getByRole('button', { name: /\+ Link animal/i })
+    const linkBtn = screen.getByRole('button', { name: /^Link animal$/i })
     fireEvent.click(linkBtn)
 
     // Modal opens

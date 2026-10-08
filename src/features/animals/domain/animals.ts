@@ -96,6 +96,7 @@ export async function createAnimal(
     orgId: input.orgId,
     animalId: id,
     statusIds: input.statusIds,
+    skipTreatmentLog: true,
   })
 
   const treatedAt =

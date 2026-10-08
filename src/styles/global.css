@@ -2523,15 +2523,17 @@ a.primary {
   user-select: none;
 }
 
-.status-pill:hover:not(:disabled) {
+.status-pill:hover:not(:disabled):not(.is-selected) {
   border-color: var(--color-forest);
   background: var(--color-forest-soft);
 }
 
-.status-pill.is-selected {
-  background: var(--color-forest);
-  color: #ffffff;
-  border-color: var(--color-forest);
+.status-pill.is-selected,
+.status-pill.is-selected:hover,
+.status-pill.is-selected:focus {
+  background: var(--color-forest) !important;
+  color: #ffffff !important;
+  border-color: var(--color-forest) !important;
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(47, 93, 58, 0.25);
 }

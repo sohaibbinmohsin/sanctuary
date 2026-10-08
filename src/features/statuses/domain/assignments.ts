@@ -56,6 +56,7 @@ export async function replaceAnimalStatuses(
     orgId: string
     animalId: string
     statusIds: string[]
+    skipTreatmentLog?: boolean
   },
 ): Promise<void> {
   if (input.statusIds.length === 0) {
@@ -149,13 +150,15 @@ export async function replaceAnimalStatuses(
     .map((status) => status.label)
     .join(', ')
 
-  await addTreatment(db, {
-    orgId: input.orgId,
-    animalId: input.animalId,
-    treatmentType: 'status',
-    notes,
-    treatedAt: now,
-  })
+  if (!input.skipTreatmentLog) {
+    await addTreatment(db, {
+      orgId: input.orgId,
+      animalId: input.animalId,
+      treatmentType: 'status',
+      notes,
+      treatedAt: now,
+    })
+  }
 }
 
 export async function setSingleStatusAssignment(
