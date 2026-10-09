@@ -17,6 +17,7 @@ import {
 import { createPortal } from 'react-dom'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
+import { useIsMobile } from '@/shared/hooks/useIsMobile'
 import {
   countPendingPhotos,
   processPhotoQueue,
@@ -64,6 +65,7 @@ export function PhotoCapture({
 }: PhotoCaptureProps) {
   const db = useDb()
   const canTakePhoto = useCanTakePhoto()
+  const isMobile = useIsMobile()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
@@ -259,13 +261,21 @@ export function PhotoCapture({
   function onCameraCaptureSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    const token = pendingSessionToken
+    setPendingSessionToken(null)
+    e.target.value = ''
+
+    if (isMobile) {
+      void saveCameraPhoto(file, token ?? undefined)
+      return
+    }
+
     const previewUrl = URL.createObjectURL(file)
     setReviewPhoto({
       blob: file,
       previewUrl,
-      captureToken: pendingSessionToken,
+      captureToken: token,
     })
-    e.target.value = ''
   }
 
   async function onConfirmSavePhoto() {
@@ -425,7 +435,7 @@ export function PhotoCapture({
           )
         : null}
 
-      {reviewPhoto
+      {!isMobile && reviewPhoto
         ? createPortal(
             <div className="camera-confirm-dialog" role="dialog" aria-modal="true">
               <div className="camera-confirm-backdrop" onClick={onCancelReview} />

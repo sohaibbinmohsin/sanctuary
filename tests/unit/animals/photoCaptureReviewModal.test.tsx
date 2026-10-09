@@ -147,4 +147,43 @@ describe('PhotoCapture Option 1 Custom Review Modal', () => {
     expect(screen.queryByText('Photo captured')).not.toBeInTheDocument()
     expect(photosDomain.queuePhoto).not.toHaveBeenCalled()
   })
+
+  it('in mobile mode: bypasses review sheet and saves photo immediately on capture', async () => {
+    const isMobileModule = await import('@/shared/hooks/useIsMobile')
+    vi.spyOn(isMobileModule, 'useIsMobile').mockReturnValue(true)
+
+    const onQueued = vi.fn()
+    const { container } = render(
+      <PhotoCapture
+        orgId="org-1"
+        animalId="anim-1"
+        shelterCode="MS-0001"
+        animalName="Barnaby"
+        onQueued={onQueued}
+      />
+    )
+
+    const inputs = container.querySelectorAll('input[type="file"]')
+    const cameraInput = Array.from(inputs).find(
+      (inp) => inp.getAttribute('capture') === 'environment'
+    ) as HTMLInputElement
+
+    const file = new File(['test-image'], 'photo.jpg', { type: 'image/jpeg' })
+    fireEvent.change(cameraInput, { target: { files: [file] } })
+
+    // On mobile, review modal should NOT appear
+    expect(screen.queryByText('Photo captured')).not.toBeInTheDocument()
+
+    // queuePhoto should be called directly
+    await waitFor(() => {
+      expect(photosDomain.queuePhoto).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          animalId: 'anim-1',
+          blob: file,
+          captureSource: 'camera',
+        })
+      )
+    })
+  })
 })

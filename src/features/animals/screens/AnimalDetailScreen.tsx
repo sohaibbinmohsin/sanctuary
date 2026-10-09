@@ -1340,7 +1340,14 @@ export function AnimalDetailScreen() {
           </div>
 
           {member ? (
-            <div className="danger-zone">
+            <div
+              className="danger-zone"
+              style={{
+                borderTop: 'none',
+                paddingTop: 0,
+                marginTop: 'var(--space-6)',
+              }}
+            >
               <h3
                 style={{
                   margin: 0,

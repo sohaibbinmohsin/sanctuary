@@ -605,9 +605,6 @@ export function SettingsScreen() {
               >
                 {partnerDisplayName || 'No partner name yet'}
               </p>
-              <p className="muted settings-identity__hint">
-                {logoUrl ? 'Custom logo active.' : 'No logo yet.'}
-              </p>
             </div>
           </div>
         )}
