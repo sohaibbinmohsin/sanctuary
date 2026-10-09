@@ -18,6 +18,7 @@ import { createPortal } from 'react-dom'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
 import { useIsMobile } from '@/shared/hooks/useIsMobile'
+import { InAppCamera } from '@/features/animals/components/InAppCamera'
 import {
   countPendingPhotos,
   processPhotoQueue,
@@ -76,10 +77,11 @@ export function PhotoCapture({
   const [cameraStage, setCameraStage] = useState<CameraStage>({ kind: 'idle' })
   const [pendingSessionToken, setPendingSessionToken] = useState<string | null>(null)
   const [reviewPhoto, setReviewPhoto] = useState<ReviewPhoto | null>(null)
+  const [showDesktopCamera, setShowDesktopCamera] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   const cameraFlowActive =
-    cameraStage.kind !== 'idle' || Boolean(reviewPhoto) || isSaving
+    cameraStage.kind !== 'idle' || Boolean(reviewPhoto) || isSaving || showDesktopCamera
 
   async function refreshPending() {
     if (!db) return
@@ -220,13 +222,33 @@ export function PhotoCapture({
     }
   }
 
+  function triggerCamera() {
+    if (!isMobile) {
+      setShowDesktopCamera(true)
+    } else {
+      cameraInputRef.current?.click()
+    }
+  }
+
+  function onDesktopCameraCapture(blob: Blob) {
+    setShowDesktopCamera(false)
+    const token = pendingSessionToken
+    setPendingSessionToken(null)
+    const previewUrl = URL.createObjectURL(blob)
+    setReviewPhoto({
+      blob,
+      previewUrl,
+      captureToken: token,
+    })
+  }
+
   async function mintSessionAndTriggerCamera() {
     setCameraStage({ kind: 'minting' })
     try {
       const session = await requestCaptureSession({ animalId })
       setPendingSessionToken(session.token)
       setCameraStage({ kind: 'idle' })
-      cameraInputRef.current?.click()
+      triggerCamera()
     } catch {
       setCameraStage({ kind: 'retry-warn' })
     }
@@ -239,7 +261,7 @@ export function PhotoCapture({
     if (isPlaygroundMode()) {
       setPendingSessionToken(null)
       setCameraStage({ kind: 'idle' })
-      cameraInputRef.current?.click()
+      triggerCamera()
       return
     }
     if (!navigator.onLine) {
@@ -300,8 +322,7 @@ export function PhotoCapture({
       URL.revokeObjectURL(reviewPhoto.previewUrl)
       setReviewPhoto(null)
     }
-    // Re-trigger native camera while retaining pendingSessionToken
-    cameraInputRef.current?.click()
+    triggerCamera()
   }
 
   function onCancelReview() {
@@ -316,13 +337,13 @@ export function PhotoCapture({
   function onOfflineProceed() {
     setCameraStage({ kind: 'idle' })
     setPendingSessionToken(null)
-    cameraInputRef.current?.click()
+    triggerCamera()
   }
 
   function onRetryWarnProceed() {
     setCameraStage({ kind: 'idle' })
     setPendingSessionToken(null)
-    cameraInputRef.current?.click()
+    triggerCamera()
   }
 
   return (
@@ -560,6 +581,16 @@ export function PhotoCapture({
             document.body,
           )
         : null}
+
+      {showDesktopCamera ? (
+        <InAppCamera
+          onCapture={onDesktopCameraCapture}
+          onCancel={() => {
+            setShowDesktopCamera(false)
+            setPendingSessionToken(null)
+          }}
+        />
+      ) : null}
     </>
   )
 }

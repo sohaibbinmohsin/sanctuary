@@ -128,17 +128,20 @@ export async function queuePhoto(
     captureSource: 'camera' | 'gallery'
     /** Only for online, in-app camera captures — never set for offline/gallery. */
     captureToken?: string
+    /** Optional explicit verification (e.g. for intake camera photos created with animal). */
+    verified?: boolean
   },
 ): Promise<PhotoRecord> {
   const compressed = await compressImage(input.blob)
   const id = crypto.randomUUID()
   const created_at = new Date().toISOString()
+  const isVerified = Boolean(input.verified)
 
   await storeLocalPhoto(id, compressed)
   await db.execute(
     `INSERT INTO photos (id, org_id, animal_id, r2_key, local_only, upload_state, capture_source, verified, created_at)
-     VALUES (?, ?, ?, NULL, 1, 'pending', ?, 0, ?)`,
-    [id, input.orgId, input.animalId, input.captureSource, created_at],
+     VALUES (?, ?, ?, NULL, 1, 'pending', ?, ?, ?)`,
+    [id, input.orgId, input.animalId, input.captureSource, isVerified ? 1 : 0, created_at],
   )
 
   if (input.captureSource === 'camera' && input.captureToken) {
@@ -155,7 +158,7 @@ export async function queuePhoto(
     local_only: 1,
     upload_state: 'pending',
     capture_source: input.captureSource,
-    verified: 0,
+    verified: isVerified ? 1 : 0,
     created_at,
   }
 }
@@ -289,9 +292,9 @@ export async function processPhotoQueue(
             )
           }
         }
-        // Server may already have set verified via capture-session; mirror that
-        // locally so the capturing device shows the badge without waiting on sync.
-        if (captureToken) {
+        // Server may already have set verified via capture-session, or photo was verified at intake;
+        // mirror that locally so the capturing device shows the badge without waiting on sync.
+        if (captureToken || photo.verified) {
           await db.execute(
             `UPDATE photos SET r2_key = ?, local_only = 0, upload_state = 'uploaded', verified = 1 WHERE id = ?`,
             [publicUrl || key, photo.id],

@@ -102,8 +102,6 @@ describe('PhotoCapture Option 1 Custom Review Modal', () => {
       (inp) => inp.getAttribute('capture') === 'environment'
     ) as HTMLInputElement
 
-    const clickSpy = vi.spyOn(cameraInput, 'click')
-
     // Simulate photo snap
     const file = new File(['test-image'], 'photo.jpg', { type: 'image/jpeg' })
     fireEvent.change(cameraInput, { target: { files: [file] } })
@@ -113,8 +111,8 @@ describe('PhotoCapture Option 1 Custom Review Modal', () => {
     // Click "Retake photo"
     fireEvent.click(screen.getByRole('button', { name: 'Retake photo' }))
 
-    // Should have re-triggered camera input click
-    expect(clickSpy).toHaveBeenCalled()
+    // On desktop: Retake opens the InAppCamera viewfinder modal
+    expect(screen.getByRole('dialog', { name: 'Camera' })).toBeInTheDocument()
 
     // And review modal is dismissed
     expect(screen.queryByText('Photo captured')).not.toBeInTheDocument()

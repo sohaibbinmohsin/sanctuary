@@ -134,7 +134,7 @@ describe('AnimalIntakeScreen with Photos', () => {
       )
     })
 
-    // Verify photo was queued with the new animalId
+    // Verify photo was queued with the new animalId and verified: false for gallery
     expect(photosDomain.queuePhoto).toHaveBeenCalledTimes(1)
     expect(photosDomain.queuePhoto).toHaveBeenCalledWith(
       expect.anything(),
@@ -142,6 +142,7 @@ describe('AnimalIntakeScreen with Photos', () => {
         orgId: 'org-test',
         animalId: 'animal-new-123',
         captureSource: 'gallery',
+        verified: false,
       }),
     )
   })
@@ -185,8 +186,16 @@ describe('AnimalIntakeScreen with Photos', () => {
       expect(animalsDomain.createAnimal).toHaveBeenCalled()
     })
 
-    // Both photos should be queued
+    // Both photos should be queued with verified: true for camera captures
     expect(photosDomain.queuePhoto).toHaveBeenCalledTimes(2)
+    expect(photosDomain.queuePhoto).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        animalId: 'animal-multi-photo',
+        captureSource: 'camera',
+        verified: true,
+      }),
+    )
   })
 
   it('supports selecting Life stage (adult vs child) and passes to createAnimal', async () => {

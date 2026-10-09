@@ -4,12 +4,14 @@ import { Camera, CaretDown, FileText } from '@phosphor-icons/react'
 import { useIsMobile } from '@/shared/hooks/useIsMobile'
 import { stageIntakePhotos } from '@/features/animals/domain/intakePhotoStore'
 import { ResponsiveSheetModal } from '@/shared/ui/ResponsiveSheetModal'
+import { InAppCamera } from '@/features/animals/components/InAppCamera'
 import './AddAnimalSplitButton.css'
 
 export function AddAnimalSplitButton() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const [isOpen, setIsOpen] = useState(false)
+  const [showCamera, setShowCamera] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -51,7 +53,20 @@ export function AddAnimalSplitButton() {
 
   function handleCameraSelect() {
     setIsOpen(false)
-    fileInputRef.current?.click()
+    if (!isMobile) {
+      setShowCamera(true)
+    } else {
+      fileInputRef.current?.click()
+    }
+  }
+
+  function onCameraCapture(blob: Blob) {
+    setShowCamera(false)
+    const file = new File([blob], 'camera-intake.jpg', { type: 'image/jpeg' })
+    stageIntakePhotos([file], 'camera')
+    navigate('/animals/new', {
+      state: { initialPhoto: file },
+    })
   }
 
   function handleFormSelect() {
@@ -167,6 +182,13 @@ export function AddAnimalSplitButton() {
           </div>
         </ResponsiveSheetModal>
       )}
+
+      {showCamera ? (
+        <InAppCamera
+          onCapture={onCameraCapture}
+          onCancel={() => setShowCamera(false)}
+        />
+      ) : null}
     </div>
   )
 }

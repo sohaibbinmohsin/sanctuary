@@ -7,6 +7,7 @@ import {
 import { createPortal } from 'react-dom'
 import { Camera, ImageSquare, Plus, X } from '@phosphor-icons/react'
 import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
+import { useIsMobile } from '@/shared/hooks/useIsMobile'
 import { InAppCamera } from '@/features/animals/components/InAppCamera'
 
 export type StagedPhoto = {
@@ -32,6 +33,7 @@ export function IntakePhotoPicker({
   disabled = false,
 }: IntakePhotoPickerProps) {
   const canTakePhoto = useCanTakePhoto()
+  const isMobile = useIsMobile()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
@@ -178,12 +180,11 @@ export function IntakePhotoPicker({
                 role="menuitem"
                 onClick={() => {
                   setMenuOpen(false)
-                  const isTest = typeof process !== 'undefined' && process.env.NODE_ENV === 'test'
-                  if (isTest) {
+                  if (!isMobile) {
                     setShowCamera(true)
-                    return
+                  } else {
+                    cameraInputRef.current?.click()
                   }
-                  cameraInputRef.current?.click()
                 }}
               >
                 <Camera size={16} weight="bold" aria-hidden />

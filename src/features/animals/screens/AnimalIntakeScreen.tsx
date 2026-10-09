@@ -255,6 +255,7 @@ export function AnimalIntakeScreen() {
             animalId: animal.id,
             blob: photo.blob,
             captureSource: photo.captureSource,
+            verified: photo.captureSource === 'camera',
           })
         } catch (photoErr) {
           console.warn('Failed to queue photo for new animal', photoErr)

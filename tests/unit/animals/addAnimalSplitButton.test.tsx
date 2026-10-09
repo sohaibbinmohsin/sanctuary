@@ -62,6 +62,25 @@ describe('AddAnimalSplitButton', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/animals/new')
   })
 
+  it('on desktop: selecting Camera from dropdown opens InAppCamera webcam modal', () => {
+    vi.spyOn(useIsMobileHook, 'useIsMobile').mockReturnValue(false)
+
+    render(
+      <MemoryRouter>
+        <AddAnimalSplitButton />
+      </MemoryRouter>
+    )
+
+    const toggle = screen.getByRole('button', { name: 'Add animal options' })
+    fireEvent.click(toggle)
+
+    const cameraItem = screen.getByRole('menuitem', { name: /Take photo/i })
+    fireEvent.click(cameraItem)
+
+    // Opens InAppCamera overlay
+    expect(screen.getByRole('dialog', { name: 'Camera' })).toBeInTheDocument()
+  })
+
   it('on mobile: clicking Add animal directly triggers camera input', () => {
     vi.spyOn(useIsMobileHook, 'useIsMobile').mockReturnValue(true)
 
