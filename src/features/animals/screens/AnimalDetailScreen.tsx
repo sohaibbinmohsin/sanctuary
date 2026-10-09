@@ -263,7 +263,7 @@ export function AnimalDetailScreen() {
     const ok = await confirm({
       title: `Delete ${label}?`,
       body: 'They will leave your Animals list. Use this if the record was added by mistake.',
-      confirmLabel: 'Delete animal',
+      confirmLabel: 'Delete',
       tone: 'danger',
     })
     if (!ok) return
@@ -1349,7 +1349,7 @@ export function AnimalDetailScreen() {
                   color: 'var(--color-danger, #b42318)',
                 }}
               >
-                Delete animal
+                Remove animal
               </h3>
               <p
                 className="muted danger-zone__copy"
@@ -1366,7 +1366,7 @@ export function AnimalDetailScreen() {
                 disabled={editDetailsBusy}
                 onClick={() => void onRemoveAnimal()}
               >
-                <Trash size={16} weight="bold" /> Delete animal
+                <Trash size={16} weight="bold" /> Delete
               </Button>
             </div>
           ) : null}

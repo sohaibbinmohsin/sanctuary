@@ -447,7 +447,7 @@ export function AnimalIntakeScreen() {
             </div>
             <TextareaField
               label="Notes"
-              hint="optional — saved to the care log"
+              hint="optional"
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

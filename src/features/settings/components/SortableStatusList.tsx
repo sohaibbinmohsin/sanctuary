@@ -58,6 +58,8 @@ function SortableStatusRow({
     transition,
   }
 
+  const isRequired = isRequiredStatus(status.label)
+
   return (
     <div
       ref={setNodeRef}
@@ -80,6 +82,7 @@ function SortableStatusRow({
       </button>
       <input
         value={status.label ?? ''}
+        disabled={isRequired}
         onChange={(e) => onLabelChange(status.id, e.target.value)}
         onBlur={(e) => onRename(status.id, e.target.value)}
         aria-label="Status name"
@@ -89,6 +92,7 @@ function SortableStatusRow({
         <SelectField
           label="In care"
           hideLabel
+          disabled={isRequired}
           value={status.counts_as_in_care ? '1' : '0'}
           options={[
             { value: '1', label: 'In care' },
@@ -97,7 +101,7 @@ function SortableStatusRow({
           onChange={(value) => onInCareChange(status.id, value === '1')}
         />
       </div>
-      {!isRequiredStatus(status.label) ? (
+      {!isRequired ? (
         <Button
           type="button"
           variant="danger-ghost"

@@ -153,7 +153,7 @@ button:disabled,
 .btn--secondary {
   background: var(--color-white);
   color: var(--color-ink);
-  border: 1.5px solid var(--color-border-strong, #9aaba0);
+  border: 1px solid var(--color-border);
 }
 
 .btn--secondary:hover:not(:disabled) {
@@ -1746,6 +1746,10 @@ a.primary {
 
 .filter-bar__search input {
   padding-left: 2.5rem;
+}
+
+.filter-bar .btn--icon {
+  border: 1px solid var(--color-border);
 }
 
 .filter-button-wrap {

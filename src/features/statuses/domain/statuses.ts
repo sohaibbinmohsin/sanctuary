@@ -24,6 +24,7 @@ export const DEFAULT_STATUS_DEFS = [
   { label: 'In sanctuary', countsAsInCare: 1 },
   { label: 'Adopted', countsAsInCare: 0 },
   { label: 'Transferred', countsAsInCare: 0 },
+  { label: 'Released', countsAsInCare: 0 },
   { label: 'Deceased', countsAsInCare: 0 },
 ] as const
 
@@ -130,6 +131,13 @@ export async function renameStatus(
   id: string,
   label: string,
 ): Promise<void> {
+  const existing = await db.getOptional<AnimalStatus>(
+    `SELECT * FROM animal_statuses WHERE id = ?`,
+    [id],
+  )
+  if (existing && isRequiredStatus(existing.label)) {
+    throw new Error(`The status "${existing.label}" is a default status and cannot be renamed.`)
+  }
   await db.execute(`UPDATE animal_statuses SET label = ? WHERE id = ?`, [
     label.trim(),
     id,
@@ -141,6 +149,13 @@ export async function setStatusInCare(
   id: string,
   countsAsInCare: boolean,
 ): Promise<void> {
+  const existing = await db.getOptional<AnimalStatus>(
+    `SELECT * FROM animal_statuses WHERE id = ?`,
+    [id],
+  )
+  if (existing && isRequiredStatus(existing.label)) {
+    throw new Error(`The status "${existing.label}" is a default status and cannot be changed.`)
+  }
   await db.execute(
     `UPDATE animal_statuses SET counts_as_in_care = ? WHERE id = ?`,
     [countsAsInCare ? 1 : 0, id],

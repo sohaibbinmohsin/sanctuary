@@ -88,21 +88,21 @@ describe('AnimalDetailScreen Rescue Card and Edit Modal Actions', () => {
     const detailsTab = screen.getByRole('tab', { name: /details/i })
     fireEvent.click(detailsTab)
 
-    // Details tab should have Delete animal danger section
-    expect(screen.getByRole('heading', { level: 3, name: 'Delete animal' })).toBeInTheDocument()
+    // Details tab should have Remove animal danger section
+    expect(screen.getByRole('heading', { level: 3, name: 'Remove animal' })).toBeInTheDocument()
     expect(
       screen.getByText(/permanently remove this animal record and all associated photos/i),
     ).toBeInTheDocument()
 
-    // Click Delete animal button in Details tab
-    const deleteBtn = screen.getByRole('button', { name: /delete animal/i })
+    // Click Delete button in Details tab
+    const deleteBtn = screen.getByRole('button', { name: /^delete$/i })
     fireEvent.click(deleteBtn)
 
     await waitFor(() => {
       expect(mockConfirm).toHaveBeenCalledWith(
         expect.objectContaining({
           title: expect.stringContaining('MS-0006'),
-          confirmLabel: 'Delete animal',
+          confirmLabel: 'Delete',
           tone: 'danger',
         })
       )
