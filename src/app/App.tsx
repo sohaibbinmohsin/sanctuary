@@ -15,6 +15,7 @@ const playground = isPlaygroundPath(window.location.pathname)
 
 const APP_ROOTS = new Set([
   '',
+  'reports',
   'animals',
   'ledger',
   'dashboard',

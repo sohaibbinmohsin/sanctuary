@@ -6,7 +6,9 @@ import {
   CurrencyCircleDollar,
   ChartBar,
   GearSix,
+  MegaphoneSimple,
 } from '@phosphor-icons/react'
+import type { AppModuleId } from '@/shared/domain/modules'
 import { SyncBanner } from '@/shared/ui/SyncBanner'
 import { PlaygroundBanner } from '@/features/playground/PlaygroundBanner'
 import { isPlaygroundMode } from '@/features/playground/mode'
@@ -30,31 +32,47 @@ import { useDb } from '@/shared/hooks/useDb'
 import { useMediaUploadRunner } from '@/features/uploads/hooks/useMediaUploadRunner'
 import { usePendingMedia } from '@/features/uploads/hooks/usePendingMedia'
 
-const SIDEBAR_NAV = [
-  { to: '/animals', label: 'Animals', icon: Cat },
-  { to: '/ledger', label: 'Ledger', icon: CurrencyCircleDollar },
-  { to: '/checklist', label: 'Checklist', icon: CheckSquare },
+interface NavItemDef {
+  to: string
+  label: string
+  icon: typeof Cat
+  moduleId?: AppModuleId
+}
+
+const MODULE_NAV_DEFINITIONS: readonly (NavItemDef & { moduleId: AppModuleId })[] = [
+  { moduleId: 'reports', to: '/reports', label: 'Reports', icon: MegaphoneSimple },
+  { moduleId: 'animals', to: '/animals', label: 'Animals', icon: Cat },
+  { moduleId: 'ledger', to: '/ledger', label: 'Ledger', icon: CurrencyCircleDollar },
+  { moduleId: 'checklist', to: '/checklist', label: 'Checklist', icon: CheckSquare },
+] as const
+
+const BASE_SIDEBAR_NAV: readonly NavItemDef[] = [
   { to: '/dashboard', label: 'Overview', icon: ChartBar },
   { to: '/uploads', label: 'Uploads', icon: CloudArrowUp },
   { to: '/settings', label: 'Settings', icon: GearSix },
-] as const
+]
 
-const BOTTOM_NAV = [
-  { to: '/animals', label: 'Animals', icon: Cat },
-  { to: '/ledger', label: 'Ledger', icon: CurrencyCircleDollar },
+const BASE_BOTTOM_NAV: readonly NavItemDef[] = [
   { to: '/dashboard', label: 'Overview', icon: ChartBar },
-  { to: '/checklist', label: 'Checklist', icon: CheckSquare },
   { to: '/settings', label: 'Settings', icon: GearSix },
-] as const
+]
 
-const PRIMARY_PATHS = new Set<string>(BOTTOM_NAV.map((item) => item.to))
+function getFallbackModuleRoute(hasModule?: (m: AppModuleId) => boolean): string {
+  if (!hasModule) return '/animals'
+  for (const item of MODULE_NAV_DEFINITIONS) {
+    if (hasModule(item.moduleId)) {
+      return item.to
+    }
+  }
+  return '/dashboard'
+}
 
-function isPrimaryPath(pathname: string): boolean {
+function isPrimaryPath(pathname: string, primaryPaths: Set<string>): boolean {
   const normalized =
     pathname.length > 1 && pathname.endsWith('/')
       ? pathname.slice(0, -1)
       : pathname
-  return PRIMARY_PATHS.has(normalized)
+  return primaryPaths.has(normalized)
 }
 
 function NavItems({
@@ -78,7 +96,11 @@ function NavItems({
           <NavLink
             key={to}
             to={to}
-            end={to === '/animals' || to === '/ledger' ? false : undefined}
+            end={
+              to === '/animals' || to === '/ledger' || to === '/reports'
+                ? false
+                : undefined
+            }
           >
             <Icon weight="duotone" aria-hidden />
             <span className="app-nav__label">{label}</span>
@@ -99,12 +121,33 @@ export function AppShell() {
   const { member, loading } = useCurrentMember()
   const playground = isPlaygroundMode()
   const { pathname } = useLocation()
-  const showBottomNav = isPrimaryPath(pathname)
+
   useMediaUploadRunner(playground ? null : db)
   const { items: pendingUploads } = usePendingMedia(
     playground ? undefined : member?.orgId,
   )
   const uploadBadge = pendingUploads.length
+
+  const hasModule = (m: AppModuleId) => (playground ? true : member?.hasModule(m) ?? true)
+  const fallbackRoute = getFallbackModuleRoute(playground ? undefined : member?.hasModule.bind(member))
+
+  // Dynamically filter module navigation items based on org enabled modules
+  const enabledModuleNav = MODULE_NAV_DEFINITIONS.filter((item) =>
+    hasModule(item.moduleId),
+  )
+
+  const sidebarNav: readonly NavItemDef[] = [
+    ...enabledModuleNav,
+    ...BASE_SIDEBAR_NAV,
+  ]
+
+  const bottomNav: readonly NavItemDef[] = [
+    ...enabledModuleNav,
+    ...BASE_BOTTOM_NAV,
+  ]
+
+  const primaryPaths = new Set<string>(bottomNav.map((item) => item.to))
+  const showBottomNav = isPrimaryPath(pathname, primaryPaths)
 
   if (!playground) {
     if (loading) {
@@ -151,7 +194,7 @@ export function AppShell() {
         </div>
         <NavItems
           className="app-sidebar__nav"
-          items={SIDEBAR_NAV}
+          items={sidebarNav}
           badges={{ '/uploads': uploadBadge }}
         />
         <HelpAndAccount variant="sidebar" />
@@ -160,34 +203,163 @@ export function AppShell() {
         {playground ? <PlaygroundBanner /> : null}
         <main className="app-content" id="main">
           <Routes>
-            <Route path="/" element={<Navigate to="/animals" replace />} />
-            <Route path="/animals" element={<AnimalsListScreen />} />
-            <Route path="/animals/filters" element={<AnimalsFiltersScreen />} />
+            <Route path="/" element={<Navigate to={fallbackRoute} replace />} />
+
+            {/* Animals module */}
+            <Route
+              path="/animals"
+              element={
+                hasModule('animals') ? (
+                  <AnimalsListScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+            <Route
+              path="/animals/filters"
+              element={
+                hasModule('animals') ? (
+                  <AnimalsFiltersScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
             <Route
               path="/animals/add-to-checklist"
-              element={<AddToChecklistScreen />}
+              element={
+                hasModule('animals') ? (
+                  <AddToChecklistScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
             />
             <Route
               path="/animals/camera"
-              element={<Navigate to="/animals/new" replace />}
+              element={
+                hasModule('animals') ? (
+                  <Navigate to="/animals/new" replace />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
             />
-            <Route path="/animals/new" element={<AnimalIntakeScreen />} />
-            <Route path="/animals/:id/edit" element={<AnimalIntakeScreen />} />
-            <Route path="/animals/:id" element={<AnimalDetailScreen />} />
-            <Route path="/ledger" element={<LedgerScreen />} />
-            <Route path="/ledger/new" element={<LedgerEntryScreen />} />
-            <Route path="/ledger/:id" element={<LedgerEntryScreen />} />
+            <Route
+              path="/animals/new"
+              element={
+                hasModule('animals') ? (
+                  <AnimalIntakeScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+            <Route
+              path="/animals/:id/edit"
+              element={
+                hasModule('animals') ? (
+                  <AnimalIntakeScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+            <Route
+              path="/animals/:id"
+              element={
+                hasModule('animals') ? (
+                  <AnimalDetailScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+
+            {/* Ledger module */}
+            <Route
+              path="/ledger"
+              element={
+                hasModule('ledger') ? (
+                  <LedgerScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+            <Route
+              path="/ledger/new"
+              element={
+                hasModule('ledger') ? (
+                  <LedgerEntryScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+            <Route
+              path="/ledger/:id"
+              element={
+                hasModule('ledger') ? (
+                  <LedgerEntryScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+
+            {/* Checklist module */}
+            <Route
+              path="/checklist"
+              element={
+                hasModule('checklist') ? (
+                  <ChecklistScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+
+            {/* Reports module (placeholder routes until screens implemented in Task 5 & 6) */}
+            <Route
+              path="/reports"
+              element={
+                hasModule('reports') ? (
+                  <div className="reports-screen">Reports Timeline</div>
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+            <Route
+              path="/reports/:id"
+              element={
+                hasModule('reports') ? (
+                  <div className="reports-screen">Report Detail</div>
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+
+            {/* Standard non-modular routes */}
             <Route path="/dashboard" element={<DashboardScreen />} />
             <Route path="/uploads" element={<UploadsScreen />} />
-            <Route path="/checklist" element={<ChecklistScreen />} />
             <Route path="/settings" element={<SettingsScreen />} />
             <Route
               path="/onboarding"
-              element={playground ? <OnboardingScreen /> : <Navigate to="/animals" replace />}
+              element={
+                playground ? (
+                  <OnboardingScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
             />
           </Routes>
         </main>
-        {showBottomNav ? <NavItems className="app-nav" items={BOTTOM_NAV} /> : null}
+        {showBottomNav ? <NavItems className="app-nav" items={bottomNav} /> : null}
       </div>
     </div>
   )
