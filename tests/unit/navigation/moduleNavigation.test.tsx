@@ -81,6 +81,6 @@ describe('AppShell Module Navigation', () => {
 
     // Ledger is disabled and should redirect to reports
     expect(screen.queryByText('Ledger')).toBeNull()
-    expect(screen.getByText('Reports Timeline')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Reports' })).toBeInTheDocument()
   })
 })

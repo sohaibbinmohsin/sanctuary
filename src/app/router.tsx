@@ -20,6 +20,7 @@ import { AnimalDetailScreen } from '@/features/animals/screens/AnimalDetailScree
 import { LedgerScreen } from '@/features/ledger/screens/LedgerScreen'
 import { LedgerEntryScreen } from '@/features/ledger/screens/LedgerEntryScreen'
 import { DashboardScreen } from '@/features/dashboard/screens/DashboardScreen'
+import { ReportsListScreen } from '@/features/reports/screens/ReportsListScreen'
 import { ChecklistScreen } from '@/features/checklist/screens/ChecklistScreen'
 import { SettingsScreen } from '@/features/settings/screens/SettingsScreen'
 import { UploadsScreen } from '@/features/uploads/screens/UploadsScreen'
@@ -321,12 +322,12 @@ export function AppShell() {
               }
             />
 
-            {/* Reports module (placeholder routes until screens implemented in Task 5 & 6) */}
+            {/* Reports module */}
             <Route
               path="/reports"
               element={
                 hasModule('reports') ? (
-                  <div className="reports-screen">Reports Timeline</div>
+                  <ReportsListScreen />
                 ) : (
                   <Navigate to={fallbackRoute} replace />
                 )
