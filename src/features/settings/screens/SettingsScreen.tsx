@@ -57,6 +57,8 @@ import {
   SettingsCardHead,
   SettingsCatalog,
 } from '@/features/settings/components/SettingsCardHead'
+import { OrganizationModulesCard } from '@/features/settings/components/OrganizationModulesCard'
+import { updateOrganizationModules } from '@/features/settings/domain/settings'
 import { HelpAndAccount } from '@/features/settings/components/HelpAndAccount'
 
 export function SettingsScreen() {
@@ -609,6 +611,17 @@ export function SettingsScreen() {
           </div>
         )}
       </div>
+
+      {member?.role === 'admin' ? (
+        <OrganizationModulesCard
+          enabledModules={member.enabledModules}
+          canManage={true}
+          onSave={async (modules) => {
+            if (!db || !member) return
+            await updateOrganizationModules(db, member.orgId, modules)
+          }}
+        />
+      ) : null}
 
       <div className="settings-grid">
         <div className="panel stack">
