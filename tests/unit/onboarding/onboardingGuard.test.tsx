@@ -61,6 +61,8 @@ describe('OnboardingScreen', () => {
     publicSlug: null,
     setupCompleted: false,
     currency: 'PKR',
+    enabledModules: new Set(['reports', 'animals', 'checklist', 'ledger']),
+    hasModule: () => true,
   }
 
   beforeEach(() => {
@@ -190,6 +192,8 @@ describe('AppShell Route Guarding', () => {
         publicSlug: null,
         setupCompleted: false,
         currency: 'PKR',
+        enabledModules: new Set(['reports', 'animals', 'checklist', 'ledger']),
+        hasModule: () => true,
       },
       loading: false,
     })
@@ -221,6 +225,8 @@ describe('AppShell Route Guarding', () => {
         publicSlug: null,
         setupCompleted: false,
         currency: 'PKR',
+        enabledModules: new Set(['reports', 'animals', 'checklist', 'ledger']),
+        hasModule: () => true,
       },
       loading: false,
     })
@@ -253,6 +259,8 @@ describe('AppShell Route Guarding', () => {
         publicSlug: null,
         setupCompleted: true,
         currency: 'PKR',
+        enabledModules: new Set(['reports', 'animals', 'checklist', 'ledger']),
+        hasModule: () => true,
       },
       loading: false,
     })
