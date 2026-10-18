@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@powersync/react'
-import { Check, CaretDown } from '@phosphor-icons/react'
+import { Check, CaretDown, GearSix } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   countAnimalsByStatus,
@@ -252,11 +252,31 @@ export function DashboardScreen() {
     }
   }, [openMenu])
 
+  const allModulesActive = Boolean(
+    member?.hasModule('reports') &&
+    member?.hasModule('animals') &&
+    member?.hasModule('ledger') &&
+    member?.hasModule('checklist')
+  )
+
   return (
     <section className="screen">
       <PageHeader
         title="Overview"
         subtitle={greeting ?? 'Checklist and shelter numbers for your team.'}
+        actions={
+          allModulesActive ? (
+            <Button
+              to="/settings"
+              variant="secondary"
+              className="btn--icon mobile-only"
+              aria-label="Settings"
+              title="Settings"
+            >
+              <GearSix size={20} weight="duotone" aria-hidden />
+            </Button>
+          ) : undefined
+        }
       />
 
       <OverviewUploadsCard />

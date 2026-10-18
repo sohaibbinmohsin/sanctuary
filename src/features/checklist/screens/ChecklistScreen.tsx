@@ -149,6 +149,27 @@ export function ChecklistScreen() {
     }
   }
 
+  const [totalAnimalsCount, setTotalAnimalsCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!db || !member) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const row = await db.getOptional<{ count: number }>(
+          `SELECT COUNT(*) as count FROM animals WHERE org_id = ? AND archived = 0`,
+          [member.orgId],
+        )
+        if (!cancelled) setTotalAnimalsCount(Number(row?.count ?? 0))
+      } catch {
+        if (!cancelled) setTotalAnimalsCount(0)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [db, member])
+
   const showLoading = memberLoading || (loading && rows.length === 0)
   const subtitle =
     showLoading
@@ -156,6 +177,8 @@ export function ChecklistScreen() {
       : rows.length === 0
         ? 'Daily care checklist for your shelter'
         : `${rows.length} on today’s checklist`
+
+  const hasAnimals = totalAnimalsCount === null || totalAnimalsCount > 0
 
   return (
     <section
@@ -168,9 +191,15 @@ export function ChecklistScreen() {
         subtitle={subtitle}
         actions={
           rows.length > 0 ? (
-            <Button to="/animals/add-to-checklist" variant="accent">
-              Add to checklist
-            </Button>
+            hasAnimals ? (
+              <Button to="/animals/add-to-checklist" variant="accent">
+                Add to checklist
+              </Button>
+            ) : (
+              <Button type="button" variant="accent" disabled>
+                Add to checklist
+              </Button>
+            )
           ) : undefined
         }
       />
@@ -181,9 +210,14 @@ export function ChecklistScreen() {
         <EmptyState
           icon={<CheckSquare size={28} weight="duotone" />}
           title="Checklist is empty"
-          body="Choose animals to add to today’s checklist."
+          body={
+            hasAnimals
+              ? 'Choose animals to add to today’s checklist.'
+              : 'Add animals to your shelter first before creating a checklist.'
+          }
           actionLabel="Add to checklist"
-          actionTo="/animals/add-to-checklist"
+          actionTo={hasAnimals ? '/animals/add-to-checklist' : undefined}
+          actionDisabled={!hasAnimals}
         />
       ) : (
         <div className="panel" style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>

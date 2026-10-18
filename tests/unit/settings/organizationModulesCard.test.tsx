@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { OrganizationModulesCard } from '@/features/settings/components/OrganizationModulesCard'
 
 describe('OrganizationModulesCard', () => {
-  it('renders presets and individual module checkboxes', () => {
+  it('renders summary when closed and checkboxes when edit is clicked', () => {
     const onSave = vi.fn()
     render(
       <OrganizationModulesCard
@@ -13,30 +13,21 @@ describe('OrganizationModulesCard', () => {
       />,
     )
 
-    expect(screen.getByText('Organization Modules')).toBeInTheDocument()
+    expect(screen.getByText('Organization modules')).toBeInTheDocument()
+    // In summary view, shows enabled modules
+    expect(screen.getByText('Animal Records')).toBeInTheDocument()
+    expect(screen.getByText('Daily Checklist')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Rescue Reports/i)).not.toBeInTheDocument()
+
+    // Click Edit
+    const editBtn = screen.getByRole('button', { name: /Edit/i })
+    fireEvent.click(editBtn)
+
+    // Now checkboxes are shown
     expect(screen.getByLabelText(/Rescue Reports/i)).not.toBeChecked()
     expect(screen.getByLabelText(/Animal Records/i)).toBeChecked()
     expect(screen.getByLabelText(/Daily Checklist/i)).toBeChecked()
     expect(screen.getByLabelText(/Financial Ledger/i)).not.toBeChecked()
-  })
-
-  it('updates checkboxes when selecting a preset', () => {
-    const onSave = vi.fn()
-    render(
-      <OrganizationModulesCard
-        enabledModules={new Set(['animals'])}
-        canManage={true}
-        onSave={onSave}
-      />,
-    )
-
-    const presetSelect = screen.getByLabelText(/Account Preset/i)
-    fireEvent.change(presetSelect, { target: { value: 'full' } })
-
-    expect(screen.getByLabelText(/Rescue Reports/i)).toBeChecked()
-    expect(screen.getByLabelText(/Animal Records/i)).toBeChecked()
-    expect(screen.getByLabelText(/Daily Checklist/i)).toBeChecked()
-    expect(screen.getByLabelText(/Financial Ledger/i)).toBeChecked()
   })
 
   it('calls onSave with updated modules and shows confirmation', async () => {
@@ -48,6 +39,10 @@ describe('OrganizationModulesCard', () => {
         onSave={onSave}
       />,
     )
+
+    // Click Edit to enter edit mode
+    const editBtn = screen.getByRole('button', { name: /Edit/i })
+    fireEvent.click(editBtn)
 
     // Toggle Rescue Reports on
     const reportsCheckbox = screen.getByLabelText(/Rescue Reports/i)

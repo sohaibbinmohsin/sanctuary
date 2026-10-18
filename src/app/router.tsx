@@ -21,6 +21,7 @@ import { LedgerScreen } from '@/features/ledger/screens/LedgerScreen'
 import { LedgerEntryScreen } from '@/features/ledger/screens/LedgerEntryScreen'
 import { DashboardScreen } from '@/features/dashboard/screens/DashboardScreen'
 import { ReportsListScreen } from '@/features/reports/screens/ReportsListScreen'
+import { ReportIntakeScreen } from '@/features/reports/screens/ReportIntakeScreen'
 import { ReportDetailScreen } from '@/features/reports/screens/ReportDetailScreen'
 import { ChecklistScreen } from '@/features/checklist/screens/ChecklistScreen'
 import { SettingsScreen } from '@/features/settings/screens/SettingsScreen'
@@ -145,7 +146,9 @@ export function AppShell() {
 
   const bottomNav: readonly NavItemDef[] = [
     ...enabledModuleNav,
-    ...BASE_BOTTOM_NAV,
+    ...(enabledModuleNav.length >= 4
+      ? BASE_BOTTOM_NAV.filter((item) => item.to !== '/settings')
+      : BASE_BOTTOM_NAV),
   ]
 
   const primaryPaths = new Set<string>(bottomNav.map((item) => item.to))
@@ -329,6 +332,16 @@ export function AppShell() {
               element={
                 hasModule('reports') ? (
                   <ReportsListScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+            <Route
+              path="/reports/new"
+              element={
+                hasModule('reports') ? (
+                  <ReportIntakeScreen />
                 ) : (
                   <Navigate to={fallbackRoute} replace />
                 )

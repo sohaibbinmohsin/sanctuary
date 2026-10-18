@@ -5352,7 +5352,8 @@ a.primary {
     padding-bottom: var(--space-10);
   }
 
-  .sticky-actions {
+  .sticky-actions,
+  .app-shell--no-bottom-nav .sticky-actions {
     position: static;
     left: auto;
     right: auto;
@@ -5364,6 +5365,15 @@ a.primary {
     background: none;
     box-shadow: none;
     backdrop-filter: none;
+  }
+
+  .screen--sticky-footer,
+  .app-shell--no-bottom-nav .screen--sticky-footer {
+    padding-bottom: 0;
+  }
+
+  .mobile-only {
+    display: none !important;
   }
 
   .sticky-actions--split {

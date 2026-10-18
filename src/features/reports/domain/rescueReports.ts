@@ -1,5 +1,7 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
-import type { RescueReportRecord } from '@/features/sync/powersync/schema'
+import type { RescueReportRecord, ReportPhotoRecord } from '@/features/sync/powersync/schema'
+import { compressImage } from '@/shared/lib/r2/upload'
+import { storeLocalPhoto } from '@/features/photos/domain/photos'
 
 export type RescueReportStage =
   | 'logged'
@@ -16,6 +18,7 @@ export type RescueReportDisposition =
 export type RescueReportFilter = 'all' | 'new' | 'in_progress' | 'completed'
 
 export type RescueReport = RescueReportRecord
+export type ReportPhoto = ReportPhotoRecord
 
 export type CreateRescueReportInput = {
   orgId: string
@@ -196,6 +199,53 @@ export async function getRescueReportById(
 ): Promise<RescueReport | null> {
   return db.getOptional<RescueReport>(
     `SELECT * FROM rescue_reports WHERE id = ?`,
+    [reportId],
+  )
+}
+
+/**
+ * Attaches a proof/evidence photo to a rescue report and stores compressed blob locally.
+ */
+export async function addReportPhoto(
+  db: SanctuaryDb,
+  input: {
+    orgId: string
+    reportId: string
+    blob: Blob
+  },
+): Promise<ReportPhoto> {
+  const compressed = await compressImage(input.blob)
+  const id = crypto.randomUUID()
+  const now = new Date().toISOString()
+  await storeLocalPhoto(id, compressed)
+  await db.execute(
+    `INSERT INTO report_photos (id, org_id, report_id, r2_key, local_only, upload_state, created_at)
+     VALUES (?, ?, ?, NULL, 1, 'pending', ?)`,
+    [id, input.orgId, input.reportId, now],
+  )
+  return {
+    id,
+    org_id: input.orgId,
+    report_id: input.reportId,
+    r2_key: null,
+    local_only: 1,
+    upload_state: 'pending',
+    created_at: now,
+  }
+}
+
+/**
+ * Lists all photos attached to a rescue report.
+ */
+export async function getPhotosForReport(
+  db: SanctuaryDb,
+  reportId: string,
+): Promise<ReportPhoto[]> {
+  if (!db || typeof db.getAll !== 'function') {
+    return []
+  }
+  return db.getAll<ReportPhoto>(
+    `SELECT * FROM report_photos WHERE report_id = ? ORDER BY created_at ASC`,
     [reportId],
   )
 }

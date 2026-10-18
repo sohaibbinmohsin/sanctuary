@@ -1,11 +1,56 @@
-import type { RescueReport } from '@/features/reports/domain/rescueReports'
+import { useEffect, useState } from 'react'
 import { Camera, FirstAid, MapPin, Phone, LockKey } from '@phosphor-icons/react'
+import { useDb } from '@/shared/hooks/useDb'
+import {
+  type RescueReport,
+  type ReportPhoto,
+  getPhotosForReport,
+} from '@/features/reports/domain/rescueReports'
+import { getLocalPhoto } from '@/features/photos/domain/photos'
+import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 
 export type ReportFactsGridProps = {
   report: RescueReport
 }
 
 export function ReportFactsGrid({ report }: ReportFactsGridProps) {
+  const db = useDb()
+  const [photos, setPhotos] = useState<ReportPhoto[]>([])
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (!db || !report.id) return
+    let active = true
+
+    getPhotosForReport(db, report.id)
+      .then(async (items) => {
+        if (!active) return
+        setPhotos(items)
+        const urls: Record<string, string> = {}
+        for (const p of items) {
+          const blob = await getLocalPhoto(p.id)
+          if (blob) {
+            urls[p.id] = URL.createObjectURL(blob)
+          } else if (p.r2_key) {
+            const pubUrl = publicPhotoUrl(p.r2_key)
+            if (pubUrl) {
+              urls[p.id] = pubUrl
+            }
+          }
+        }
+        if (active) {
+          setPhotoUrls(urls)
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load report photos', err)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [db, report.id])
+
   const speciesFormatted = report.species
     ? report.species.charAt(0).toUpperCase() + report.species.slice(1).toLowerCase()
     : 'Unknown'
@@ -19,12 +64,55 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
             <Camera weight="bold" size={18} aria-hidden />
             <span>Photos &amp; Proof</span>
           </div>
-          <span className="proof-count-pill">No photos</span>
+          <span className="proof-count-pill">
+            {photos.length === 0
+              ? 'No photos'
+              : `${photos.length} photo${photos.length === 1 ? '' : 's'}`}
+          </span>
         </div>
         <div className="detail-evidence-gallery">
-          <div className="evidence-placeholder-box">
-            <span className="evidence-placeholder-text">No proof photos attached to report</span>
-          </div>
+          {photos.length === 0 ? (
+            <div className="evidence-placeholder-box">
+              <span className="evidence-placeholder-text">No proof photos attached to report</span>
+            </div>
+          ) : (
+            <div
+              className="evidence-thumbnails-grid"
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.625rem',
+                marginTop: '0.5rem',
+              }}
+            >
+              {photos.map((p) => {
+                const url = photoUrls[p.id]
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      width: '5.5rem',
+                      height: '5.5rem',
+                      borderRadius: 'var(--radius-md)',
+                      overflow: 'hidden',
+                      border: '1px solid var(--color-border)',
+                      backgroundColor: 'var(--color-sand)',
+                    }}
+                  >
+                    {url ? (
+                      <img
+                        src={url}
+                        alt="Proof thumbnail"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div className="skeleton" style={{ width: '100%', height: '100%' }} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 

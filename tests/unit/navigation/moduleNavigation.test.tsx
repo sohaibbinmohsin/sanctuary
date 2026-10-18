@@ -83,4 +83,40 @@ describe('AppShell Module Navigation', () => {
     expect(screen.queryByText('Ledger')).toBeNull()
     expect(screen.getByRole('heading', { level: 1, name: 'Reports' })).toBeInTheDocument()
   })
+
+  it('omits Settings from mobile bottomNav when all 4 modules are active so nav has 5 buttons', () => {
+    vi.spyOn(useCurrentMemberModule, 'useCurrentMember').mockReturnValue({
+      loading: false,
+      member: {
+        id: 'mem-1',
+        orgId: 'org-1',
+        userId: 'user-1',
+        role: 'admin',
+        orgName: 'Full Org',
+        orgInitials: 'FO',
+        orgLogoR2Key: null,
+        publicEnabled: false,
+        publicSlug: null,
+        setupCompleted: true,
+        currency: 'PKR',
+        enabledModules: new Set(['reports', 'animals', 'ledger', 'checklist']),
+        hasModule: () => true,
+      },
+    })
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+
+    // The bottom nav (.app-nav) should have exactly 5 links: Reports, Animals, Ledger, Checklist, Overview
+    const bottomNav = container.querySelector('.app-nav')
+    expect(bottomNav).not.toBeNull()
+    const bottomNavLinks = bottomNav!.querySelectorAll('a')
+    expect(bottomNavLinks.length).toBe(5)
+
+    const labels = Array.from(bottomNavLinks).map((a) => a.textContent?.trim())
+    expect(labels).toEqual(['Reports', 'Animals', 'Ledger', 'Checklist', 'Overview'])
+  })
 })

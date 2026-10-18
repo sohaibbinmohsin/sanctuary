@@ -12,7 +12,7 @@ vi.mock('@/shared/hooks/useCurrentMember', () => ({
 }))
 
 describe('ReportsListScreen', () => {
-  it('renders timeline grouped reports and header button', async () => {
+  it('renders timeline grouped reports, search bar, and header link', async () => {
     vi.spyOn(domainModule, 'getRescueReports').mockResolvedValue([
       {
         id: 'rep-1',
@@ -39,7 +39,61 @@ describe('ReportsListScreen', () => {
     expect(await screen.findByText('PARC-R105')).toBeInTheDocument()
     expect(screen.getByText('DOG')).toBeInTheDocument()
     expect(screen.getByText(/Hit by rickshaw/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /\+ Log report/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Log report/i })).toHaveAttribute('href', '/reports/new')
+    expect(screen.getByPlaceholderText(/Search by ID, species, complaint, or location/i)).toBeInTheDocument()
+  })
+
+  it('filters reports live via the search input', async () => {
+    vi.spyOn(domainModule, 'getRescueReports').mockResolvedValue([
+      {
+        id: 'rep-1',
+        org_id: 'org-1',
+        report_number: 'PARC-R105',
+        species: 'dog',
+        chief_complaint: 'Hit by rickshaw',
+        location_area: 'Burns Road',
+        created_at: new Date().toISOString(),
+      } as any,
+      {
+        id: 'rep-2',
+        org_id: 'org-1',
+        report_number: 'PARC-R106',
+        species: 'cat',
+        chief_complaint: 'Injured eye',
+        location_area: 'Clifton',
+        created_at: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(
+      <MemoryRouter>
+        <ReportsListScreen />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R105')).toBeInTheDocument()
+    expect(screen.getByText('PARC-R106')).toBeInTheDocument()
+
+    // Type 'Clifton' into search
+    const searchInput = screen.getByPlaceholderText(/Search by ID, species, complaint, or location/i)
+    fireEvent.change(searchInput, { target: { value: 'Clifton' } })
+
+    expect(screen.queryByText('PARC-R105')).not.toBeInTheDocument()
+    expect(screen.getByText('PARC-R106')).toBeInTheDocument()
+  })
+
+  it('renders standard EmptyState when no reports exist', async () => {
+    vi.spyOn(domainModule, 'getRescueReports').mockResolvedValue([])
+
+    render(
+      <MemoryRouter>
+        <ReportsListScreen />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('No reports yet')).toBeInTheDocument()
+    const emptyAction = screen.getByRole('link', { name: /Log report/i })
+    expect(emptyAction).toHaveAttribute('href', '/reports/new')
   })
 
   it('filters reports when filter chips are clicked', async () => {
@@ -56,69 +110,6 @@ describe('ReportsListScreen', () => {
 
     await waitFor(() => {
       expect(getRescueReportsSpy).toHaveBeenCalledWith(expect.anything(), 'org-1', 'in_progress')
-    })
-  })
-
-  it('opens LogReportModal and logs new report', async () => {
-    vi.spyOn(domainModule, 'getRescueReports').mockResolvedValue([])
-    vi.spyOn(domainModule, 'generateReportNumber').mockResolvedValue('PARC-R106')
-    const createReportSpy = vi.spyOn(domainModule, 'createRescueReport').mockResolvedValue({
-      id: 'rep-2',
-      org_id: 'org-1',
-      report_number: 'PARC-R106',
-      species: 'cat',
-      chief_complaint: 'Stuck in engine',
-      location_area: 'Clifton',
-      status: 'logged',
-      created_at: new Date().toISOString(),
-    } as any)
-
-    render(
-      <MemoryRouter>
-        <ReportsListScreen />
-      </MemoryRouter>,
-    )
-
-    // Open modal
-    fireEvent.click(screen.getByRole('button', { name: /\+ Log report/i }))
-
-    expect(await screen.findByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /Log incoming rescue report/i })).toBeInTheDocument()
-
-    // Select Cat species
-    fireEvent.click(screen.getByRole('button', { name: 'Cat' }))
-
-    // Fill form
-    fireEvent.change(screen.getByLabelText(/Chief complaint \/ Injury/i), {
-      target: { value: 'Stuck in engine' },
-    })
-    fireEvent.change(screen.getByLabelText(/Location area/i), {
-      target: { value: 'Clifton Block 4' },
-    })
-    fireEvent.change(screen.getByLabelText(/Landmark/i), {
-      target: { value: 'Near Boat Basin' },
-    })
-    fireEvent.change(screen.getByLabelText(/Reporter name/i), {
-      target: { value: 'Ahmed' },
-    })
-    fireEvent.change(screen.getByLabelText(/Reporter phone/i), {
-      target: { value: '0321-9876543' },
-    })
-
-    // Submit
-    fireEvent.click(screen.getByRole('button', { name: /Log rescue report/i }))
-
-    await waitFor(() => {
-      expect(createReportSpy).toHaveBeenCalledWith(expect.anything(), {
-        orgId: 'org-1',
-        reportNumber: 'PARC-R106',
-        species: 'cat',
-        chiefComplaint: 'Stuck in engine',
-        locationArea: 'Clifton Block 4',
-        locationLandmark: 'Near Boat Basin',
-        reporterName: 'Ahmed',
-        reporterPhone: '0321-9876543',
-      })
     })
   })
 })
