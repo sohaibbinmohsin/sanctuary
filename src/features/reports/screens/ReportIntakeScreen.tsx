@@ -112,30 +112,19 @@ export function ReportIntakeScreen() {
         subtitle="Record incoming emergency and dispatch rescue team."
       />
 
-      <form onSubmit={handleSubmit} className="stack" style={{ gap: '1.25rem' }}>
+      <form className="stack stack--loose" onSubmit={handleSubmit}>
         {/* 1. Animal Category & Species */}
-        <div className="card" style={{ padding: '1.25rem' }}>
-          <p
-            className="muted"
-            style={{
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              margin: '0 0 0.75rem',
-            }}
-          >
-            Animal &amp; Condition
-          </p>
+        <div className="panel stack">
+          <p className="section-label">Animal &amp; Condition</p>
 
           <div className="field">
-            <label className="field__label">Species</label>
+            <span>Species</span>
             <div className="filter-chips" role="group" aria-label="Animal species">
               {SPECIES_PRESETS.map((item) => (
                 <button
                   type="button"
                   key={item}
-                  className={`chip${speciesPreset === item ? ' chip--active' : ''}`}
+                  className="chip"
                   aria-pressed={speciesPreset === item}
                   onClick={() => setSpeciesPreset(item)}
                 >
@@ -146,49 +135,34 @@ export function ReportIntakeScreen() {
           </div>
 
           {speciesPreset === 'Other' ? (
-            <div style={{ marginTop: '0.75rem' }}>
-              <TextField
-                label="Custom species"
-                placeholder="e.g. Goat, Falcon, Rabbit"
-                value={speciesOther}
-                onChange={(e) => setSpeciesOther(e.target.value)}
-                required
-              />
-            </div>
-          ) : null}
-
-          <div style={{ marginTop: '1rem' }}>
-            <TextareaField
-              label="Chief complaint / Injury"
-              placeholder="e.g. Hit by rickshaw • Fractured rear leg & bleeding"
-              rows={3}
-              value={chiefComplaint}
-              onChange={(e) => {
-                setChiefComplaint(e.target.value)
-                if (error) setError(null)
-              }}
+            <TextField
+              label="Custom species"
+              placeholder="e.g. Goat, Falcon, Rabbit"
+              value={speciesOther}
+              onChange={(e) => setSpeciesOther(e.target.value)}
               required
             />
-          </div>
+          ) : null}
+
+          <TextareaField
+            label="Chief complaint / Injury"
+            placeholder="e.g. Hit by rickshaw • Fractured rear leg & bleeding"
+            rows={3}
+            value={chiefComplaint}
+            onChange={(e) => {
+              setChiefComplaint(e.target.value)
+              if (error) setError(null)
+            }}
+            required
+          />
         </div>
 
         {/* 2. Photos & Proof (Optional) */}
-        <div className="card" style={{ padding: '1.25rem' }}>
-          <p
-            className="muted"
-            style={{
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              margin: '0 0 0.5rem',
-            }}
-          >
-            Photos &amp; Proof
-          </p>
-          <p className="muted" style={{ fontSize: '0.875rem', margin: '0 0 0.75rem' }}>
-            Optional — take or choose photos from caller or rescue scene
-          </p>
+        <div className="panel stack">
+          <div className="stack stack--tight">
+            <p className="section-label">Photos &amp; Proof</p>
+            <span className="field__hint">Optional — take or choose photos from caller or rescue scene</span>
+          </div>
 
           <IntakePhotoPicker
             photos={stagedPhotos}
@@ -199,19 +173,8 @@ export function ReportIntakeScreen() {
         </div>
 
         {/* 3. Location & Landmark */}
-        <div className="card" style={{ padding: '1.25rem' }}>
-          <p
-            className="muted"
-            style={{
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              margin: '0 0 0.75rem',
-            }}
-          >
-            Location Details
-          </p>
+        <div className="panel stack">
+          <p className="section-label">Location Details</p>
 
           <TextField
             label="Location area"
@@ -224,34 +187,21 @@ export function ReportIntakeScreen() {
             required
           />
 
-          <div style={{ marginTop: '0.75rem' }}>
-            <TextField
-              label="Landmark"
-              hint="optional"
-              placeholder="e.g. Opposite Fresco Sweets Main Corner"
-              value={locationLandmark}
-              onChange={(e) => setLocationLandmark(e.target.value)}
-            />
-          </div>
+          <TextField
+            label="Landmark"
+            hint="optional"
+            placeholder="e.g. Opposite Fresco Sweets Main Corner"
+            value={locationLandmark}
+            onChange={(e) => setLocationLandmark(e.target.value)}
+          />
         </div>
 
         {/* 4. Reporter Details (Confidential / Internal) */}
-        <div className="card" style={{ padding: '1.25rem' }}>
-          <p
-            className="muted"
-            style={{
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              margin: '0 0 0.25rem',
-            }}
-          >
-            Citizen Reporter Info
-          </p>
-          <p className="muted" style={{ fontSize: '0.85rem', margin: '0 0 0.75rem' }}>
-            Confidential &amp; internal to your shelter operations
-          </p>
+        <div className="panel stack">
+          <div className="stack stack--tight">
+            <p className="section-label">Citizen Reporter Info</p>
+            <span className="field__hint">Confidential &amp; internal to your shelter operations</span>
+          </div>
 
           <TextField
             label="Reporter name"
@@ -261,16 +211,14 @@ export function ReportIntakeScreen() {
             onChange={(e) => setReporterName(e.target.value)}
           />
 
-          <div style={{ marginTop: '0.75rem' }}>
-            <TextField
-              label="Reporter phone"
-              hint="optional"
-              type="tel"
-              placeholder="e.g. 0300-1234567"
-              value={reporterPhone}
-              onChange={(e) => setReporterPhone(e.target.value)}
-            />
-          </div>
+          <TextField
+            label="Reporter phone"
+            hint="optional"
+            type="tel"
+            placeholder="e.g. 0300-1234567"
+            value={reporterPhone}
+            onChange={(e) => setReporterPhone(e.target.value)}
+          />
         </div>
 
         {error ? <p className="form-error">{error}</p> : null}
