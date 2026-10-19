@@ -127,7 +127,13 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
         <div className="facts-kv-list">
           <div className="fact-row">
             <span className="fact-label">Category</span>
-            <span className="fact-value badge-kv emergency">Medical emergency</span>
+            <span className={`fact-value badge-kv ${report.category === 'cruelty' ? 'cruelty' : 'emergency'}`}>
+              {report.category === 'cruelty'
+                ? 'Animal cruelty'
+                : report.category === 'welfare'
+                  ? 'Welfare check'
+                  : 'Medical emergency'}
+            </span>
           </div>
           <div className="fact-row">
             <span className="fact-label">Species</span>

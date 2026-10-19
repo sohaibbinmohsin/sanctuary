@@ -73,9 +73,13 @@ export function ReportPipelineTracker({ report }: ReportPipelineTrackerProps) {
           : currentStatus === 'accepted'
             ? 'Awaiting dispatch'
             : currentStatus === 'dispatched'
-              ? `En Route (${formatPipelineTime(report.stage_dispatched_at)})`
+              ? report.transport_type === 'reporter'
+                ? `Reporter Transporting (${formatPipelineTime(report.stage_dispatched_at)})`
+                : `En Route (${formatPipelineTime(report.stage_dispatched_at)})`
               : report.stage_dispatched_at
-                ? formatPipelineTime(report.stage_dispatched_at)
+                ? report.transport_type === 'reporter'
+                  ? `Reporter Transported (${formatPipelineTime(report.stage_dispatched_at)})`
+                  : formatPipelineTime(report.stage_dispatched_at)
                 : '—',
     },
     {

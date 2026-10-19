@@ -62,20 +62,68 @@
   }
 }
 
+.reports-status-filter {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: var(--space-2);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.reports-status-filter::-webkit-scrollbar {
+  display: none;
+}
+
+.reports-status-filter .chip {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .timeline-reports-feed {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 0 var(--space-6) 60px;
-  max-width: 960px;
-  margin: 0 auto;
+  padding: 0 0 60px;
   width: 100%;
   box-sizing: border-box;
 }
 
 @media (max-width: 640px) {
   .timeline-reports-feed {
-    padding: 0 var(--space-4) 84px;
+    padding: 0 0 84px;
+  }
+
+  .timeline-item-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .timeline-item-time {
+    width: 100% !important;
+    flex-direction: row !important;
+    align-items: baseline !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    text-align: left !important;
+    padding: 0 2px;
+  }
+
+  .report-card-clickable {
+    width: 100%;
+    padding: 12px 14px;
+    gap: 12px;
+  }
+
+  .detail-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: var(--space-2) 0 !important;
   }
 }
 
@@ -83,6 +131,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
 }
 
 .timeline-date-header {
@@ -95,6 +144,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-ink-muted);
+  width: 100%;
 }
 
 .timeline-date-header::after {
@@ -108,6 +158,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
 }
 
 .timeline-item-row {
@@ -401,6 +452,8 @@
 }
 
 .split-btn-group .btn-main {
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
   box-shadow: none;
@@ -410,6 +463,8 @@
 .split-btn-group .btn-toggle {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
   border-left: 1px solid rgba(255, 255, 255, 0.3);
   padding: 10px 12px;
   background: rgb(222, 107, 43);
@@ -808,6 +863,28 @@
   font-weight: 700;
   color: rgb(222, 107, 43);
   background: rgba(222, 107, 43, 0.1);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.fact-value.badge-kv.cruelty {
+  display: inline-block;
+  width: fit-content;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.fact-value.badge-kv.welfare {
+  display: inline-block;
+  width: fit-content;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-forest);
+  background: var(--color-forest-soft);
   padding: 3px 8px;
   border-radius: var(--radius-sm);
 }

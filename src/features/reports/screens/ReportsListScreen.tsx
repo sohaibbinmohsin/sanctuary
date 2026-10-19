@@ -171,7 +171,7 @@ export function ReportsListScreen() {
         </div>
       </div>
 
-      <div className="filter-chips" role="group" aria-label="Report status filter" style={{ marginBottom: '1.25rem' }}>
+      <div className="filter-chips reports-status-filter" role="group" aria-label="Report status filter" style={{ marginBottom: '1.25rem' }}>
         {FILTER_CONFIG.map(({ key, label }) => (
           <button
             key={key}

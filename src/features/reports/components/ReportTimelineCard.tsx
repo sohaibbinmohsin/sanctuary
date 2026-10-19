@@ -38,7 +38,11 @@ function formatCardTime(isoString?: string | null): { timeStr: string; relStr: s
   return { timeStr, relStr }
 }
 
-function getStatusBadgeInfo(status?: string | null, dispositionType?: string | null): { label: string; className: string } {
+function getStatusBadgeInfo(
+  status?: string | null,
+  dispositionType?: string | null,
+  transportType?: string | null,
+): { label: string; className: string } {
   if (!status || status === 'logged') {
     return { label: 'New Report', className: 'status-badge-clean new' }
   }
@@ -46,7 +50,10 @@ function getStatusBadgeInfo(status?: string | null, dispositionType?: string | n
     return { label: 'Accepted', className: 'status-badge-clean accepted' }
   }
   if (status === 'dispatched') {
-    return { label: 'Dispatched', className: 'status-badge-clean active' }
+    return {
+      label: transportType === 'reporter' ? 'Dispatched (Reporter)' : 'Dispatched',
+      className: 'status-badge-clean active',
+    }
   }
   if (status === 'attended') {
     if (dispositionType === 'transferred_partner') {
@@ -69,7 +76,7 @@ function getStatusBadgeInfo(status?: string | null, dispositionType?: string | n
 export function ReportTimelineCard({ report }: ReportTimelineCardProps) {
   const navigate = useNavigate()
   const { timeStr, relStr } = formatCardTime(report.created_at)
-  const statusInfo = getStatusBadgeInfo(report.status, report.disposition_type)
+  const statusInfo = getStatusBadgeInfo(report.status, report.disposition_type, report.transport_type)
   const speciesDisplay = report.species ? report.species.toUpperCase() : 'OTHER'
 
   return (

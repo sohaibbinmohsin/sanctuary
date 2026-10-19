@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import {
   CaretLeft,
   CaretDown,
@@ -8,30 +8,37 @@ import {
   FirstAid,
   XCircle,
   HouseSimple,
+  User,
+  ArrowCounterClockwise,
 } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
+import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { Button } from '@/shared/ui/Button'
 import { ResponsiveSheetModal } from '@/shared/ui/ResponsiveSheetModal'
 import {
   getRescueReportById,
   updateReportStage,
   completeReportWithDisposition,
+  getPhotosForReport,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
+import { createAnimal } from '@/features/animals/domain/animals'
+import { listStatuses } from '@/features/statuses/domain/statuses'
 import { ReportPipelineTracker } from '@/features/reports/components/ReportPipelineTracker'
 import { ReportFactsGrid } from '@/features/reports/components/ReportFactsGrid'
 import '@/features/reports/reports.css'
 
 export function ReportDetailScreen() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const db = useDb()
+  const { member } = useCurrentMember()
 
   const [report, setReport] = useState<RescueReport | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isDispositionModalOpen, setIsDispositionModalOpen] = useState(false)
+  const [isChangeDecisionOpen, setIsChangeDecisionOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -70,12 +77,19 @@ export function ReportDetailScreen() {
     }
   }, [isDropdownOpen])
 
-  async function handleStageTransition(stage: 'accepted' | 'dispatched' | 'attended' | 'cancelled') {
+  async function handleStageTransition(
+    stage: 'accepted' | 'dispatched' | 'attended' | 'cancelled',
+    transportType?: 'ambulance' | 'reporter',
+  ) {
     if (!db || !report) return
     setActionLoading(true)
     setIsDropdownOpen(false)
     try {
-      await updateReportStage(db, report.id, stage)
+      if (transportType !== undefined) {
+        await updateReportStage(db, report.id, stage, transportType)
+      } else {
+        await updateReportStage(db, report.id, stage)
+      }
       await loadReport()
     } catch (err) {
       console.error(`Failed to update stage to ${stage}`, err)
@@ -84,23 +98,129 @@ export function ReportDetailScreen() {
     }
   }
 
+  async function createAnimalFromReport(
+    disposition: 'spot_released' | 'admitted_shelter',
+  ): Promise<string> {
+    if (!db || !report) throw new Error('Database or report not available')
+
+    const orgId = report.org_id || member?.orgId
+    if (!orgId) throw new Error('Organization ID is missing')
+
+    const prefix = member?.orgInitials || report.report_number?.split('-')[0] || 'MS'
+    let targetStatusId: string | null = null
+
+    try {
+      const statuses = await listStatuses(db, orgId)
+      if (disposition === 'spot_released') {
+        const released = statuses.find((s) => s.label.toLowerCase() === 'released')
+        targetStatusId = released?.id ?? statuses[0]?.id ?? null
+      } else {
+        const inCare = statuses.find(
+          (s) => s.label.toLowerCase() === 'intake' || s.counts_as_in_care === 1,
+        )
+        targetStatusId = inCare?.id ?? statuses[0]?.id ?? null
+      }
+    } catch (err) {
+      console.warn('Could not load statuses for report animal intake', err)
+    }
+
+    const notesText = [
+      `Rescue report: ${report.report_number || ''}`,
+      report.chief_complaint ? `Complaint: ${report.chief_complaint}` : null,
+      report.reporter_name
+        ? `Reporter: ${report.reporter_name}${report.reporter_phone ? ` (${report.reporter_phone})` : ''}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    const markingsText = report.location_landmark
+      ? `${report.location_area || ''} (near ${report.location_landmark})`.trim()
+      : report.location_area || undefined
+
+    const animal = await createAnimal(db, {
+      orgId,
+      prefix,
+      species: report.species || 'other',
+      statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
+      notes: notesText,
+      markings: markingsText,
+      intakeDate: new Date().toISOString().slice(0, 10),
+    })
+
+    // Transfer report photos to animal photos table
+    try {
+      const reportPhotos = await getPhotosForReport(db, report.id)
+      const now = new Date().toISOString()
+      for (const p of reportPhotos) {
+        await db.execute(
+          `INSERT INTO photos (id, org_id, animal_id, r2_key, local_only, upload_state, capture_source, verified, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+          [
+            crypto.randomUUID(),
+            orgId,
+            animal.id,
+            p.r2_key,
+            p.local_only,
+            p.upload_state,
+            'upload',
+            p.created_at || now,
+          ],
+        )
+      }
+    } catch (photoErr) {
+      console.warn('Could not copy report photos to animal', photoErr)
+    }
+
+    return animal.id
+  }
+
   async function handleDisposition(disposition: 'spot_released' | 'admitted_shelter') {
     if (!db || !report) return
     setActionLoading(true)
     setIsDispositionModalOpen(false)
     try {
-      if (disposition === 'admitted_shelter') {
-        const dummyAnimalId = crypto.randomUUID()
-        await completeReportWithDisposition(db, report.id, 'admitted_shelter', dummyAnimalId)
-      } else {
-        await completeReportWithDisposition(db, report.id, 'spot_released', undefined)
+      let animalId = report.animal_id
+      if (!animalId) {
+        try {
+          animalId = await createAnimalFromReport(disposition)
+        } catch (animalErr) {
+          console.error('Failed to automatically create animal record', animalErr)
+        }
       }
+      await completeReportWithDisposition(db, report.id, disposition, animalId || undefined)
       await loadReport()
     } catch (err) {
       console.error(`Failed to complete disposition ${disposition}`, err)
     } finally {
       setActionLoading(false)
     }
+  }
+
+  async function handleChangeDecisionStage(
+    stage: 'logged' | 'accepted' | 'dispatched' | 'cancelled',
+    transportType?: 'ambulance' | 'reporter',
+  ) {
+    if (!db || !report) return
+    setActionLoading(true)
+    setIsChangeDecisionOpen(false)
+    try {
+      if (transportType !== undefined) {
+        await updateReportStage(db, report.id, stage, transportType)
+      } else {
+        await updateReportStage(db, report.id, stage)
+      }
+      await loadReport()
+    } catch (err) {
+      console.error(`Failed to change decision stage to ${stage}`, err)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleChangeDecisionDisposition(disposition: 'spot_released' | 'admitted_shelter') {
+    setIsChangeDecisionOpen(false)
+    await handleDisposition(disposition)
   }
 
   if (loading) {
@@ -141,7 +261,10 @@ export function ReportDetailScreen() {
     statusBadgeLabel = 'Accepted'
     statusBadgeClass = 'status-badge-clean accepted'
   } else if (status === 'dispatched') {
-    statusBadgeLabel = 'Dispatched'
+    statusBadgeLabel =
+      report.transport_type === 'reporter'
+        ? 'Dispatched (Reporter Transport)'
+        : 'Dispatched (Ambulance)'
     statusBadgeClass = 'status-badge-clean active'
   } else if (status === 'attended') {
     if (disp === 'spot_released') {
@@ -207,38 +330,75 @@ export function ReportDetailScreen() {
             )}
 
             {status === 'accepted' && (
-              <div className="split-btn-group">
+              <div
+                className="accepted-actions-group"
+                style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}
+              >
+                <div className="split-btn-group">
+                  <button
+                    type="button"
+                    className="btn-brand-amber btn-main pressable"
+                    onClick={() => handleStageTransition('dispatched', 'ambulance')}
+                    disabled={actionLoading}
+                  >
+                    <Truck size={16} weight="bold" aria-hidden />
+                    <span>Dispatch Ambulance</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-toggle pressable"
+                    onClick={() => setIsDropdownOpen((prev) => !prev)}
+                    title="More stage actions"
+                    aria-label="More stage actions"
+                    aria-expanded={isDropdownOpen}
+                  >
+                    <CaretDown size={14} weight="bold" aria-hidden />
+                  </button>
+                  {isDropdownOpen && (
+                    <div className="dropdown-menu is-open">
+                      <button
+                        type="button"
+                        className="dropdown-item"
+                        onClick={() => handleStageTransition('dispatched', 'reporter')}
+                      >
+                        <User size={15} weight="bold" aria-hidden />
+                        <span>Reporter Arranging Transport</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="dropdown-item danger"
+                        onClick={() => handleStageTransition('cancelled')}
+                      >
+                        <XCircle size={15} weight="bold" aria-hidden />
+                        <span>Decline / Cancel Report</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   type="button"
-                  className="btn-brand-amber btn-main pressable"
-                  onClick={() => handleStageTransition('dispatched')}
+                  className="btn-brand-outline pressable"
+                  onClick={() => handleStageTransition('dispatched', 'reporter')}
                   disabled={actionLoading}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid rgb(222, 107, 43)',
+                    color: 'rgb(222, 107, 43)',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    minHeight: 'var(--touch-min)',
+                  }}
                 >
-                  <Truck size={16} weight="bold" aria-hidden />
-                  <span>Dispatch Ambulance</span>
+                  <User size={16} weight="bold" aria-hidden />
+                  <span>Reporter Arranging Transport</span>
                 </button>
-                <button
-                  type="button"
-                  className="btn-toggle pressable"
-                  onClick={() => setIsDropdownOpen((prev) => !prev)}
-                  title="More stage actions"
-                  aria-label="More stage actions"
-                  aria-expanded={isDropdownOpen}
-                >
-                  <CaretDown size={14} weight="bold" aria-hidden />
-                </button>
-                {isDropdownOpen && (
-                  <div className="dropdown-menu is-open">
-                    <button
-                      type="button"
-                      className="dropdown-item danger"
-                      onClick={() => handleStageTransition('cancelled')}
-                    >
-                      <XCircle size={15} weight="bold" aria-hidden />
-                      <span>Decline / Cancel Report</span>
-                    </button>
-                  </div>
-                )}
               </div>
             )}
 
@@ -293,13 +453,14 @@ export function ReportDetailScreen() {
               <div className="completed-actions-row">
                 <Button
                   variant="secondary"
-                  onClick={() => navigate('/reports')}
+                  onClick={() => setIsChangeDecisionOpen(true)}
                 >
-                  Back to Reports
+                  <ArrowCounterClockwise size={16} weight="bold" aria-hidden />
+                  <span>Change decision</span>
                 </Button>
-                {disp === 'admitted_shelter' && (
+                {report.animal_id && (
                   <Link
-                    to={report.animal_id ? `/animals/${report.animal_id}` : '/animals/new'}
+                    to={`/animals/${report.animal_id}`}
                     className="btn-brand-amber pressable"
                     style={{ textDecoration: 'none' }}
                   >
@@ -312,9 +473,10 @@ export function ReportDetailScreen() {
             {status === 'cancelled' && (
               <Button
                 variant="secondary"
-                onClick={() => navigate('/reports')}
+                onClick={() => setIsChangeDecisionOpen(true)}
               >
-                Back to Reports
+                <ArrowCounterClockwise size={16} weight="bold" aria-hidden />
+                <span>Change decision</span>
               </Button>
             )}
           </div>
@@ -403,6 +565,101 @@ export function ReportDetailScreen() {
               onClick={() => setIsDispositionModalOpen(false)}
             >
               Cancel
+            </Button>
+          </div>
+        </div>
+      </ResponsiveSheetModal>
+
+      {/* Change Decision Modal */}
+      <ResponsiveSheetModal
+        isOpen={isChangeDecisionOpen}
+        onClose={() => setIsChangeDecisionOpen(false)}
+        title="Change Decision"
+      >
+        <div className="stack stack--loose">
+          <p className="field__hint" style={{ marginTop: '-4px', marginBottom: '8px' }}>
+            Update pipeline status for {report.report_number}
+          </p>
+          <div className="field">
+            <span>Select new stage or decision:</span>
+            <div className="stack stack--tight" style={{ marginTop: '8px' }}>
+              <button
+                type="button"
+                className="btn btn--secondary btn--block"
+                style={{ justifyContent: 'flex-start', padding: '12px 16px', textAlign: 'left' }}
+                onClick={() => handleChangeDecisionStage('logged')}
+              >
+                <strong>Reopen as Logged</strong> &nbsp;—&nbsp; Awaiting triage decision
+              </button>
+
+              <button
+                type="button"
+                className="btn btn--secondary btn--block"
+                style={{ justifyContent: 'flex-start', padding: '12px 16px', textAlign: 'left' }}
+                onClick={() => handleChangeDecisionStage('accepted')}
+              >
+                <strong>Accepted</strong> &nbsp;—&nbsp; Triage accepted, awaiting transport
+              </button>
+
+              <button
+                type="button"
+                className="btn btn--secondary btn--block"
+                style={{ justifyContent: 'flex-start', padding: '12px 16px', textAlign: 'left' }}
+                onClick={() => handleChangeDecisionStage('dispatched', 'ambulance')}
+              >
+                <strong>Dispatch Ambulance</strong> &nbsp;—&nbsp; Field team en route
+              </button>
+
+              <button
+                type="button"
+                className="btn btn--secondary btn--block"
+                style={{ justifyContent: 'flex-start', padding: '12px 16px', textAlign: 'left' }}
+                onClick={() => handleChangeDecisionStage('dispatched', 'reporter')}
+              >
+                <strong>Reporter Arranging Transport</strong> &nbsp;—&nbsp; Reporter bringing animal
+              </button>
+
+              <button
+                type="button"
+                className="btn btn--secondary btn--block"
+                style={{ justifyContent: 'flex-start', padding: '12px 16px', textAlign: 'left' }}
+                onClick={() => handleChangeDecisionDisposition('spot_released')}
+              >
+                <strong>Spot Release (TNR)</strong> &nbsp;—&nbsp; Treated on spot / returned
+              </button>
+
+              <button
+                type="button"
+                className="btn btn--secondary btn--block"
+                style={{ justifyContent: 'flex-start', padding: '12px 16px', textAlign: 'left' }}
+                onClick={() => handleChangeDecisionDisposition('admitted_shelter')}
+              >
+                <strong>Admit to Shelter</strong> &nbsp;—&nbsp; In sanctuary / shelter care
+              </button>
+
+              <button
+                type="button"
+                className="btn btn--danger btn--block"
+                style={{
+                  justifyContent: 'flex-start',
+                  padding: '12px 16px',
+                  marginTop: '8px',
+                  textAlign: 'left',
+                }}
+                onClick={() => handleChangeDecisionStage('cancelled')}
+              >
+                <strong>Decline / Cancel Report</strong> &nbsp;—&nbsp; Untraceable or out of scope
+              </button>
+            </div>
+          </div>
+
+          <div className="responsive-modal__actions" style={{ marginTop: '16px' }}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsChangeDecisionOpen(false)}
+            >
+              Close
             </Button>
           </div>
         </div>

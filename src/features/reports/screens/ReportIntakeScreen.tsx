@@ -17,11 +17,18 @@ import {
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other'] as const
 
+const CATEGORY_OPTIONS = [
+  { value: 'emergency', label: 'Medical emergency' },
+  { value: 'cruelty', label: 'Animal cruelty' },
+  { value: 'welfare', label: 'Welfare check' },
+] as const
+
 export function ReportIntakeScreen() {
   const db = useDb()
   const navigate = useNavigate()
   const { member } = useCurrentMember()
 
+  const [category, setCategory] = useState<string>('emergency')
   const [speciesPreset, setSpeciesPreset] = useState<string>('Dog')
   const [speciesOther, setSpeciesOther] = useState('')
   const [chiefComplaint, setChiefComplaint] = useState('')
@@ -69,6 +76,7 @@ export function ReportIntakeScreen() {
       const report = await createRescueReport(db, {
         orgId,
         reportNumber,
+        category,
         species: effectiveSpecies.toLowerCase(),
         chiefComplaint: complaintTrimmed,
         locationArea: areaTrimmed,
@@ -115,7 +123,24 @@ export function ReportIntakeScreen() {
       <form className="stack stack--loose" onSubmit={handleSubmit}>
         {/* 1. Animal Category & Species */}
         <div className="panel stack">
-          <p className="section-label">Animal &amp; Condition</p>
+          <p className="section-label">Report Category &amp; Animal</p>
+
+          <div className="field">
+            <span>Category</span>
+            <div className="filter-chips" role="group" aria-label="Report category">
+              {CATEGORY_OPTIONS.map((item) => (
+                <button
+                  type="button"
+                  key={item.value}
+                  className="chip"
+                  aria-pressed={category === item.value}
+                  onClick={() => setCategory(item.value)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="field">
             <span>Species</span>

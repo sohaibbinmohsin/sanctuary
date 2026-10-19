@@ -23,6 +23,7 @@ export type ReportPhoto = ReportPhotoRecord
 export type CreateRescueReportInput = {
   orgId: string
   reportNumber: string
+  category?: string
   species: string
   chiefComplaint: string
   locationArea: string
@@ -65,7 +66,7 @@ export async function createRescueReport(
     id,
     org_id: input.orgId,
     report_number: input.reportNumber.trim(),
-    category: 'emergency',
+    category: input.category?.trim() || 'emergency',
     species: input.species.trim(),
     chief_complaint: input.chiefComplaint.trim(),
     status: 'logged',
@@ -73,6 +74,7 @@ export async function createRescueReport(
     location_landmark: input.locationLandmark?.trim() || null,
     reporter_name: input.reporterName?.trim() || null,
     reporter_phone: input.reporterPhone?.trim() || null,
+    transport_type: null,
     disposition_type: null,
     animal_id: null,
     stage_logged_at: now,
@@ -87,9 +89,9 @@ export async function createRescueReport(
     `INSERT INTO rescue_reports (
       id, org_id, report_number, category, species, chief_complaint, status,
       location_area, location_landmark, reporter_name, reporter_phone,
-      disposition_type, animal_id, stage_logged_at, stage_accepted_at,
+      transport_type, disposition_type, animal_id, stage_logged_at, stage_accepted_at,
       stage_dispatched_at, stage_attended_at, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       report.id,
       report.org_id,
@@ -102,6 +104,7 @@ export async function createRescueReport(
       report.location_landmark,
       report.reporter_name,
       report.reporter_phone,
+      report.transport_type,
       report.disposition_type,
       report.animal_id,
       report.stage_logged_at,
@@ -123,6 +126,7 @@ export async function updateReportStage(
   db: SanctuaryDb,
   reportId: string,
   stage: RescueReportStage,
+  transportType?: 'ambulance' | 'reporter' | null,
 ): Promise<void> {
   const now = new Date().toISOString()
   let stageColumn: string | null = null
@@ -132,10 +136,12 @@ export async function updateReportStage(
   else if (stage === 'dispatched') stageColumn = 'stage_dispatched_at'
   else if (stage === 'attended') stageColumn = 'stage_attended_at'
 
+  const transportClause = transportType !== undefined ? `, transport_type = '${transportType}'` : ''
+
   if (stageColumn) {
     await db.execute(
       `UPDATE rescue_reports
-       SET status = ?, ${stageColumn} = ?, updated_at = ?
+       SET status = ?, ${stageColumn} = ?, updated_at = ?${transportClause}
        WHERE id = ?`,
       [stage, now, now, reportId],
     )
@@ -143,7 +149,7 @@ export async function updateReportStage(
     // e.g. cancelled
     await db.execute(
       `UPDATE rescue_reports
-       SET status = ?, updated_at = ?
+       SET status = ?, updated_at = ?${transportClause}
        WHERE id = ?`,
       [stage, now, reportId],
     )

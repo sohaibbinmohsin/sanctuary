@@ -59,6 +59,7 @@ describe('ReportIntakeScreen', () => {
       expect(createReportSpy).toHaveBeenCalledWith(expect.anything(), {
         orgId: 'org-1',
         reportNumber: 'PARC-R101',
+        category: 'emergency',
         species: 'cat',
         chiefComplaint: 'Injured tail',
         locationArea: 'Burns Road',
