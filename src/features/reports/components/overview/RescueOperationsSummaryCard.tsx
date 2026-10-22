@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Siren, Clock, Car, CheckCircle } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
@@ -49,52 +48,29 @@ export function RescueOperationsSummaryCard() {
       </div>
 
       <div className="dashboard-card">
-        <div className="dashboard-card__header">
-          <div className="dashboard-card__title-group">
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                color: 'var(--color-forest)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-              }}
-            >
-              <Siren size={16} weight="duotone" aria-hidden />
-              Field Activity
-            </span>
-          </div>
-        </div>
-
         <div className="dashboard-card__hero">
           <p className="dashboard-card__count">{loading ? '…' : summary.total}</p>
-          <p className="dashboard-card__count-label">total reports logged</p>
+          <p className="dashboard-card__count-label">Total reports logged</p>
         </div>
 
         <div className="checklist-summary" style={{ padding: 'var(--space-3)', background: 'var(--color-surface)', boxShadow: 'none' }}>
           <div className="checklist-summary__metric">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-brand)' }}>
-              <Clock size={16} weight="bold" aria-hidden />
-              <p className="checklist-summary__value">{summary.awaitingTriage}</p>
-            </div>
-            <p className="checklist-summary__label">awaiting triage</p>
+            <p className="checklist-summary__value" style={{ color: 'var(--color-brand)' }}>
+              {summary.awaitingTriage}
+            </p>
+            <p className="checklist-summary__label">Awaiting triage</p>
           </div>
           <div className="checklist-summary__metric">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-forest)' }}>
-              <Car size={16} weight="bold" aria-hidden />
-              <p className="checklist-summary__value">{summary.inField}</p>
-            </div>
-            <p className="checklist-summary__label">in field</p>
+            <p className="checklist-summary__value" style={{ color: 'var(--color-forest)' }}>
+              {summary.inField}
+            </p>
+            <p className="checklist-summary__label">In field</p>
           </div>
           <div className="checklist-summary__metric">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-forest)' }}>
-              <CheckCircle size={16} weight="bold" aria-hidden />
-              <p className="checklist-summary__value">{summary.attended}</p>
-            </div>
-            <p className="checklist-summary__label">attended / resolved</p>
+            <p className="checklist-summary__value" style={{ color: 'var(--color-forest)' }}>
+              {summary.attended}
+            </p>
+            <p className="checklist-summary__label">Attended / resolved</p>
           </div>
         </div>
       </div>

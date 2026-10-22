@@ -53,46 +53,44 @@ export function LedgerTrendCard() {
         </div>
       </div>
 
-      <div className="panel panel--soft" style={{ padding: 'var(--space-4)' }}>
-        <div className="trend-legend" aria-hidden>
-          <span className="trend-legend__item trend-legend__item--in">In</span>
-          <span className="trend-legend__item trend-legend__item--out">Out</span>
-        </div>
-        {loading && monthly.length === 0 ? (
-          <p className="muted">Loading trend…</p>
-        ) : (
-          <div
-            className="money-trend"
-            role="img"
-            aria-label="Bar chart of money in and out for the last six months"
-          >
-            {monthly.map((point) => {
-              const inH = Math.max((point.inCents / moneyMax) * 100, point.inCents > 0 ? 4 : 0)
-              const outH = Math.max(
-                (point.outCents / moneyMax) * 100,
-                point.outCents > 0 ? 4 : 0,
-              )
-              return (
-                <div key={point.month} className="money-trend__col">
-                  <div className="money-trend__bars">
-                    <div
-                      className="money-trend__bar money-trend__bar--in"
-                      style={{ height: `${inH}%` }}
-                      title={`In ${formatCurrency(point.inCents, member?.currency)}`}
-                    />
-                    <div
-                      className="money-trend__bar money-trend__bar--out"
-                      style={{ height: `${outH}%` }}
-                      title={`Out ${formatCurrency(point.outCents, member?.currency)}`}
-                    />
-                  </div>
-                  <span className="money-trend__label">{shortMonth(point.month)}</span>
-                </div>
-              )
-            })}
-          </div>
-        )}
+      <div className="trend-legend" aria-hidden style={{ marginBottom: 'var(--space-2)' }}>
+        <span className="trend-legend__item trend-legend__item--in">In</span>
+        <span className="trend-legend__item trend-legend__item--out">Out</span>
       </div>
+      {loading && monthly.length === 0 ? (
+        <p className="muted">Loading trend…</p>
+      ) : (
+        <div
+          className="money-trend"
+          role="img"
+          aria-label="Bar chart of money in and out for the last six months"
+        >
+          {monthly.map((point) => {
+            const inH = Math.max((point.inCents / moneyMax) * 100, point.inCents > 0 ? 4 : 0)
+            const outH = Math.max(
+              (point.outCents / moneyMax) * 100,
+              point.outCents > 0 ? 4 : 0,
+            )
+            return (
+              <div key={point.month} className="money-trend__col">
+                <div className="money-trend__bars">
+                  <div
+                    className="money-trend__bar money-trend__bar--in"
+                    style={{ height: `${inH}%` }}
+                    title={`In ${formatCurrency(point.inCents, member?.currency)}`}
+                  />
+                  <div
+                    className="money-trend__bar money-trend__bar--out"
+                    style={{ height: `${outH}%` }}
+                    title={`Out ${formatCurrency(point.outCents, member?.currency)}`}
+                  />
+                </div>
+                <span className="money-trend__label">{shortMonth(point.month)}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </section>
   )
 }

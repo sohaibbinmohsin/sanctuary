@@ -49,36 +49,34 @@ export function RescueTrendCard() {
         </div>
       </div>
 
-      <div className="panel panel--soft" style={{ padding: 'var(--space-4)' }}>
-        {loading && trend.length === 0 ? (
-          <p className="muted">Loading trend…</p>
-        ) : (
-          <div
-            className="money-trend"
-            role="img"
-            aria-label="Bar chart of rescue cases for the last six months"
-          >
-            {trend.map((point) => {
-              const h = Math.max((point.count / maxVal) * 100, point.count > 0 ? 6 : 0)
-              return (
-                <div key={point.month} className="money-trend__col">
-                  <div className="money-trend__bars">
-                    <div
-                      className="money-trend__bar"
-                      style={{
-                        height: `${h}%`,
-                        background: 'var(--color-brand)',
-                      }}
-                      title={`${point.count} cases in ${shortMonth(point.month)}`}
-                    />
-                  </div>
-                  <span className="money-trend__label">{shortMonth(point.month)}</span>
+      {loading && trend.length === 0 ? (
+        <p className="muted">Loading trend…</p>
+      ) : (
+        <div
+          className="money-trend"
+          role="img"
+          aria-label="Bar chart of rescue cases for the last six months"
+        >
+          {trend.map((point) => {
+            const h = Math.max((point.count / maxVal) * 100, point.count > 0 ? 6 : 0)
+            return (
+              <div key={point.month} className="money-trend__col">
+                <div className="money-trend__bars">
+                  <div
+                    className="money-trend__bar"
+                    style={{
+                      height: `${h}%`,
+                      background: 'var(--color-brand)',
+                    }}
+                    title={`${point.count} cases in ${shortMonth(point.month)}`}
+                  />
                 </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+                <span className="money-trend__label">{shortMonth(point.month)}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </section>
   )
 }

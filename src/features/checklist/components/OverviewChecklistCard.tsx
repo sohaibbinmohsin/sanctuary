@@ -49,23 +49,21 @@ export function OverviewChecklistCard() {
       {loading && rows.length === 0 ? (
         <p className="muted">Loading…</p>
       ) : rows.length === 0 ? (
-        <div className="panel panel--soft checklist-summary">
-          <p className="checklist-summary__empty">
-            No animals on the checklist yet. Open Checklist to add animals.
-          </p>
-        </div>
+        <p className="muted">
+          No animals on the checklist yet. Open Checklist to add animals.
+        </p>
       ) : (
         <div className="checklist-summary" aria-label="Checklist summary">
           <div className="checklist-summary__metric">
             <p className="checklist-summary__value">{rows.length}</p>
-            <p className="checklist-summary__label">on list</p>
+            <p className="checklist-summary__label">On list</p>
           </div>
           <div className="checklist-summary__metric">
             <p className="checklist-summary__value">
               {checkedCount}
               <span className="checklist-summary__of">/{rows.length}</span>
             </p>
-            <p className="checklist-summary__label">checked today</p>
+            <p className="checklist-summary__label">Checked today</p>
           </div>
           <div className="checklist-summary__metric">
             <p
@@ -77,7 +75,7 @@ export function OverviewChecklistCard() {
             >
               {overdueCount}
             </p>
-            <p className="checklist-summary__label">overdue</p>
+            <p className="checklist-summary__label">Overdue</p>
           </div>
         </div>
       )}

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Cat, User, Baby } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
@@ -51,32 +50,32 @@ export function ShelterHeadcountCard() {
       </div>
 
       <div className="dashboard-card">
-        <div className="dashboard-card__header dashboard-card__header--brand">
-          <h3 className="dashboard-card__title dashboard-card__title--brand" style={{ fontSize: '1rem', margin: 0 }}>
-            {member?.orgName ?? 'Sanctuary Sanctuary'}
-          </h3>
-          <Cat size={24} weight="duotone" color="var(--color-forest)" aria-hidden />
-        </div>
-
-        <div className="dashboard-card__hero">
-          <p className="dashboard-card__count">{loading ? '…' : headcount}</p>
-          <p className="dashboard-card__count-label">animals in care</p>
-        </div>
-
-        <div className="checklist-summary" style={{ padding: 'var(--space-3)', background: 'var(--color-surface)', boxShadow: 'none' }}>
-          <div className="checklist-summary__metric">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-forest)' }}>
-              <User size={16} weight="bold" aria-hidden />
-              <p className="checklist-summary__value">{lifeStage.adult}</p>
-            </div>
-            <p className="checklist-summary__label">adults</p>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gap: 'var(--space-2)',
+            alignItems: 'center',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ display: 'grid', gap: 'var(--space-1)', justifyItems: 'center' }}>
+            <p className="dashboard-card__count" style={{ fontSize: 'clamp(1.75rem, 5vw, 2.25rem)' }}>
+              {loading ? '…' : headcount}
+            </p>
+            <p className="dashboard-card__count-label">Animals in care</p>
           </div>
-          <div className="checklist-summary__metric">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-brand)' }}>
-              <Baby size={16} weight="bold" aria-hidden />
-              <p className="checklist-summary__value">{lifeStage.child}</p>
-            </div>
-            <p className="checklist-summary__label">babies / children</p>
+          <div style={{ display: 'grid', gap: 'var(--space-1)', justifyItems: 'center' }}>
+            <p className="dashboard-card__count" style={{ fontSize: 'clamp(1.75rem, 5vw, 2.25rem)', color: 'var(--color-ink)' }}>
+              {loading ? '…' : lifeStage.adult}
+            </p>
+            <p className="dashboard-card__count-label">Adults</p>
+          </div>
+          <div style={{ display: 'grid', gap: 'var(--space-1)', justifyItems: 'center' }}>
+            <p className="dashboard-card__count" style={{ fontSize: 'clamp(1.75rem, 5vw, 2.25rem)', color: 'var(--color-ink)' }}>
+              {loading ? '…' : lifeStage.child}
+            </p>
+            <p className="dashboard-card__count-label">Children</p>
           </div>
         </div>
       </div>

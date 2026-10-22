@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { PawPrint } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
   getRescueSpeciesBreakdown,
   type RescueSpeciesCount,
 } from '@/features/reports/domain/rescueReports'
+import { toSentenceCase } from '@/shared/lib/text'
 
 export function RescueSpeciesCard() {
   const db = useDb()
@@ -44,33 +44,28 @@ export function RescueSpeciesCard() {
         </div>
       </div>
 
-      <div className="panel panel--soft" style={{ padding: 'var(--space-4)' }}>
-        {loading && speciesList.length === 0 ? (
-          <p className="muted">Loading species…</p>
-        ) : speciesList.length === 0 ? (
-          <p className="muted">No animal species reported yet.</p>
-        ) : (
-          <ul className="status-bars">
-            {speciesList.map((item) => (
-              <li key={item.species} className="status-bars__row">
-                <div className="status-bars__meta">
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <PawPrint size={14} weight="duotone" color="var(--color-forest)" aria-hidden />
-                    {item.species}
-                  </span>
-                  <strong>{item.count}</strong>
-                </div>
-                <div className="status-bars__track" aria-hidden>
-                  <div
-                    className="status-bars__fill"
-                    style={{ width: `${(item.count / maxCount) * 100}%` }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {loading && speciesList.length === 0 ? (
+        <p className="muted">Loading species…</p>
+      ) : speciesList.length === 0 ? (
+        <p className="muted">No animal species reported yet.</p>
+      ) : (
+        <ul className="status-bars">
+          {speciesList.map((item) => (
+            <li key={item.species} className="status-bars__row">
+              <div className="status-bars__meta">
+                <span>{toSentenceCase(item.species)}</span>
+                <strong>{item.count}</strong>
+              </div>
+              <div className="status-bars__track" aria-hidden>
+                <div
+                  className="status-bars__fill"
+                  style={{ width: `${(item.count / maxCount) * 100}%` }}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }

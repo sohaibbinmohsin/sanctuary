@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { MapPin } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
   getRescueHotspots,
   type RescueHotspot,
 } from '@/features/reports/domain/rescueReports'
+import { toSentenceCase } from '@/shared/lib/text'
 
 export function RescueHotspotsCard() {
   const db = useDb()
@@ -42,57 +42,52 @@ export function RescueHotspotsCard() {
         </div>
       </div>
 
-      <div className="panel panel--soft" style={{ padding: 'var(--space-4)' }}>
-        {loading && hotspots.length === 0 ? (
-          <p className="muted">Loading hotspots…</p>
-        ) : hotspots.length === 0 ? (
-          <p className="muted">No location data recorded yet.</p>
-        ) : (
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--space-2)' }}>
-            {hotspots.map((spot, index) => (
-              <li
-                key={`${spot.area}-${spot.city}-${index}`}
+      {loading && hotspots.length === 0 ? (
+        <p className="muted">Loading hotspots…</p>
+      ) : hotspots.length === 0 ? (
+        <p className="muted">No location data recorded yet.</p>
+      ) : (
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--space-2)' }}>
+          {hotspots.map((spot, index) => (
+            <li
+              key={`${spot.area}-${spot.city}-${index}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: 'var(--space-2) var(--space-3)',
+                background: 'var(--color-surface)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--color-ink)' }}>
+                  {toSentenceCase(spot.area)}
+                </div>
+                {spot.city && (
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-ink-muted)' }}>
+                    {toSentenceCase(spot.city)}
+                  </div>
+                )}
+              </div>
+              <span
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: 'var(--space-2) var(--space-3)',
-                  background: 'var(--color-surface)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
+                  padding: '0.15rem 0.5rem',
+                  borderRadius: '999px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--color-forest)',
+                  background: 'var(--color-forest-soft)',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
-                  <MapPin size={18} weight="duotone" color="var(--color-brand)" style={{ flexShrink: 0 }} aria-hidden />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--color-ink)' }}>
-                      {spot.area}
-                    </div>
-                    {spot.city && (
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-ink-muted)' }}>
-                        {spot.city}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <span
-                  style={{
-                    padding: '0.15rem 0.5rem',
-                    borderRadius: '999px',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    fontFamily: 'var(--font-mono)',
-                    color: 'var(--color-forest)',
-                    background: 'var(--color-forest-soft)',
-                  }}
-                >
-                  {spot.count} {spot.count === 1 ? 'case' : 'cases'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                {spot.count} {spot.count === 1 ? 'case' : 'cases'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }

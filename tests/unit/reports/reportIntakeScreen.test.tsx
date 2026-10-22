@@ -67,7 +67,7 @@ describe('ReportIntakeScreen', () => {
     })
 
     // Expect formatted phone and valid phone indicator
-    expect(screen.getByDisplayValue('0300-1122334')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('0300 1122334')).toBeInTheDocument()
     expect(screen.getByText(/Valid phone number/i)).toBeInTheDocument()
 
     // Submit
@@ -87,7 +87,7 @@ describe('ReportIntakeScreen', () => {
         latitude: null,
         longitude: null,
         reporterName: 'Kamran',
-        reporterPhone: '0300-1122334',
+        reporterPhone: '0300 1122334',
         reporterCnic: null,
       })
     })
@@ -136,7 +136,7 @@ describe('ReportIntakeScreen', () => {
     expect(screen.getByDisplayValue('Saddar')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Near Empress Market')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Usman')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('0300-1234567')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('0300 1234567')).toBeInTheDocument()
 
     // Update chief complaint
     fireEvent.change(screen.getByLabelText(/Chief complaint \/ Injury/i), {
@@ -158,7 +158,7 @@ describe('ReportIntakeScreen', () => {
         latitude: null,
         longitude: null,
         reporterName: 'Usman',
-        reporterPhone: '0300-1234567',
+        reporterPhone: '0300 1234567',
         reporterCnic: null,
         legalNotes: null,
       })
@@ -228,7 +228,7 @@ describe('ReportIntakeScreen', () => {
         latitude: null,
         longitude: null,
         reporterName: 'Bilal',
-        reporterPhone: '0300-9876543',
+        reporterPhone: '0300 9876543',
         reporterCnic: '42101-1234567-1',
         legalNotes: 'Updated FIR #12/26 with section 428 IPC',
       })
@@ -252,6 +252,8 @@ describe('ReportIntakeScreen', () => {
       reporter_name: null,
       reporter_phone: null,
       reporter_cnic: null,
+      intake_source: 'citizen',
+      animal_count: 1,
       status: 'logged',
       transport_type: null,
       disposition_type: null,

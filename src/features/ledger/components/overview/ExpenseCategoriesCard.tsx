@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Tag } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
@@ -7,6 +6,7 @@ import {
   sumExpensesByCategory,
   type ExpenseCategoryBreakdown,
 } from '@/features/ledger/domain/ledger'
+import { toSentenceCase } from '@/shared/lib/text'
 
 export function ExpenseCategoriesCard() {
   const db = useDb()
@@ -45,36 +45,31 @@ export function ExpenseCategoriesCard() {
         </div>
       </div>
 
-      <div className="panel panel--soft" style={{ padding: 'var(--space-4)' }}>
-        {loading && categories.length === 0 ? (
-          <p className="muted">Loading categories…</p>
-        ) : categories.length === 0 ? (
-          <p className="muted">No expense entries recorded yet.</p>
-        ) : (
-          <ul className="status-bars">
-            {categories.map((cat) => (
-              <li key={cat.categoryId} className="status-bars__row">
-                <div className="status-bars__meta">
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Tag size={14} weight="duotone" color="var(--color-brand)" aria-hidden />
-                    {cat.label}
-                  </span>
-                  <strong>{formatCurrency(cat.totalCents, member?.currency)}</strong>
-                </div>
-                <div className="status-bars__track" aria-hidden>
-                  <div
-                    className="status-bars__fill"
-                    style={{
-                      width: `${(cat.totalCents / maxVal) * 100}%`,
-                      background: 'var(--color-brand)',
-                    }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {loading && categories.length === 0 ? (
+        <p className="muted">Loading categories…</p>
+      ) : categories.length === 0 ? (
+        <p className="muted">No expense entries recorded yet.</p>
+      ) : (
+        <ul className="status-bars">
+          {categories.map((cat) => (
+            <li key={cat.categoryId} className="status-bars__row">
+              <div className="status-bars__meta">
+                <span>{toSentenceCase(cat.label)}</span>
+                <strong>{formatCurrency(cat.totalCents, member?.currency)}</strong>
+              </div>
+              <div className="status-bars__track" aria-hidden>
+                <div
+                  className="status-bars__fill"
+                  style={{
+                    width: `${(cat.totalCents / maxVal) * 100}%`,
+                    background: 'var(--color-brand)',
+                  }}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }
