@@ -211,7 +211,7 @@ export function LandingScreen() {
               <div className="dossier__header-left">
                 <h3>Operational Network</h3>
               </div>
-              <div className="dossier__count">06 Active Partners</div>
+              <div className="dossier__count">07 Active Partners</div>
             </div>
 
             <div className="dossier__list">
@@ -429,6 +429,43 @@ export function LandingScreen() {
                   <a
                     className="dossier__btn"
                     href="https://www.instagram.com/chiraghgharanimalrehab/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span>Follow work</span>
+                    <ArrowSquareOut size={14} weight="bold" aria-hidden />
+                  </a>
+                </div>
+              </article>
+
+              <article className="dossier__row">
+                <div className="dossier__index">07</div>
+                <div className="dossier__org">
+                  <div className="dossier__logo">
+                    <img
+                      src="/partners/partner-nsac.png"
+                      alt="NUST Stray Animals Club logo"
+                      width={44}
+                      height={44}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="dossier__org-info">
+                    <h4>NUST Stray Animals Club (NSAC)</h4>
+                    <div className="dossier__org-meta">
+                      <span className="scope-tag">Campus</span>
+                      <span>NUST Islamabad</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="dossier__desc">
+                  Student-run NUST club promoting animal welfare through rescue, advocacy, and
+                  community engagement on and around the H-12 campus.
+                </div>
+                <div className="dossier__action">
+                  <a
+                    className="dossier__btn"
+                    href="https://www.instagram.com/strayanimalsnust/"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
