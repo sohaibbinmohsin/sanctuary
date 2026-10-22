@@ -49,71 +49,73 @@ export function RescueCategoryCard() {
         </div>
       </div>
 
-      {loading && total === 0 ? (
-        <p className="muted">Loading categories…</p>
-      ) : total === 0 ? (
-        <p className="muted">No reports logged yet.</p>
-      ) : (
-        <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
-          <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-1)', fontSize: 'var(--text-sm)' }}>
-                <span style={{ fontWeight: 600 }}>
-                  Medical emergency
-                </span>
-                <strong>{data.emergency}</strong>
+      <div className="overview-card">
+        {loading && total === 0 ? (
+          <p className="muted">Loading categories…</p>
+        ) : total === 0 ? (
+          <p className="muted">No reports logged yet.</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+            <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-1)', fontSize: 'var(--text-sm)' }}>
+                  <span style={{ fontWeight: 600 }}>
+                    Medical emergency
+                  </span>
+                  <strong>{data.emergency}</strong>
+                </div>
+                <div className="status-bars__track" aria-hidden>
+                  <div
+                    className="status-bars__fill"
+                    style={{
+                      width: `${(data.emergency / maxVal) * 100}%`,
+                      background: 'var(--color-forest)',
+                    }}
+                  />
+                </div>
               </div>
-              <div className="status-bars__track" aria-hidden>
-                <div
-                  className="status-bars__fill"
-                  style={{
-                    width: `${(data.emergency / maxVal) * 100}%`,
-                    background: 'var(--color-forest)',
-                  }}
-                />
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-1)', fontSize: 'var(--text-sm)' }}>
+                  <span style={{ fontWeight: 600 }}>
+                    Animal cruelty
+                  </span>
+                  <strong>{data.cruelty}</strong>
+                </div>
+                <div className="status-bars__track" aria-hidden>
+                  <div
+                    className="status-bars__fill"
+                    style={{
+                      width: `${(data.cruelty / maxVal) * 100}%`,
+                      background: 'var(--color-forest)',
+                    }}
+                  />
+                </div>
               </div>
             </div>
 
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-1)', fontSize: 'var(--text-sm)' }}>
-                <span style={{ fontWeight: 600 }}>
-                  Animal cruelty
-                </span>
-                <strong>{data.cruelty}</strong>
+            {data.cruelty > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 'var(--space-4)',
+                  paddingTop: 'var(--space-3)',
+                  borderTop: '1px solid var(--color-border)',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--color-ink-muted)',
+                }}
+              >
+                <div>
+                  <span><strong>{data.crueltyLegalNotice}</strong> legal notices issued</span>
+                </div>
+                <div>
+                  <span><strong>{data.crueltyDismissed}</strong> dismissed</span>
+                </div>
               </div>
-              <div className="status-bars__track" aria-hidden>
-                <div
-                  className="status-bars__fill"
-                  style={{
-                    width: `${(data.cruelty / maxVal) * 100}%`,
-                    background: 'var(--color-forest)',
-                  }}
-                />
-              </div>
-            </div>
+            )}
           </div>
-
-          {data.cruelty > 0 && (
-            <div
-              style={{
-                display: 'flex',
-                gap: 'var(--space-4)',
-                paddingTop: 'var(--space-3)',
-                borderTop: '1px solid var(--color-border)',
-                fontSize: 'var(--text-xs)',
-                color: 'var(--color-ink-muted)',
-              }}
-            >
-              <div>
-                <span><strong>{data.crueltyLegalNotice}</strong> legal notices issued</span>
-              </div>
-              <div>
-                <span><strong>{data.crueltyDismissed}</strong> dismissed</span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </section>
   )
 }

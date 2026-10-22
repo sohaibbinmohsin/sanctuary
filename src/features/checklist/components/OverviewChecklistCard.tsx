@@ -47,11 +47,15 @@ export function OverviewChecklistCard() {
       </p>
 
       {loading && rows.length === 0 ? (
-        <p className="muted">Loading…</p>
+        <div className="overview-card">
+          <p className="muted" style={{ margin: 0 }}>Loading…</p>
+        </div>
       ) : rows.length === 0 ? (
-        <p className="muted">
-          No animals on the checklist yet. Open Checklist to add animals.
-        </p>
+        <div className="overview-card">
+          <p className="muted" style={{ margin: 0 }}>
+            No animals on the checklist yet. Open Checklist to add animals.
+          </p>
+        </div>
       ) : (
         <div className="checklist-summary" aria-label="Checklist summary">
           <div className="checklist-summary__metric">

@@ -44,35 +44,37 @@ export function AnimalsSpeciesCard() {
         </div>
       </div>
 
-      {loading && speciesList.length === 0 ? (
-        <p className="muted">Loading species…</p>
-      ) : speciesList.length === 0 ? (
-        <p className="muted">No animal records logged yet.</p>
-      ) : (
-        <ul className="status-bars">
-          {speciesList.map((item) => (
-            <li key={item.species} className="status-bars__row">
-              <div className="status-bars__meta">
-                <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
-                  <span>{toSentenceCase(item.species)}</span>
-                  {item.childCount > 0 ? (
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-ink-muted)', fontWeight: 400 }}>
-                      ({item.childCount} {item.childCount === 1 ? 'child' : 'children'})
-                    </span>
-                  ) : null}
-                </span>
-                <strong>{item.count}</strong>
-              </div>
-              <div className="status-bars__track" aria-hidden>
-                <div
-                  className="status-bars__fill"
-                  style={{ width: `${(item.count / maxVal) * 100}%` }}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="overview-card">
+        {loading && speciesList.length === 0 ? (
+          <p className="muted">Loading species…</p>
+        ) : speciesList.length === 0 ? (
+          <p className="muted">No animal records logged yet.</p>
+        ) : (
+          <ul className="status-bars">
+            {speciesList.map((item) => (
+              <li key={item.species} className="status-bars__row">
+                <div className="status-bars__meta">
+                  <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
+                    <span>{toSentenceCase(item.species)}</span>
+                    {item.childCount > 0 ? (
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-ink-muted)', fontWeight: 400 }}>
+                        ({item.childCount} {item.childCount === 1 ? 'child' : 'children'})
+                      </span>
+                    ) : null}
+                  </span>
+                  <strong>{item.count}</strong>
+                </div>
+                <div className="status-bars__track" aria-hidden>
+                  <div
+                    className="status-bars__fill"
+                    style={{ width: `${(item.count / maxVal) * 100}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   )
 }

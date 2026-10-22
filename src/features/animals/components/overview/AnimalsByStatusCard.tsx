@@ -44,28 +44,30 @@ export function AnimalsByStatusCard() {
         </div>
       </div>
 
-      {loading && statusCounts.length === 0 ? (
-        <p className="muted">Loading statuses…</p>
-      ) : statusCounts.length === 0 ? (
-        <p className="muted">No animals in care yet.</p>
-      ) : (
-        <ul className="status-bars">
-          {statusCounts.map((s) => (
-            <li key={s.statusId} className="status-bars__row">
-              <div className="status-bars__meta">
-                <span>{toSentenceCase(s.label)}</span>
-                <strong>{s.count}</strong>
-              </div>
-              <div className="status-bars__track" aria-hidden>
-                <div
-                  className="status-bars__fill"
-                  style={{ width: `${(s.count / statusMax) * 100}%` }}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="overview-card">
+        {loading && statusCounts.length === 0 ? (
+          <p className="muted">Loading statuses…</p>
+        ) : statusCounts.length === 0 ? (
+          <p className="muted">No animals in care yet.</p>
+        ) : (
+          <ul className="status-bars">
+            {statusCounts.map((s) => (
+              <li key={s.statusId} className="status-bars__row">
+                <div className="status-bars__meta">
+                  <span>{toSentenceCase(s.label)}</span>
+                  <strong>{s.count}</strong>
+                </div>
+                <div className="status-bars__track" aria-hidden>
+                  <div
+                    className="status-bars__fill"
+                    style={{ width: `${(s.count / statusMax) * 100}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   )
 }

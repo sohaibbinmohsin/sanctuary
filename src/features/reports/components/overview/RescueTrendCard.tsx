@@ -66,7 +66,7 @@ export function RescueTrendCard() {
                     className="money-trend__bar"
                     style={{
                       height: `${h}%`,
-                      background: 'var(--color-brand)',
+                      background: 'var(--color-forest)',
                     }}
                     title={`${point.count} cases in ${shortMonth(point.month)}`}
                   />

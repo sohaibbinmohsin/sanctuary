@@ -45,31 +45,33 @@ export function ExpenseCategoriesCard() {
         </div>
       </div>
 
-      {loading && categories.length === 0 ? (
-        <p className="muted">Loading categories…</p>
-      ) : categories.length === 0 ? (
-        <p className="muted">No expense entries recorded yet.</p>
-      ) : (
-        <ul className="status-bars">
-          {categories.map((cat) => (
-            <li key={cat.categoryId} className="status-bars__row">
-              <div className="status-bars__meta">
-                <span>{toSentenceCase(cat.label)}</span>
-                <strong>{formatCurrency(cat.totalCents, member?.currency)}</strong>
-              </div>
-              <div className="status-bars__track" aria-hidden>
-                <div
-                  className="status-bars__fill"
-                  style={{
-                    width: `${(cat.totalCents / maxVal) * 100}%`,
-                    background: 'var(--color-brand)',
-                  }}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="overview-card">
+        {loading && categories.length === 0 ? (
+          <p className="muted">Loading categories…</p>
+        ) : categories.length === 0 ? (
+          <p className="muted">No expense entries recorded yet.</p>
+        ) : (
+          <ul className="status-bars">
+            {categories.map((cat) => (
+              <li key={cat.categoryId} className="status-bars__row">
+                <div className="status-bars__meta">
+                  <span>{toSentenceCase(cat.label)}</span>
+                  <strong>{formatCurrency(cat.totalCents, member?.currency)}</strong>
+                </div>
+                <div className="status-bars__track" aria-hidden>
+                  <div
+                    className="status-bars__fill"
+                    style={{
+                      width: `${(cat.totalCents / maxVal) * 100}%`,
+                      background: 'var(--color-amber)',
+                    }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   )
 }

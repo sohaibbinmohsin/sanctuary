@@ -42,52 +42,54 @@ export function RescueHotspotsCard() {
         </div>
       </div>
 
-      {loading && hotspots.length === 0 ? (
-        <p className="muted">Loading hotspots…</p>
-      ) : hotspots.length === 0 ? (
-        <p className="muted">No location data recorded yet.</p>
-      ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--space-2)' }}>
-          {hotspots.map((spot, index) => (
-            <li
-              key={`${spot.area}-${spot.city}-${index}`}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: 'var(--space-2) var(--space-3)',
-                background: 'var(--color-surface)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--color-ink)' }}>
-                  {toSentenceCase(spot.area)}
-                </div>
-                {spot.city && (
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-ink-muted)' }}>
-                    {toSentenceCase(spot.city)}
-                  </div>
-                )}
-              </div>
-              <span
+      <div className="overview-card">
+        {loading && hotspots.length === 0 ? (
+          <p className="muted">Loading hotspots…</p>
+        ) : hotspots.length === 0 ? (
+          <p className="muted">No location data recorded yet.</p>
+        ) : (
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--space-2)' }}>
+            {hotspots.map((spot, index) => (
+              <li
+                key={`${spot.area}-${spot.city}-${index}`}
                 style={{
-                  padding: '0.15rem 0.5rem',
-                  borderRadius: '999px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  fontFamily: 'var(--font-mono)',
-                  color: 'var(--color-forest)',
-                  background: 'var(--color-forest-soft)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 'var(--space-2) var(--space-3)',
+                  background: 'var(--color-surface)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-border)',
                 }}
               >
-                {spot.count} {spot.count === 1 ? 'case' : 'cases'}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--color-ink)' }}>
+                    {toSentenceCase(spot.area)}
+                  </div>
+                  {spot.city && (
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-ink-muted)' }}>
+                      {toSentenceCase(spot.city)}
+                    </div>
+                  )}
+                </div>
+                <span
+                  style={{
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '999px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    fontFamily: 'var(--font-mono)',
+                    color: 'var(--color-forest)',
+                    background: 'var(--color-forest-soft)',
+                  }}
+                >
+                  {spot.count} {spot.count === 1 ? 'case' : 'cases'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   )
 }

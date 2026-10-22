@@ -55,7 +55,7 @@ export function RescueOperationsSummaryCard() {
 
         <div className="checklist-summary" style={{ padding: 'var(--space-3)', background: 'var(--color-surface)', boxShadow: 'none' }}>
           <div className="checklist-summary__metric">
-            <p className="checklist-summary__value" style={{ color: 'var(--color-brand)' }}>
+            <p className="checklist-summary__value" style={{ color: 'var(--color-amber)' }}>
               {summary.awaitingTriage}
             </p>
             <p className="checklist-summary__label">Awaiting triage</p>
