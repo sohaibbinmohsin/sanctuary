@@ -526,4 +526,41 @@ describe('ReportDetailScreen', () => {
     expect(screen.getByText('Dismissal Reason')).toBeInTheDocument()
     expect(screen.getByText('Citizen resolved dispute on-site amicably')).toBeInTheDocument()
   })
+
+  it('displays pinned coordinates with free Navigate link in facts grid', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-nav',
+      org_id: 'org-1',
+      report_number: 'PARC-R108',
+      category: 'emergency',
+      species: 'cat',
+      chief_complaint: 'Trapped in drain',
+      status: 'accepted',
+      location_area: 'Gulshan-e-Iqbal Block 6',
+      location_landmark: 'Near Disco Bakery',
+      latitude: 24.918,
+      longitude: 67.0971,
+      reporter_name: 'Farhan',
+      reporter_phone: '0333-1234567',
+      stage_logged_at: '2026-10-22T14:10:00Z',
+      stage_accepted_at: '2026-10-22T14:20:00Z',
+      created_at: '2026-10-22T14:10:00Z',
+    } as any)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-nav']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R108')).toBeInTheDocument()
+    expect(screen.getByText(/24.9180° N, 67.0971° E/i)).toBeInTheDocument()
+    const navLink = screen.getByRole('link', { name: /Navigate/i })
+    expect(navLink).toHaveAttribute(
+      'href',
+      'https://www.google.com/maps/dir/?api=1&destination=24.918,67.0971',
+    )
+  })
 })

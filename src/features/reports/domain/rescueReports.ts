@@ -32,6 +32,8 @@ export type CreateRescueReportInput = {
   chiefComplaint: string
   locationArea: string
   locationLandmark?: string | null
+  latitude?: number | null
+  longitude?: number | null
   reporterName?: string | null
   reporterPhone?: string | null
   reporterCnic?: string | null
@@ -101,7 +103,13 @@ export async function getExistingColumns(db: SanctuaryDb, tableName: string): Pr
 export async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
   try {
     const cols = await getExistingColumns(db, 'rescue_reports')
-    if (cols.has('reporter_cnic') && cols.has('legal_notes') && cols.has('dismissal_reason')) {
+    if (
+      cols.has('reporter_cnic') &&
+      cols.has('legal_notes') &&
+      cols.has('dismissal_reason') &&
+      cols.has('latitude') &&
+      cols.has('longitude')
+    ) {
       return
     }
 
@@ -112,6 +120,8 @@ export async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN legal_notes TEXT`).catch(() => {})
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN dismissal_reason TEXT`).catch(() => {})
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN reporter_cnic TEXT`).catch(() => {})
+        await db.execute(`ALTER TABLE rescue_reports ADD COLUMN latitude REAL`).catch(() => {})
+        await db.execute(`ALTER TABLE rescue_reports ADD COLUMN longitude REAL`).catch(() => {})
       }
     }
   } catch (err) {
@@ -142,6 +152,8 @@ export async function createRescueReport(
     status: 'logged',
     location_area: input.locationArea.trim(),
     location_landmark: input.locationLandmark?.trim() || null,
+    latitude: input.latitude ?? null,
+    longitude: input.longitude ?? null,
     reporter_name: input.reporterName?.trim() || null,
     reporter_phone: input.reporterPhone?.trim() || null,
     reporter_cnic: input.reporterCnic?.trim() || null,
@@ -168,6 +180,8 @@ export async function createRescueReport(
     status: report.status,
     location_area: report.location_area,
     location_landmark: report.location_landmark,
+    latitude: report.latitude,
+    longitude: report.longitude,
     reporter_name: report.reporter_name,
     reporter_phone: report.reporter_phone,
     reporter_cnic: report.reporter_cnic,
@@ -419,6 +433,8 @@ export type UpdateRescueReportInput = {
   chiefComplaint?: string
   locationArea?: string
   locationLandmark?: string | null
+  latitude?: number | null
+  longitude?: number | null
   reporterName?: string | null
   reporterPhone?: string | null
   reporterCnic?: string | null
@@ -456,6 +472,16 @@ export async function updateRescueReport(
     input.reporterPhone ?? null,
   ]
 
+  if (cols.size === 0 || cols.has('latitude')) {
+    setClauses.push('latitude = ?')
+    params.push(input.latitude ?? null)
+  }
+
+  if (cols.size === 0 || cols.has('longitude')) {
+    setClauses.push('longitude = ?')
+    params.push(input.longitude ?? null)
+  }
+
   if (cols.size === 0 || cols.has('reporter_cnic')) {
     setClauses.push('reporter_cnic = ?')
     params.push(input.reporterCnic ?? null)
@@ -490,4 +516,12 @@ export async function deleteReportPhoto(
 
 export { formatPhoneNumber, validatePhoneNumber } from './phone'
 export { formatCnic, validateCnic } from './cnic'
+export {
+  parseCoordinates,
+  isValidLatLng,
+  formatCoordinates,
+  getNavigationUrl,
+  requestCurrentPosition,
+  type Coordinates,
+} from './coordinates'
 

@@ -196,6 +196,8 @@ const rescue_reports = new Table(
     status: column.text,
     location_area: column.text,
     location_landmark: column.text,
+    latitude: column.real,
+    longitude: column.real,
     reporter_name: column.text,
     reporter_phone: column.text,
     reporter_cnic: column.text,

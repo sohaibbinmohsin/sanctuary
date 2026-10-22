@@ -73,6 +73,8 @@ describe('ReportIntakeScreen', () => {
         chiefComplaint: 'Injured tail',
         locationArea: 'Burns Road',
         locationLandmark: 'Near Fresco Sweets',
+        latitude: null,
+        longitude: null,
         reporterName: 'Kamran',
         reporterPhone: '0300-1122334',
         reporterCnic: null,
@@ -90,6 +92,8 @@ describe('ReportIntakeScreen', () => {
       chief_complaint: 'Fractured leg',
       location_area: 'Saddar',
       location_landmark: 'Near Empress Market',
+      latitude: null,
+      longitude: null,
       reporter_name: 'Usman',
       reporter_phone: '0300-1234567',
       status: 'dispatched',
@@ -135,6 +139,8 @@ describe('ReportIntakeScreen', () => {
         chiefComplaint: 'Fractured rear leg • Splint needed',
         locationArea: 'Saddar',
         locationLandmark: 'Near Empress Market',
+        latitude: null,
+        longitude: null,
         reporterName: 'Usman',
         reporterPhone: '0300-1234567',
         reporterCnic: null,
@@ -153,6 +159,8 @@ describe('ReportIntakeScreen', () => {
       chief_complaint: 'Overworking',
       location_area: 'Tower',
       location_landmark: 'Near bus stop',
+      latitude: null,
+      longitude: null,
       reporter_name: 'Bilal',
       reporter_phone: '0300-9876543',
       reporter_cnic: '42101-1234567-1',
@@ -197,11 +205,89 @@ describe('ReportIntakeScreen', () => {
         chiefComplaint: 'Overworking',
         locationArea: 'Tower',
         locationLandmark: 'Near bus stop',
+        latitude: null,
+        longitude: null,
         reporterName: 'Bilal',
         reporterPhone: '0300-9876543',
         reporterCnic: '42101-1234567-1',
         legalNotes: 'Updated FIR #12/26 with section 428 IPC',
       })
+    })
+  })
+
+  it('supports zero-cost GPS location detection and link pasting in intake', async () => {
+    const createReportSpy = vi.spyOn(domainModule, 'createRescueReport').mockResolvedValue({
+      id: 'rep-geo',
+      org_id: 'org-1',
+      report_number: 'PARC-R102',
+      category: 'emergency',
+      species: 'dog',
+      chief_complaint: 'Hit by car',
+      location_area: 'Clifton Block 4',
+      location_landmark: 'Near Boat Basin',
+      latitude: 24.8197,
+      longitude: 67.0289,
+      reporter_name: null,
+      reporter_phone: null,
+      reporter_cnic: null,
+      status: 'logged',
+      transport_type: null,
+      disposition_type: null,
+      animal_id: null,
+      legal_notes: null,
+      dismissal_reason: null,
+      stage_logged_at: '2026-10-22T10:00:00Z',
+      stage_accepted_at: null,
+      stage_dispatched_at: null,
+      stage_attended_at: null,
+      created_at: '2026-10-22T10:00:00Z',
+      updated_at: '2026-10-22T10:00:00Z',
+    })
+
+    // Mock requestCurrentPosition
+    vi.spyOn(domainModule, 'requestCurrentPosition').mockResolvedValue({
+      latitude: 24.8197,
+      longitude: 67.0289,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/new']}>
+        <Routes>
+          <Route path="/reports/new" element={<ReportIntakeScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Fill required fields
+    fireEvent.change(screen.getByLabelText(/Chief complaint \/ Injury/i), {
+      target: { value: 'Hit by car' },
+    })
+    fireEvent.change(screen.getByLabelText(/Location area/i), {
+      target: { value: 'Clifton Block 4' },
+    })
+
+    // Click "Detect current location"
+    const detectBtn = screen.getByRole('button', { name: /Detect current location/i })
+    fireEvent.click(detectBtn)
+
+    // Should pin coordinates and show formatted text + preview button
+    expect(await screen.findByText(/24.8197° N, 67.0289° E/i)).toBeInTheDocument()
+    expect(screen.getByTitle(/Test navigation in Maps/i)).toHaveAttribute(
+      'href',
+      expect.stringContaining('24.8197,67.0289'),
+    )
+
+    // Submit report
+    fireEvent.click(screen.getByRole('button', { name: /Log rescue report/i }))
+
+    await waitFor(() => {
+      expect(createReportSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          latitude: 24.8197,
+          longitude: 67.0289,
+        }),
+      )
     })
   })
 })

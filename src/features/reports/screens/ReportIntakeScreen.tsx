@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Check, X, Camera } from '@phosphor-icons/react'
+import { Check, X, Camera, Crosshair, MapPin, Compass, CircleNotch } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -22,6 +22,10 @@ import {
   validatePhoneNumber,
   formatCnic,
   validateCnic,
+  formatCoordinates,
+  getNavigationUrl,
+  requestCurrentPosition,
+  parseCoordinates,
   type ReportPhoto,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
@@ -54,6 +58,11 @@ export function ReportIntakeScreen() {
   const [chiefComplaint, setChiefComplaint] = useState('')
   const [locationArea, setLocationArea] = useState('')
   const [locationLandmark, setLocationLandmark] = useState('')
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
+  const [locationLinkInput, setLocationLinkInput] = useState('')
+  const [detectingLocation, setDetectingLocation] = useState(false)
+  const [locationError, setLocationError] = useState<string | null>(null)
   const [reporterName, setReporterName] = useState('')
   const [reporterPhone, setReporterPhone] = useState('')
   const [reporterCnic, setReporterCnic] = useState('')
@@ -87,6 +96,8 @@ export function ReportIntakeScreen() {
         setChiefComplaint(report.chief_complaint || '')
         setLocationArea(report.location_area || '')
         setLocationLandmark(report.location_landmark || '')
+        setLatitude(report.latitude ?? null)
+        setLongitude(report.longitude ?? null)
         setReporterName(report.reporter_name || '')
         setReporterPhone(report.reporter_phone ? formatPhoneNumber(report.reporter_phone) : '')
         setReporterCnic(report.reporter_cnic ? formatCnic(report.reporter_cnic) : '')
@@ -169,6 +180,8 @@ export function ReportIntakeScreen() {
           chiefComplaint: complaintTrimmed,
           locationArea: areaTrimmed,
           locationLandmark: locationLandmark.trim() || null,
+          latitude: latitude ?? null,
+          longitude: longitude ?? null,
           reporterName: reporterName.trim() || null,
           reporterPhone: reporterPhone.trim() ? formatPhoneNumber(reporterPhone) : null,
           reporterCnic: reporterCnic.trim() ? formatCnic(reporterCnic) : null,
@@ -214,6 +227,8 @@ export function ReportIntakeScreen() {
           chiefComplaint: complaintTrimmed,
           locationArea: areaTrimmed,
           locationLandmark: locationLandmark.trim() || null,
+          latitude: latitude ?? null,
+          longitude: longitude ?? null,
           reporterName: reporterName.trim() || null,
           reporterPhone: reporterPhone.trim() ? formatPhoneNumber(reporterPhone) : null,
           reporterCnic: reporterCnic.trim() ? formatCnic(reporterCnic) : null,
@@ -451,6 +466,137 @@ export function ReportIntakeScreen() {
             value={locationLandmark}
             onChange={(e) => setLocationLandmark(e.target.value)}
           />
+
+          {/* Coordinates & Map Pin (Zero-cost GPS & Link Parser) */}
+          <div className="field stack stack--tight">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label className="field__label" style={{ margin: 0 }}>
+                GPS Coordinates
+              </label>
+              <span className="field__hint">optional · free GPS / link</span>
+            </div>
+
+            {latitude != null && longitude != null ? (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.625rem 0.75rem',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <MapPin size={16} weight="bold" color="var(--color-brand, #de6b2b)" />
+                  <span className="font-mono font-medium" style={{ fontSize: '0.875rem' }}>
+                    {formatCoordinates(latitude, longitude)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <a
+                    href={getNavigationUrl(latitude, longitude)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="quick-call-mini-btn"
+                    title="Test navigation in Maps"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Compass size={13} weight="bold" aria-hidden />
+                    <span>Preview</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLatitude(null)
+                      setLongitude(null)
+                      setLocationLinkInput('')
+                      setLocationError(null)
+                    }}
+                    className="pressable"
+                    title="Clear coordinates"
+                    aria-label="Clear coordinates"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '4px',
+                      color: 'var(--color-ink-muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <X size={15} weight="bold" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="stack stack--tight">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={detectingLocation}
+                  onClick={async () => {
+                    setLocationError(null)
+                    setDetectingLocation(true)
+                    try {
+                      const pos = await requestCurrentPosition()
+                      setLatitude(pos.latitude)
+                      setLongitude(pos.longitude)
+                    } catch (err) {
+                      setLocationError(err instanceof Error ? err.message : 'Unable to acquire location')
+                    } finally {
+                      setDetectingLocation(false)
+                    }
+                  }}
+                  style={{ minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  {detectingLocation ? (
+                    <CircleNotch size={16} weight="bold" className="photo-capture__spin" />
+                  ) : (
+                    <Crosshair size={16} weight="bold" />
+                  )}
+                  <span>{detectingLocation ? 'Detecting GPS...' : 'Detect current location'}</span>
+                </Button>
+
+                <TextField
+                  label="Location link or coordinates"
+                  hint="optional"
+                  placeholder="Paste Google Maps or WhatsApp location link"
+                  value={locationLinkInput}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setLocationLinkInput(val)
+                    if (!val.trim()) {
+                      setLocationError(null)
+                      return
+                    }
+                    const parsed = parseCoordinates(val)
+                    if (parsed) {
+                      setLatitude(parsed.latitude)
+                      setLongitude(parsed.longitude)
+                      setLocationError(null)
+                    } else if (val.includes('maps.app.goo.gl') || val.includes('goo.gl/maps')) {
+                      setLocationError('Shortened links do not contain coordinates in the URL. Please open it in your browser and copy the coordinates or full URL.')
+                    } else if (val.length > 15) {
+                      setLocationError('Could not find latitude & longitude in text. You can also paste raw coordinates like 24.8607, 67.0011.')
+                    }
+                  }}
+                />
+
+                {locationError && (
+                  <span className="field__hint" style={{ color: 'var(--color-danger, #b91c1c)', fontWeight: 500 }}>
+                    {locationError}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 4. Reporter Details (Confidential) */}

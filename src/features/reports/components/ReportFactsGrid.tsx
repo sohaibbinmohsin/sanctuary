@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Camera, FirstAid, MapPin, Phone, LockKey, User, Scales, XCircle } from '@phosphor-icons/react'
+import { Camera, FirstAid, MapPin, Phone, LockKey, User, Scales, XCircle, Compass } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   type RescueReport,
@@ -7,6 +7,8 @@ import {
   getPhotosForReport,
   formatPhoneNumber,
   formatCnic,
+  formatCoordinates,
+  getNavigationUrl,
 } from '@/features/reports/domain/rescueReports'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
@@ -224,6 +226,28 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
               <span className="fact-value landmark-highlight">{report.location_landmark}</span>
             ) : (
               <span className="fact-value font-muted">No landmark provided</span>
+            )}
+          </div>
+          <div className="fact-row">
+            <span className="fact-label">Coordinates</span>
+            {report.latitude != null && report.longitude != null ? (
+              <div className="caller-contact-actions">
+                <span className="fact-value font-mono font-medium">
+                  {formatCoordinates(report.latitude, report.longitude)}
+                </span>
+                <a
+                  href={getNavigationUrl(report.latitude, report.longitude)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="quick-call-mini-btn"
+                  title="Open in Maps for free navigation"
+                >
+                  <Compass size={13} weight="bold" aria-hidden />
+                  <span>Navigate</span>
+                </a>
+              </div>
+            ) : (
+              <span className="fact-value font-muted">No coordinates pinned</span>
             )}
           </div>
         </div>
