@@ -211,7 +211,7 @@ export function LandingScreen() {
               <div className="dossier__header-left">
                 <h3>Operational Network</h3>
               </div>
-              <div className="dossier__count">06 Active Partners</div>
+              <div className="dossier__count">07 Active Partners</div>
             </div>
 
             <div className="dossier__list">
@@ -402,6 +402,44 @@ export function LandingScreen() {
 
               <article className="dossier__row">
                 <div className="dossier__index">06</div>
+                <div className="dossier__org">
+                  <div className="dossier__logo">
+                    <img
+                      src="/partners/partner-chiragh-ghar.png"
+                      alt="Chiragh Ghar Animal Rehab logo"
+                      width={44}
+                      height={44}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="dossier__org-info">
+                    <h4>Chiragh Ghar Animal Rehab</h4>
+                    <div className="dossier__org-meta">
+                      <span className="scope-tag">Shelter</span>
+                      <span>Lahore</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="dossier__desc">
+                  Foundation-supported rehabilitation centre in Lahore providing care and
+                  rehabilitation for rescued animals, with access to veterinary services through
+                  partner clinics.
+                </div>
+                <div className="dossier__action">
+                  <a
+                    className="dossier__btn"
+                    href="https://www.instagram.com/chiraghgharanimalrehab/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span>Follow work</span>
+                    <ArrowSquareOut size={14} weight="bold" aria-hidden />
+                  </a>
+                </div>
+              </article>
+
+              <article className="dossier__row">
+                <div className="dossier__index">07</div>
                 <div className="dossier__org">
                   <div className="dossier__logo">
                     <img
