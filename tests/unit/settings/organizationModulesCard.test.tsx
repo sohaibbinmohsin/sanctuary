@@ -49,9 +49,9 @@ describe('OrganizationModulesCard', () => {
     fireEvent.click(reportsCheckbox)
     expect(reportsCheckbox).toBeChecked()
 
-    // Click Save modules button
-    const saveButton = screen.getByRole('button', { name: /Save modules/i })
-    fireEvent.click(saveButton)
+    // Click Done button to save
+    const doneButton = screen.getByRole('button', { name: /Done/i })
+    fireEvent.click(doneButton)
 
     expect(onSave).toHaveBeenCalledWith(['reports', 'animals', 'checklist'])
     expect(await screen.findByText(/Modules saved/i)).toBeInTheDocument()

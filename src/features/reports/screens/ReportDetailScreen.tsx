@@ -38,7 +38,6 @@ export function ReportDetailScreen() {
   const [error, setError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isDispositionModalOpen, setIsDispositionModalOpen] = useState(false)
-  const [isChangeDecisionOpen, setIsChangeDecisionOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -78,7 +77,7 @@ export function ReportDetailScreen() {
   }, [isDropdownOpen])
 
   async function handleStageTransition(
-    stage: 'accepted' | 'dispatched' | 'attended' | 'cancelled',
+    stage: 'logged' | 'accepted' | 'dispatched' | 'attended' | 'cancelled',
     transportType?: 'ambulance' | 'reporter',
   ) {
     if (!db || !report) return
@@ -93,6 +92,21 @@ export function ReportDetailScreen() {
       await loadReport()
     } catch (err) {
       console.error(`Failed to update stage to ${stage}`, err)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleClearDisposition() {
+    if (!db || !report) return
+    setActionLoading(true)
+    setIsDropdownOpen(false)
+    try {
+      await completeReportWithDisposition(db, report.id, null, report.animal_id || undefined)
+      await loadReport()
+      setIsDispositionModalOpen(true)
+    } catch (err) {
+      console.error('Failed to clear disposition', err)
     } finally {
       setActionLoading(false)
     }
@@ -197,31 +211,6 @@ export function ReportDetailScreen() {
     }
   }
 
-  async function handleChangeDecisionStage(
-    stage: 'logged' | 'accepted' | 'dispatched' | 'cancelled',
-    transportType?: 'ambulance' | 'reporter',
-  ) {
-    if (!db || !report) return
-    setActionLoading(true)
-    setIsChangeDecisionOpen(false)
-    try {
-      if (transportType !== undefined) {
-        await updateReportStage(db, report.id, stage, transportType)
-      } else {
-        await updateReportStage(db, report.id, stage)
-      }
-      await loadReport()
-    } catch (err) {
-      console.error(`Failed to change decision stage to ${stage}`, err)
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  async function handleChangeDecisionDisposition(disposition: 'spot_released' | 'admitted_shelter') {
-    setIsChangeDecisionOpen(false)
-    await handleDisposition(disposition)
-  }
 
   if (loading) {
     return (
@@ -330,75 +319,54 @@ export function ReportDetailScreen() {
             )}
 
             {status === 'accepted' && (
-              <div
-                className="accepted-actions-group"
-                style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}
-              >
-                <div className="split-btn-group">
-                  <button
-                    type="button"
-                    className="btn-brand-amber btn-main pressable"
-                    onClick={() => handleStageTransition('dispatched', 'ambulance')}
-                    disabled={actionLoading}
-                  >
-                    <Truck size={16} weight="bold" aria-hidden />
-                    <span>Dispatch Ambulance</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-toggle pressable"
-                    onClick={() => setIsDropdownOpen((prev) => !prev)}
-                    title="More stage actions"
-                    aria-label="More stage actions"
-                    aria-expanded={isDropdownOpen}
-                  >
-                    <CaretDown size={14} weight="bold" aria-hidden />
-                  </button>
-                  {isDropdownOpen && (
-                    <div className="dropdown-menu is-open">
-                      <button
-                        type="button"
-                        className="dropdown-item"
-                        onClick={() => handleStageTransition('dispatched', 'reporter')}
-                      >
-                        <User size={15} weight="bold" aria-hidden />
-                        <span>Reporter Arranging Transport</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="dropdown-item danger"
-                        onClick={() => handleStageTransition('cancelled')}
-                      >
-                        <XCircle size={15} weight="bold" aria-hidden />
-                        <span>Decline / Cancel Report</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
+              <div className="split-btn-group">
                 <button
                   type="button"
-                  className="btn-brand-outline pressable"
-                  onClick={() => handleStageTransition('dispatched', 'reporter')}
+                  className="btn-brand-amber btn-main pressable"
+                  onClick={() => handleStageTransition('dispatched', 'ambulance')}
                   disabled={actionLoading}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 14px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid rgb(222, 107, 43)',
-                    color: 'rgb(222, 107, 43)',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    minHeight: 'var(--touch-min)',
-                  }}
                 >
-                  <User size={16} weight="bold" aria-hidden />
-                  <span>Reporter Arranging Transport</span>
+                  <Truck size={16} weight="bold" aria-hidden />
+                  <span>Dispatch Ambulance</span>
                 </button>
+                <button
+                  type="button"
+                  className="btn-toggle pressable"
+                  onClick={() => setIsDropdownOpen((prev) => !prev)}
+                  title="More stage actions"
+                  aria-label="More stage actions"
+                  aria-expanded={isDropdownOpen}
+                >
+                  <CaretDown size={14} weight="bold" aria-hidden />
+                </button>
+                {isDropdownOpen && (
+                  <div className="dropdown-menu is-open">
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => handleStageTransition('dispatched', 'reporter')}
+                    >
+                      <User size={15} weight="bold" aria-hidden />
+                      <span>Reporter Arranging Transport</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => handleStageTransition('logged')}
+                    >
+                      <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
+                      <span>Change decision (Back to Logged)</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdown-item danger"
+                      onClick={() => handleStageTransition('cancelled')}
+                    >
+                      <XCircle size={15} weight="bold" aria-hidden />
+                      <span>Decline / Cancel Report</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -427,6 +395,14 @@ export function ReportDetailScreen() {
                   <div className="dropdown-menu is-open">
                     <button
                       type="button"
+                      className="dropdown-item"
+                      onClick={() => handleStageTransition('accepted')}
+                    >
+                      <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
+                      <span>Change decision (Back to Accepted)</span>
+                    </button>
+                    <button
+                      type="button"
                       className="dropdown-item danger"
                       onClick={() => handleStageTransition('cancelled')}
                     >
@@ -439,45 +415,142 @@ export function ReportDetailScreen() {
             )}
 
             {status === 'attended' && !disp && (
-              <button
-                type="button"
-                className="btn-brand-amber pressable"
-                onClick={() => setIsDispositionModalOpen(true)}
-                disabled={actionLoading}
-              >
-                <span>Set Disposition</span>
-              </button>
+              <div className="split-btn-group">
+                <button
+                  type="button"
+                  className="btn-brand-amber btn-main pressable"
+                  onClick={() => setIsDispositionModalOpen(true)}
+                  disabled={actionLoading}
+                >
+                  <FirstAid size={16} weight="bold" aria-hidden />
+                  <span>Set Disposition</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn-toggle pressable"
+                  onClick={() => setIsDropdownOpen((prev) => !prev)}
+                  title="More stage actions"
+                  aria-label="More stage actions"
+                  aria-expanded={isDropdownOpen}
+                >
+                  <CaretDown size={14} weight="bold" aria-hidden />
+                </button>
+                {isDropdownOpen && (
+                  <div className="dropdown-menu is-open">
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => handleStageTransition('dispatched')}
+                    >
+                      <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
+                      <span>Change decision (Back to Dispatched)</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdown-item danger"
+                      onClick={() => handleStageTransition('cancelled')}
+                    >
+                      <XCircle size={15} weight="bold" aria-hidden />
+                      <span>Decline / Cancel Report</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
 
             {status === 'attended' && disp && (
-              <div className="completed-actions-row">
-                <Button
-                  variant="secondary"
-                  onClick={() => setIsChangeDecisionOpen(true)}
-                >
-                  <ArrowCounterClockwise size={16} weight="bold" aria-hidden />
-                  <span>Change decision</span>
-                </Button>
-                {report.animal_id && (
+              <div className="split-btn-group">
+                {report.animal_id ? (
                   <Link
                     to={`/animals/${report.animal_id}`}
-                    className="btn-brand-amber pressable"
-                    style={{ textDecoration: 'none' }}
+                    className="btn-brand-amber btn-main pressable"
+                    style={{
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
                   >
                     <span>Animal Profile &rarr;</span>
                   </Link>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-brand-amber btn-main pressable"
+                    onClick={() => void handleClearDisposition()}
+                    disabled={actionLoading}
+                  >
+                    <ArrowCounterClockwise size={16} weight="bold" aria-hidden />
+                    <span>Change decision</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn-toggle pressable"
+                  onClick={() => setIsDropdownOpen((prev) => !prev)}
+                  title="More stage actions"
+                  aria-label="More stage actions"
+                  aria-expanded={isDropdownOpen}
+                >
+                  <CaretDown size={14} weight="bold" aria-hidden />
+                </button>
+                {isDropdownOpen && (
+                  <div className="dropdown-menu is-open">
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => void handleClearDisposition()}
+                    >
+                      <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
+                      <span>Change decision (Re-select outcome)</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => handleStageTransition('dispatched')}
+                    >
+                      <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
+                      <span>Change decision (Back to Dispatched)</span>
+                    </button>
+                  </div>
                 )}
               </div>
             )}
 
             {status === 'cancelled' && (
-              <Button
-                variant="secondary"
-                onClick={() => setIsChangeDecisionOpen(true)}
-              >
-                <ArrowCounterClockwise size={16} weight="bold" aria-hidden />
-                <span>Change decision</span>
-              </Button>
+              <div className="split-btn-group">
+                <button
+                  type="button"
+                  className="btn-brand-amber btn-main pressable"
+                  onClick={() => handleStageTransition('logged')}
+                  disabled={actionLoading}
+                >
+                  <ArrowCounterClockwise size={16} weight="bold" aria-hidden />
+                  <span>Reopen as Logged</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn-toggle pressable"
+                  onClick={() => setIsDropdownOpen((prev) => !prev)}
+                  title="More stage actions"
+                  aria-label="More stage actions"
+                  aria-expanded={isDropdownOpen}
+                >
+                  <CaretDown size={14} weight="bold" aria-hidden />
+                </button>
+                {isDropdownOpen && (
+                  <div className="dropdown-menu is-open">
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => handleStageTransition('accepted')}
+                    >
+                      <CheckCircle size={15} weight="bold" aria-hidden />
+                      <span>Reopen as Accepted</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -565,101 +638,6 @@ export function ReportDetailScreen() {
               onClick={() => setIsDispositionModalOpen(false)}
             >
               Cancel
-            </Button>
-          </div>
-        </div>
-      </ResponsiveSheetModal>
-
-      {/* Change Decision Modal */}
-      <ResponsiveSheetModal
-        isOpen={isChangeDecisionOpen}
-        onClose={() => setIsChangeDecisionOpen(false)}
-        title="Change Decision"
-      >
-        <div className="stack stack--loose">
-          <p className="field__hint" style={{ marginTop: '-4px', marginBottom: '8px' }}>
-            Update pipeline status for {report.report_number}
-          </p>
-          <div className="field">
-            <span>Select new stage or decision:</span>
-            <div className="stack stack--tight" style={{ marginTop: '8px' }}>
-              <button
-                type="button"
-                className="btn btn--secondary btn--block"
-                style={{ justifyContent: 'flex-start', padding: '12px 16px', textAlign: 'left' }}
-                onClick={() => handleChangeDecisionStage('logged')}
-              >
-                <strong>Reopen as Logged</strong> &nbsp;—&nbsp; Awaiting triage decision
-              </button>
-
-              <button
-                type="button"
-                className="btn btn--secondary btn--block"
-                style={{ justifyContent: 'flex-start', padding: '12px 16px', textAlign: 'left' }}
-                onClick={() => handleChangeDecisionStage('accepted')}
-              >
-                <strong>Accepted</strong> &nbsp;—&nbsp; Triage accepted, awaiting transport
-              </button>
-
-              <button
-                type="button"
-                className="btn btn--secondary btn--block"
-                style={{ justifyContent: 'flex-start', padding: '12px 16px', textAlign: 'left' }}
-                onClick={() => handleChangeDecisionStage('dispatched', 'ambulance')}
-              >
-                <strong>Dispatch Ambulance</strong> &nbsp;—&nbsp; Field team en route
-              </button>
-
-              <button
-                type="button"
-                className="btn btn--secondary btn--block"
-                style={{ justifyContent: 'flex-start', padding: '12px 16px', textAlign: 'left' }}
-                onClick={() => handleChangeDecisionStage('dispatched', 'reporter')}
-              >
-                <strong>Reporter Arranging Transport</strong> &nbsp;—&nbsp; Reporter bringing animal
-              </button>
-
-              <button
-                type="button"
-                className="btn btn--secondary btn--block"
-                style={{ justifyContent: 'flex-start', padding: '12px 16px', textAlign: 'left' }}
-                onClick={() => handleChangeDecisionDisposition('spot_released')}
-              >
-                <strong>Spot Release (TNR)</strong> &nbsp;—&nbsp; Treated on spot / returned
-              </button>
-
-              <button
-                type="button"
-                className="btn btn--secondary btn--block"
-                style={{ justifyContent: 'flex-start', padding: '12px 16px', textAlign: 'left' }}
-                onClick={() => handleChangeDecisionDisposition('admitted_shelter')}
-              >
-                <strong>Admit to Shelter</strong> &nbsp;—&nbsp; In sanctuary / shelter care
-              </button>
-
-              <button
-                type="button"
-                className="btn btn--danger btn--block"
-                style={{
-                  justifyContent: 'flex-start',
-                  padding: '12px 16px',
-                  marginTop: '8px',
-                  textAlign: 'left',
-                }}
-                onClick={() => handleChangeDecisionStage('cancelled')}
-              >
-                <strong>Decline / Cancel Report</strong> &nbsp;—&nbsp; Untraceable or out of scope
-              </button>
-            </div>
-          </div>
-
-          <div className="responsive-modal__actions" style={{ marginTop: '16px' }}>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setIsChangeDecisionOpen(false)}
-            >
-              Close
             </Button>
           </div>
         </div>

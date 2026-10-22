@@ -759,9 +759,10 @@ export function SettingsScreen() {
           )}
         </div>
 
-        <div className="panel stack">
-          <SettingsCardHead
-            title="Ledger & currency"
+        {(!member || member.hasModule('ledger')) && (
+          <div className="panel stack">
+            <SettingsCardHead
+              title="Ledger & currency"
             description={
               editingCategories
                 ? 'Main shelter currency and category labels for money in or out.'
@@ -921,6 +922,7 @@ export function SettingsScreen() {
             />
           )}
         </div>
+        )}
       </div>
 
       <div style={{ marginTop: '1.25rem' }}>

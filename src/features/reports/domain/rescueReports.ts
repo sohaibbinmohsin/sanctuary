@@ -136,12 +136,16 @@ export async function updateReportStage(
   else if (stage === 'dispatched') stageColumn = 'stage_dispatched_at'
   else if (stage === 'attended') stageColumn = 'stage_attended_at'
 
-  const transportClause = transportType !== undefined ? `, transport_type = '${transportType}'` : ''
+  const transportClause =
+    transportType !== undefined
+      ? `, transport_type = ${transportType ? `'${transportType}'` : 'NULL'}`
+      : ''
+  const dispClause = stage !== 'attended' ? `, disposition_type = NULL` : ''
 
   if (stageColumn) {
     await db.execute(
       `UPDATE rescue_reports
-       SET status = ?, ${stageColumn} = ?, updated_at = ?${transportClause}
+       SET status = ?, ${stageColumn} = ?, updated_at = ?${transportClause}${dispClause}
        WHERE id = ?`,
       [stage, now, now, reportId],
     )
@@ -149,7 +153,7 @@ export async function updateReportStage(
     // e.g. cancelled
     await db.execute(
       `UPDATE rescue_reports
-       SET status = ?, updated_at = ?${transportClause}
+       SET status = ?, updated_at = ?${transportClause}${dispClause}
        WHERE id = ?`,
       [stage, now, reportId],
     )
@@ -157,21 +161,22 @@ export async function updateReportStage(
 }
 
 /**
- * Completes a report with an attended disposition (spot release, transfer to partner, or admitted to shelter).
+ * Completes a report with an attended disposition (spot release, transfer to partner, or admitted to shelter),
+ * or clears disposition if null is provided.
  */
 export async function completeReportWithDisposition(
   db: SanctuaryDb,
   reportId: string,
-  disposition: RescueReportDisposition,
+  disposition: RescueReportDisposition | null,
   animalId?: string,
 ): Promise<void> {
   const now = new Date().toISOString()
 
   await db.execute(
     `UPDATE rescue_reports
-     SET status = ?, disposition_type = ?, animal_id = ?, stage_attended_at = COALESCE(stage_attended_at, ?), updated_at = ?
+     SET status = ?, disposition_type = ?, animal_id = COALESCE(?, animal_id), stage_attended_at = COALESCE(stage_attended_at, ?), updated_at = ?
      WHERE id = ?`,
-    ['attended', disposition, animalId ?? null, now, now, reportId],
+    ['attended', disposition, animalId || null, now, now, reportId],
   )
 }
 

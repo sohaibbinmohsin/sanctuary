@@ -90,7 +90,7 @@ export default function App() {
         <BrowserRouter>
           {signedIn ? (
             <Routes>
-              <Route path="/login" element={<Navigate to="/animals" replace />} />
+              <Route path="/login" element={<Navigate to="/" replace />} />
               <Route path="/*" element={<PublicSlugOrApp />} />
             </Routes>
           ) : (

@@ -61,7 +61,7 @@ const BASE_BOTTOM_NAV: readonly NavItemDef[] = [
 ]
 
 function getFallbackModuleRoute(hasModule?: (m: AppModuleId) => boolean): string {
-  if (!hasModule) return '/animals'
+  if (!hasModule) return '/reports'
   for (const item of MODULE_NAV_DEFINITIONS) {
     if (hasModule(item.moduleId)) {
       return item.to

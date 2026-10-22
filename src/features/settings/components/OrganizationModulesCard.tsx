@@ -1,9 +1,8 @@
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import {
   ALL_MODULE_IDS,
   type AppModuleId,
 } from '@/shared/domain/modules'
-import { Button } from '@/shared/ui/Button'
 import { SettingsCardHead } from '@/features/settings/components/SettingsCardHead'
 
 type ModuleDefinition = {
@@ -55,7 +54,7 @@ export function OrganizationModulesCard({
   )
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const [isSaving, setIsSaving] = useState(false)
 
   function handleToggleModule(moduleId: AppModuleId, checked: boolean) {
     const updated = new Set(selectedModules)
@@ -67,20 +66,45 @@ export function OrganizationModulesCard({
     setSelectedModules(updated)
   }
 
-  async function handleSave() {
+  async function handleToggleEdit() {
     setStatusMessage(null)
     setErrorMessage(null)
-    startTransition(async () => {
+
+    if (!editing) {
+      setSelectedModules(new Set(enabledModules))
+      setEditing(true)
+      return
+    }
+
+    // Currently editing and clicking "Done"
+    const hasChanged =
+      selectedModules.size !== enabledModules.size ||
+      [...selectedModules].some((m) => !enabledModules.has(m))
+
+    if (hasChanged && canManage) {
+      const sortedList = ALL_MODULE_IDS.filter((m) => selectedModules.has(m))
+      setIsSaving(true)
       try {
-        const sortedList = ALL_MODULE_IDS.filter((m) => selectedModules.has(m))
         await onSave(sortedList)
         setStatusMessage('Modules saved successfully.')
+        setEditing(false)
+        try {
+          if (typeof window !== 'undefined' && typeof window.location?.reload === 'function') {
+            window.location.reload()
+          }
+        } catch {
+          // Ignore in environments where reload is not implemented (e.g. JSDOM)
+        }
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : 'Failed to update modules.',
         )
+      } finally {
+        setIsSaving(false)
       }
-    })
+    } else {
+      setEditing(false)
+    }
   }
 
   return (
@@ -93,11 +117,7 @@ export function OrganizationModulesCard({
             : 'Active modules in your workspace.'
         }
         editing={editing}
-        onToggle={() => {
-          setStatusMessage(null)
-          setErrorMessage(null)
-          setEditing((open) => !open)
-        }}
+        onToggle={() => void handleToggleEdit()}
       />
 
       {editing ? (
@@ -114,7 +134,7 @@ export function OrganizationModulesCard({
                   style={{
                     display: 'flex',
                     alignItems: 'flex-start',
-                    cursor: canManage && !isPending ? 'pointer' : 'default',
+                    cursor: canManage && !isSaving ? 'pointer' : 'default',
                     gap: '0.75rem',
                     padding: '0.5rem 0',
                     minHeight: '44px',
@@ -124,7 +144,7 @@ export function OrganizationModulesCard({
                     id={inputId}
                     type="checkbox"
                     checked={isChecked}
-                    disabled={!canManage || isPending}
+                    disabled={!canManage || isSaving}
                     onChange={(e) => handleToggleModule(def.id, e.target.checked)}
                     style={{
                       marginTop: '0.2rem',
@@ -145,31 +165,6 @@ export function OrganizationModulesCard({
               )
             })}
           </div>
-
-          {canManage ? (
-            <div className="row" style={{ marginTop: '0.75rem' }}>
-              <Button
-                type="button"
-                variant="primary"
-                disabled={isPending}
-                onClick={() => void handleSave()}
-              >
-                {isPending ? 'Saving…' : 'Save modules'}
-              </Button>
-            </div>
-          ) : null}
-
-          {statusMessage ? (
-            <p className="muted" role="status" style={{ margin: 0, color: 'var(--color-forest)' }}>
-              {statusMessage}
-            </p>
-          ) : null}
-
-          {errorMessage ? (
-            <p className="form-error" role="alert" style={{ margin: 0 }}>
-              {errorMessage}
-            </p>
-          ) : null}
         </>
       ) : (
         <div className="settings-groups">
@@ -185,6 +180,18 @@ export function OrganizationModulesCard({
           </div>
         </div>
       )}
+
+      {statusMessage ? (
+        <p className="muted" role="status" style={{ margin: '0.5rem 0 0', color: 'var(--color-forest)' }}>
+          {statusMessage}
+        </p>
+      ) : null}
+
+      {errorMessage ? (
+        <p className="form-error" role="alert" style={{ margin: '0.5rem 0 0' }}>
+          {errorMessage}
+        </p>
+      ) : null}
     </div>
   )
 }

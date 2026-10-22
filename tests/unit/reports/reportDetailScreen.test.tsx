@@ -198,11 +198,49 @@ describe('ReportDetailScreen', () => {
       </MemoryRouter>,
     )
 
+    const toggleBtn = await screen.findByRole('button', { name: /More stage actions/i })
+    fireEvent.click(toggleBtn)
+
     const reporterBtn = await screen.findByRole('button', { name: /Reporter Arranging Transport/i })
     fireEvent.click(reporterBtn)
 
     await waitFor(() => {
       expect(updateStageSpy).toHaveBeenCalledWith(expect.anything(), 'rep-1', 'dispatched', 'reporter')
+    })
+  })
+
+  it('allows moving back one stage from accepted to logged via dropdown', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-1',
+      org_id: 'org-1',
+      report_number: 'PARC-R105',
+      status: 'accepted',
+      species: 'dog',
+      chief_complaint: 'Fracture',
+      location_area: 'Burns Road',
+      stage_logged_at: '2026-10-13T14:10:00Z',
+      stage_accepted_at: '2026-10-13T14:20:00Z',
+      created_at: '2026-10-13T14:10:00Z',
+    } as any)
+
+    const updateStageSpy = vi.spyOn(domainModule, 'updateReportStage').mockResolvedValue(undefined)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-1']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const toggleBtn = await screen.findByRole('button', { name: /More stage actions/i })
+    fireEvent.click(toggleBtn)
+
+    const backBtn = await screen.findByRole('button', { name: /Change decision \(Back to Logged\)/i })
+    fireEvent.click(backBtn)
+
+    await waitFor(() => {
+      expect(updateStageSpy).toHaveBeenCalledWith(expect.anything(), 'rep-1', 'logged')
     })
   })
 
@@ -338,15 +376,14 @@ describe('ReportDetailScreen', () => {
       </MemoryRouter>,
     )
 
-    const changeBtn = await screen.findByRole('button', { name: /Change decision/i })
-    fireEvent.click(changeBtn)
+    const toggleBtn = await screen.findByRole('button', { name: /More stage actions/i })
+    fireEvent.click(toggleBtn)
 
-    // Modal opens, pick "Reopen as Logged"
-    const reopenBtn = await screen.findByRole('button', { name: /Reopen as Logged/i })
-    fireEvent.click(reopenBtn)
+    const backBtn = await screen.findByRole('button', { name: /Change decision \(Back to Dispatched\)/i })
+    fireEvent.click(backBtn)
 
     await waitFor(() => {
-      expect(updateStageSpy).toHaveBeenCalledWith(expect.anything(), 'rep-1', 'logged')
+      expect(updateStageSpy).toHaveBeenCalledWith(expect.anything(), 'rep-1', 'dispatched')
     })
   })
 })

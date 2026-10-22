@@ -355,7 +355,7 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: var(--space-6) var(--space-6) 60px;
+  padding: 0 0 60px;
   max-width: 960px;
   margin: 0 auto;
   width: 100%;
@@ -364,7 +364,7 @@
 
 @media (max-width: 640px) {
   .reports-detail-wrap {
-    padding: var(--space-4) var(--space-4) 84px;
+    padding: 0 0 84px;
     gap: 16px;
   }
 }
@@ -676,6 +676,45 @@
 .stepper-step.current .stepper-label-title {
   color: var(--color-ink);
   font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .stepper-card {
+    padding: 6px 0 10px;
+  }
+
+  .stepper-track {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    overflow-x: visible;
+  }
+
+  .stepper-step-wrapper {
+    flex-direction: column;
+    align-items: flex-start;
+    flex: none;
+    width: 100%;
+  }
+
+  .stepper-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .stepper-connector {
+    width: 2px;
+    height: 18px;
+    margin: 4px 0 4px 13px;
+    flex: none;
+    background: var(--color-border);
+  }
+
+  .stepper-step-wrapper:last-child .stepper-connector {
+    display: none;
+  }
 }
 
 /* Interlink Banner */
