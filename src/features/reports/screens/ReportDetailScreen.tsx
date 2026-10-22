@@ -336,7 +336,7 @@ export function ReportDetailScreen() {
                       onClick={() => handleStageTransition('logged')}
                     >
                       <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
-                      <span>Change decision (Back to Logged)</span>
+                      <span>Change decision</span>
                     </button>
                     <button
                       type="button"
@@ -381,7 +381,7 @@ export function ReportDetailScreen() {
                       onClick={() => handleStageTransition('accepted')}
                     >
                       <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
-                      <span>Change decision (Back to Accepted)</span>
+                      <span>Change decision</span>
                     </button>
                     <button
                       type="button"
@@ -460,7 +460,7 @@ export function ReportDetailScreen() {
                       onClick={() => handleStageTransition('dispatched')}
                     >
                       <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
-                      <span>Change decision (Back to Dispatched)</span>
+                      <span>Change decision</span>
                     </button>
                   </div>
                 )}

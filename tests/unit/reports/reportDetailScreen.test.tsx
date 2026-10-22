@@ -236,7 +236,7 @@ describe('ReportDetailScreen', () => {
     const toggleBtn = await screen.findByRole('button', { name: /More stage actions/i })
     fireEvent.click(toggleBtn)
 
-    const backBtn = await screen.findByRole('button', { name: /Change decision \(Back to Logged\)/i })
+    const backBtn = await screen.findByRole('button', { name: /Change decision/i })
     fireEvent.click(backBtn)
 
     await waitFor(() => {
@@ -344,7 +344,7 @@ describe('ReportDetailScreen', () => {
     const toggleBtn = await screen.findByRole('button', { name: /More stage actions/i })
     fireEvent.click(toggleBtn)
 
-    const backBtn = await screen.findByRole('button', { name: /Change decision \(Back to Dispatched\)/i })
+    const backBtn = await screen.findByRole('button', { name: /Change decision/i })
     fireEvent.click(backBtn)
 
     await waitFor(() => {
