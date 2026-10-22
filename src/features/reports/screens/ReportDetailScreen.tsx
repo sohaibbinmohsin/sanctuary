@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
-  CaretLeft,
+  ArrowLeft,
   CaretDown,
   CheckCircle,
   Truck,
@@ -10,11 +10,10 @@ import {
   HouseSimple,
   User,
   ArrowCounterClockwise,
+  X,
 } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
-import { Button } from '@/shared/ui/Button'
-import { ResponsiveSheetModal } from '@/shared/ui/ResponsiveSheetModal'
 import {
   getRescueReportById,
   updateReportStage,
@@ -37,8 +36,8 @@ export function ReportDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [isDispositionModalOpen, setIsDispositionModalOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [justCreatedAnimal, setJustCreatedAnimal] = useState(false)
 
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -75,42 +74,6 @@ export function ReportDetailScreen() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isDropdownOpen])
-
-  async function handleStageTransition(
-    stage: 'logged' | 'accepted' | 'dispatched' | 'attended' | 'cancelled',
-    transportType?: 'ambulance' | 'reporter',
-  ) {
-    if (!db || !report) return
-    setActionLoading(true)
-    setIsDropdownOpen(false)
-    try {
-      if (transportType !== undefined) {
-        await updateReportStage(db, report.id, stage, transportType)
-      } else {
-        await updateReportStage(db, report.id, stage)
-      }
-      await loadReport()
-    } catch (err) {
-      console.error(`Failed to update stage to ${stage}`, err)
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  async function handleClearDisposition() {
-    if (!db || !report) return
-    setActionLoading(true)
-    setIsDropdownOpen(false)
-    try {
-      await completeReportWithDisposition(db, report.id, null, report.animal_id || undefined)
-      await loadReport()
-      setIsDispositionModalOpen(true)
-    } catch (err) {
-      console.error('Failed to clear disposition', err)
-    } finally {
-      setActionLoading(false)
-    }
-  }
 
   async function createAnimalFromReport(
     disposition: 'spot_released' | 'admitted_shelter',
@@ -189,28 +152,44 @@ export function ReportDetailScreen() {
     return animal.id
   }
 
-  async function handleDisposition(disposition: 'spot_released' | 'admitted_shelter') {
+  async function handleStageTransition(
+    stage: 'logged' | 'accepted' | 'dispatched' | 'attended' | 'cancelled',
+    transportType?: 'ambulance' | 'reporter',
+  ) {
     if (!db || !report) return
     setActionLoading(true)
-    setIsDispositionModalOpen(false)
+    setIsDropdownOpen(false)
     try {
-      let animalId = report.animal_id
-      if (!animalId) {
-        try {
-          animalId = await createAnimalFromReport(disposition)
-        } catch (animalErr) {
-          console.error('Failed to automatically create animal record', animalErr)
+      if (stage === 'attended') {
+        let animalId = report.animal_id
+        if (!animalId) {
+          try {
+            animalId = await createAnimalFromReport('admitted_shelter')
+            setJustCreatedAnimal(true)
+          } catch (animalErr) {
+            console.error('Failed to automatically create animal record', animalErr)
+          }
+        }
+        await completeReportWithDisposition(
+          db,
+          report.id,
+          'admitted_shelter',
+          animalId || undefined,
+        )
+      } else {
+        if (transportType !== undefined) {
+          await updateReportStage(db, report.id, stage, transportType)
+        } else {
+          await updateReportStage(db, report.id, stage)
         }
       }
-      await completeReportWithDisposition(db, report.id, disposition, animalId || undefined)
       await loadReport()
     } catch (err) {
-      console.error(`Failed to complete disposition ${disposition}`, err)
+      console.error(`Failed to update stage to ${stage}`, err)
     } finally {
       setActionLoading(false)
     }
   }
-
 
   if (loading) {
     return (
@@ -226,8 +205,8 @@ export function ReportDetailScreen() {
     return (
       <div className="reports-screen">
         <div className="reports-detail-wrap">
-          <Link to="/reports" className="back-nav-link">
-            <CaretLeft size={16} weight="bold" aria-hidden />
+          <Link to="/reports" className="back-link">
+            <ArrowLeft size={18} weight="bold" aria-hidden />
             <span>Reports</span>
           </Link>
           <div className="reports-empty-state" style={{ marginTop: '20px' }}>
@@ -276,8 +255,8 @@ export function ReportDetailScreen() {
       <div className="reports-detail-wrap">
         {/* Topbar: Back Link + Stage Action Split Button */}
         <div className="case-detail-topbar">
-          <Link to="/reports" className="back-nav-link">
-            <CaretLeft size={16} weight="bold" aria-hidden />
+          <Link to="/reports" className="back-link">
+            <ArrowLeft size={18} weight="bold" aria-hidden />
             <span>Reports</span>
           </Link>
 
@@ -291,7 +270,8 @@ export function ReportDetailScreen() {
                   disabled={actionLoading}
                 >
                   <CheckCircle size={16} weight="bold" aria-hidden />
-                  <span>Accept &amp; Triage</span>
+                  <span className="btn-text-full">Accept &amp; Triage</span>
+                  <span className="btn-text-mobile">Accept</span>
                 </button>
                 <button
                   type="button"
@@ -327,7 +307,8 @@ export function ReportDetailScreen() {
                   disabled={actionLoading}
                 >
                   <Truck size={16} weight="bold" aria-hidden />
-                  <span>Dispatch Ambulance</span>
+                  <span className="btn-text-full">Dispatch Ambulance</span>
+                  <span className="btn-text-mobile">Dispatch</span>
                 </button>
                 <button
                   type="button"
@@ -379,7 +360,8 @@ export function ReportDetailScreen() {
                   disabled={actionLoading}
                 >
                   <FirstAid size={16} weight="bold" aria-hidden />
-                  <span>Mark Attended</span>
+                  <span className="btn-text-full">Mark Attended</span>
+                  <span className="btn-text-mobile">Attended</span>
                 </button>
                 <button
                   type="button"
@@ -414,51 +396,7 @@ export function ReportDetailScreen() {
               </div>
             )}
 
-            {status === 'attended' && !disp && (
-              <div className="split-btn-group">
-                <button
-                  type="button"
-                  className="btn-brand-amber btn-main pressable"
-                  onClick={() => setIsDispositionModalOpen(true)}
-                  disabled={actionLoading}
-                >
-                  <FirstAid size={16} weight="bold" aria-hidden />
-                  <span>Set Disposition</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn-toggle pressable"
-                  onClick={() => setIsDropdownOpen((prev) => !prev)}
-                  title="More stage actions"
-                  aria-label="More stage actions"
-                  aria-expanded={isDropdownOpen}
-                >
-                  <CaretDown size={14} weight="bold" aria-hidden />
-                </button>
-                {isDropdownOpen && (
-                  <div className="dropdown-menu is-open">
-                    <button
-                      type="button"
-                      className="dropdown-item"
-                      onClick={() => handleStageTransition('dispatched')}
-                    >
-                      <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
-                      <span>Change decision (Back to Dispatched)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="dropdown-item danger"
-                      onClick={() => handleStageTransition('cancelled')}
-                    >
-                      <XCircle size={15} weight="bold" aria-hidden />
-                      <span>Decline / Cancel Report</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {status === 'attended' && disp && (
+            {status === 'attended' && (
               <div className="split-btn-group">
                 {report.animal_id ? (
                   <Link
@@ -471,17 +409,37 @@ export function ReportDetailScreen() {
                       gap: '6px',
                     }}
                   >
-                    <span>Animal Profile &rarr;</span>
+                    <HouseSimple size={16} weight="bold" aria-hidden />
+                    <span className="btn-text-full">Open Profile &rarr;</span>
+                    <span className="btn-text-mobile">Profile &rarr;</span>
                   </Link>
                 ) : (
                   <button
                     type="button"
                     className="btn-brand-amber btn-main pressable"
-                    onClick={() => void handleClearDisposition()}
+                    onClick={async () => {
+                      setActionLoading(true)
+                      try {
+                        const animalId = await createAnimalFromReport('admitted_shelter')
+                        setJustCreatedAnimal(true)
+                        await completeReportWithDisposition(
+                          db,
+                          report.id,
+                          'admitted_shelter',
+                          animalId,
+                        )
+                        await loadReport()
+                      } catch (err) {
+                        console.error('Failed to create animal profile', err)
+                      } finally {
+                        setActionLoading(false)
+                      }
+                    }}
                     disabled={actionLoading}
                   >
-                    <ArrowCounterClockwise size={16} weight="bold" aria-hidden />
-                    <span>Change decision</span>
+                    <HouseSimple size={16} weight="bold" aria-hidden />
+                    <span className="btn-text-full">Open Profile &rarr;</span>
+                    <span className="btn-text-mobile">Profile &rarr;</span>
                   </button>
                 )}
                 <button
@@ -496,14 +454,6 @@ export function ReportDetailScreen() {
                 </button>
                 {isDropdownOpen && (
                   <div className="dropdown-menu is-open">
-                    <button
-                      type="button"
-                      className="dropdown-item"
-                      onClick={() => void handleClearDisposition()}
-                    >
-                      <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
-                      <span>Change decision (Re-select outcome)</span>
-                    </button>
                     <button
                       type="button"
                       className="dropdown-item"
@@ -526,7 +476,8 @@ export function ReportDetailScreen() {
                   disabled={actionLoading}
                 >
                   <ArrowCounterClockwise size={16} weight="bold" aria-hidden />
-                  <span>Reopen as Logged</span>
+                  <span className="btn-text-full">Reopen as Logged</span>
+                  <span className="btn-text-mobile">Reopen</span>
                 </button>
                 <button
                   type="button"
@@ -564,8 +515,8 @@ export function ReportDetailScreen() {
         {/* 4-Stage Lifecycle Stepper */}
         <ReportPipelineTracker report={report} />
 
-        {/* Interlink Banner if Admitted/Attended */}
-        {status === 'attended' && disp === 'admitted_shelter' && (
+        {/* Interlink Banner when Animal Profile is newly created */}
+        {justCreatedAnimal && report.animal_id && (
           <div className="animal-interlink-banner">
             <div className="interlink-badge-icon">
               <HouseSimple size={22} weight="bold" aria-hidden />
@@ -576,72 +527,30 @@ export function ReportDetailScreen() {
                 Permanent animal record created. Clinical treatments, medications, and shelter care are managed in the Animal registry.
               </div>
             </div>
-            <Link
-              to={report.animal_id ? `/animals/${report.animal_id}` : '/animals/new'}
-              className="btn-primary-forest pressable"
-              style={{ textDecoration: 'none' }}
-            >
-              <span>Open Animal Profile &rarr;</span>
-            </Link>
+            <div className="interlink-actions">
+              <Link
+                to={`/animals/${report.animal_id}`}
+                className="btn-primary-forest pressable"
+                style={{ textDecoration: 'none' }}
+              >
+                <span>Open Animal Profile &rarr;</span>
+              </Link>
+              <button
+                type="button"
+                className="btn-icon-dismiss pressable"
+                onClick={() => setJustCreatedAnimal(false)}
+                aria-label="Dismiss banner"
+                title="Dismiss"
+              >
+                <X size={18} weight="bold" />
+              </button>
+            </div>
           </div>
         )}
 
         {/* Intake Facts Grid */}
-        <ReportFactsGrid report={report} />
+        <ReportFactsGrid report={report} onPhotoAdded={() => loadReport()} />
       </div>
-
-      {/* Disposition Modal */}
-      <ResponsiveSheetModal
-        isOpen={isDispositionModalOpen}
-        onClose={() => setIsDispositionModalOpen(false)}
-        title="Set Rescue Disposition"
-      >
-        <div className="disposition-modal-content stack">
-          <p className="disposition-modal-desc">
-            Choose the outcome for this attended rescue report:
-          </p>
-
-          <div className="disposition-options-list">
-            <button
-              type="button"
-              className="disposition-option-card pressable"
-              onClick={() => handleDisposition('spot_released')}
-            >
-              <div className="disposition-option-icon">
-                <FirstAid size={20} weight="bold" />
-              </div>
-              <div className="disposition-option-copy">
-                <strong>Spot Release (TNR)</strong>
-                <span>Animal treated on site and safely released back into community territory.</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              className="disposition-option-card pressable"
-              onClick={() => handleDisposition('admitted_shelter')}
-            >
-              <div className="disposition-option-icon">
-                <HouseSimple size={20} weight="bold" />
-              </div>
-              <div className="disposition-option-copy">
-                <strong>Admit to Shelter</strong>
-                <span>Admit animal into sanctuary facility for inpatient treatment and recovery.</span>
-              </div>
-            </button>
-          </div>
-
-          <div className="responsive-modal__actions" style={{ marginTop: '16px' }}>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setIsDispositionModalOpen(false)}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </ResponsiveSheetModal>
     </div>
   )
 }

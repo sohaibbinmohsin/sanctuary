@@ -244,7 +244,7 @@ describe('ReportDetailScreen', () => {
     })
   })
 
-  it('progresses stage from dispatched to attended when Mark Attended is clicked', async () => {
+  it('progresses stage from dispatched to attended and creates animal record automatically', async () => {
     vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
       id: 'rep-1',
       org_id: 'org-1',
@@ -259,7 +259,7 @@ describe('ReportDetailScreen', () => {
       created_at: '2026-10-13T14:10:00Z',
     } as any)
 
-    const updateStageSpy = vi.spyOn(domainModule, 'updateReportStage').mockResolvedValue(undefined)
+    const completeSpy = vi.spyOn(domainModule, 'completeReportWithDisposition').mockResolvedValue(undefined)
 
     render(
       <MemoryRouter initialEntries={['/reports/rep-1']}>
@@ -273,16 +273,23 @@ describe('ReportDetailScreen', () => {
     fireEvent.click(attendedBtn)
 
     await waitFor(() => {
-      expect(updateStageSpy).toHaveBeenCalledWith(expect.anything(), 'rep-1', 'attended')
+      expect(completeSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        'rep-1',
+        'admitted_shelter',
+        'mock-animal-1',
+      )
     })
   })
 
-  it('handles disposition options at attended stage: spot release with auto animal creation', async () => {
+  it('renders Open Profile link when status is attended and animal exists, without showing interlink banner on repeat view', async () => {
     vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
       id: 'rep-1',
       org_id: 'org-1',
       report_number: 'PARC-R105',
       status: 'attended',
+      disposition_type: 'admitted_shelter',
+      animal_id: 'mock-animal-1',
       species: 'dog',
       chief_complaint: 'Fracture',
       location_area: 'Burns Road',
@@ -293,8 +300,6 @@ describe('ReportDetailScreen', () => {
       created_at: '2026-10-13T14:10:00Z',
     } as any)
 
-    const completeSpy = vi.spyOn(domainModule, 'completeReportWithDisposition').mockResolvedValue(undefined)
-
     render(
       <MemoryRouter initialEntries={['/reports/rep-1']}>
         <Routes>
@@ -303,62 +308,22 @@ describe('ReportDetailScreen', () => {
       </MemoryRouter>,
     )
 
-    const setDispBtn = await screen.findByRole('button', { name: /Set Disposition/i })
-    fireEvent.click(setDispBtn)
+    const profileLink = await screen.findByRole('link', { name: /Open Profile/i })
+    expect(profileLink).toHaveAttribute('href', '/animals/mock-animal-1')
 
-    // In disposition modal/menu, select Spot Release (TNR)
-    const spotReleaseBtn = await screen.findByRole('button', { name: /Spot Release \(TNR\)/i })
-    fireEvent.click(spotReleaseBtn)
-
-    await waitFor(() => {
-      expect(completeSpy).toHaveBeenCalledWith(expect.anything(), 'rep-1', 'spot_released', 'mock-animal-1')
-    })
+    // Animal banner does not render on repeat visits (only once immediately upon creation)
+    expect(
+      screen.queryByText(/Permanent animal record created/i),
+    ).not.toBeInTheDocument()
   })
 
-  it('handles disposition options at attended stage: admit to shelter with auto animal creation', async () => {
+  it('allows moving back one stage from attended to dispatched via dropdown', async () => {
     vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
       id: 'rep-1',
       org_id: 'org-1',
       report_number: 'PARC-R105',
       status: 'attended',
-      species: 'dog',
-      chief_complaint: 'Fracture',
-      location_area: 'Burns Road',
-      stage_logged_at: '2026-10-13T14:10:00Z',
-      stage_accepted_at: '2026-10-13T14:20:00Z',
-      stage_dispatched_at: '2026-10-13T14:35:00Z',
-      stage_attended_at: '2026-10-13T14:50:00Z',
-      created_at: '2026-10-13T14:10:00Z',
-    } as any)
-
-    const completeSpy = vi.spyOn(domainModule, 'completeReportWithDisposition').mockResolvedValue(undefined)
-
-    render(
-      <MemoryRouter initialEntries={['/reports/rep-1']}>
-        <Routes>
-          <Route path="/reports/:id" element={<ReportDetailScreen />} />
-        </Routes>
-      </MemoryRouter>,
-    )
-
-    const setDispBtn = await screen.findByRole('button', { name: /Set Disposition/i })
-    fireEvent.click(setDispBtn)
-
-    const admitBtn = await screen.findByRole('button', { name: /Admit to Shelter/i })
-    fireEvent.click(admitBtn)
-
-    await waitFor(() => {
-      expect(completeSpy).toHaveBeenCalledWith(expect.anything(), 'rep-1', 'admitted_shelter', 'mock-animal-1')
-    })
-  })
-
-  it('allows changing decision when completed or cancelled', async () => {
-    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
-      id: 'rep-1',
-      org_id: 'org-1',
-      report_number: 'PARC-R105',
-      status: 'attended',
-      disposition_type: 'spot_released',
+      animal_id: 'mock-animal-1',
       species: 'dog',
       chief_complaint: 'Fracture',
       location_area: 'Burns Road',

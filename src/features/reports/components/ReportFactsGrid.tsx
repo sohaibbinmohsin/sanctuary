@@ -1,55 +1,92 @@
-import { useEffect, useState } from 'react'
-import { Camera, FirstAid, MapPin, Phone, LockKey } from '@phosphor-icons/react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { Camera, FirstAid, MapPin, Phone, LockKey, Plus } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
+import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
   type RescueReport,
   type ReportPhoto,
   getPhotosForReport,
+  addReportPhoto,
 } from '@/features/reports/domain/rescueReports'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 
 export type ReportFactsGridProps = {
   report: RescueReport
+  onPhotoAdded?: () => void
 }
 
-export function ReportFactsGrid({ report }: ReportFactsGridProps) {
+export function ReportFactsGrid({ report, onPhotoAdded }: ReportFactsGridProps) {
   const db = useDb()
+  const { member } = useCurrentMember()
   const [photos, setPhotos] = useState<ReportPhoto[]>([])
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
+  const loadPhotos = useCallback(async () => {
     if (!db || !report.id) return
-    let active = true
-
-    getPhotosForReport(db, report.id)
-      .then(async (items) => {
-        if (!active) return
-        setPhotos(items)
-        const urls: Record<string, string> = {}
-        for (const p of items) {
-          const blob = await getLocalPhoto(p.id)
-          if (blob) {
-            urls[p.id] = URL.createObjectURL(blob)
-          } else if (p.r2_key) {
-            const pubUrl = publicPhotoUrl(p.r2_key)
-            if (pubUrl) {
-              urls[p.id] = pubUrl
-            }
+    try {
+      const items = await getPhotosForReport(db, report.id)
+      setPhotos(items)
+      const urls: Record<string, string> = {}
+      for (const p of items) {
+        const blob = await getLocalPhoto(p.id)
+        if (blob) {
+          urls[p.id] = URL.createObjectURL(blob)
+        } else if (p.r2_key) {
+          const pubUrl = publicPhotoUrl(p.r2_key)
+          if (pubUrl) {
+            urls[p.id] = pubUrl
           }
         }
-        if (active) {
-          setPhotoUrls(urls)
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load report photos', err)
-      })
-
-    return () => {
-      active = false
+      }
+      setPhotoUrls(urls)
+    } catch (err) {
+      console.error('Failed to load report photos', err)
     }
   }, [db, report.id])
+
+  useEffect(() => {
+    void loadPhotos()
+  }, [loadPhotos])
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!db || !files || files.length === 0) return
+    const orgId = report.org_id || member?.orgId
+    if (!orgId) return
+
+    setUploading(true)
+    try {
+      const now = new Date().toISOString()
+      for (const file of Array.from(files)) {
+        await addReportPhoto(db, {
+          orgId,
+          reportId: report.id,
+          blob: file,
+        })
+        if (report.animal_id) {
+          try {
+            await db.execute(
+              `INSERT INTO photos (id, org_id, animal_id, r2_key, local_only, upload_state, capture_source, verified, created_at)
+               VALUES (?, ?, ?, NULL, 1, 'pending', 'upload', 0, ?)`,
+              [crypto.randomUUID(), orgId, report.animal_id, now],
+            )
+          } catch (syncErr) {
+            console.warn('Could not mirror photo to animal profile', syncErr)
+          }
+        }
+      }
+      await loadPhotos()
+      onPhotoAdded?.()
+    } catch (err) {
+      console.error('Failed to upload report photo', err)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   const speciesFormatted = report.species
     ? report.species.charAt(0).toUpperCase() + report.species.slice(1).toLowerCase()
@@ -64,16 +101,61 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
             <Camera weight="bold" size={18} aria-hidden />
             <span>Photos &amp; Proof</span>
           </div>
-          <span className="proof-count-pill">
-            {photos.length === 0
-              ? 'No photos'
-              : `${photos.length} photo${photos.length === 1 ? '' : 's'}`}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="proof-count-pill">
+              {photos.length === 0
+                ? 'No photos'
+                : `${photos.length} photo${photos.length === 1 ? '' : 's'}`}
+            </span>
+            {report.status !== 'cancelled' && (
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm pressable"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                title="Add photos to report"
+                aria-label="Add photos"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  fontSize: '12.5px',
+                  height: '32px',
+                  minHeight: '32px',
+                }}
+              >
+                <Plus size={14} weight="bold" />
+                <span>{uploading ? 'Adding…' : 'Photo'}</span>
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+          </div>
         </div>
         <div className="detail-evidence-gallery">
           {photos.length === 0 ? (
-            <div className="evidence-placeholder-box">
-              <span className="evidence-placeholder-text">No proof photos attached to report</span>
+            <div
+              className="evidence-placeholder-box pressable"
+              onClick={() => {
+                if (report.status !== 'cancelled') fileInputRef.current?.click()
+              }}
+              style={{ cursor: report.status !== 'cancelled' ? 'pointer' : 'default' }}
+            >
+              {report.status !== 'cancelled' ? (
+                <>
+                  <Plus size={18} weight="bold" style={{ marginBottom: '4px', color: 'var(--color-ink-muted)' }} />
+                  <span className="evidence-placeholder-text">Click or tap to attach proof photos</span>
+                </>
+              ) : (
+                <span className="evidence-placeholder-text">No proof photos attached to report</span>
+              )}
             </div>
           ) : (
             <div
@@ -96,7 +178,7 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
                       borderRadius: 'var(--radius-md)',
                       overflow: 'hidden',
                       border: '1px solid var(--color-border)',
-                      backgroundColor: 'var(--color-sand)',
+                      backgroundColor: 'var(--color-surface)',
                     }}
                   >
                     {url ? (
@@ -111,6 +193,33 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
                   </div>
                 )
               })}
+              {report.status !== 'cancelled' && (
+                <button
+                  type="button"
+                  className="pressable"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  title="Add more photos"
+                  aria-label="Add more photos"
+                  style={{
+                    width: '5.5rem',
+                    height: '5.5rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1.5px dashed var(--color-border)',
+                    background: 'var(--color-surface)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    cursor: 'pointer',
+                    color: 'var(--color-ink-muted)',
+                  }}
+                >
+                  <Plus size={20} weight="bold" />
+                  <span style={{ fontSize: '11px', fontWeight: 600 }}>Add</span>
+                </button>
+              )}
             </div>
           )}
         </div>
