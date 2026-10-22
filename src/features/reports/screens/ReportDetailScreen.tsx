@@ -11,6 +11,8 @@ import {
   User,
   ArrowCounterClockwise,
   PencilSimple,
+  MagnifyingGlass,
+  Scales,
 } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
@@ -219,33 +221,41 @@ export function ReportDetailScreen() {
 
   const status = report.status ?? 'logged'
   const disp = report.disposition_type
+  const isCruelty = report.category === 'cruelty'
 
   // Status badge styling and text
-  let statusBadgeLabel = 'New Report (Awaiting Decision)'
+  let statusBadgeLabel = isCruelty
+    ? 'New Complaint (Awaiting Investigation)'
+    : 'New Report (Awaiting Decision)'
   let statusBadgeClass = 'status-badge-clean new'
 
   if (status === 'accepted') {
-    statusBadgeLabel = 'Accepted'
+    statusBadgeLabel = isCruelty ? 'Under Investigation' : 'Accepted'
     statusBadgeClass = 'status-badge-clean accepted'
   } else if (status === 'dispatched') {
-    statusBadgeLabel =
-      report.transport_type === 'reporter'
-        ? 'Dispatched (Reporter Transport)'
-        : 'Dispatched (Ambulance)'
-    statusBadgeClass = 'status-badge-clean active'
+    if (isCruelty) {
+      statusBadgeLabel = 'Notice / Legal Action'
+      statusBadgeClass = 'status-badge-clean active'
+    } else {
+      statusBadgeLabel =
+        report.transport_type === 'reporter'
+          ? 'Dispatched (Reporter Transport)'
+          : 'Dispatched (Ambulance)'
+      statusBadgeClass = 'status-badge-clean active'
+    }
   } else if (status === 'attended') {
     if (disp === 'spot_released') {
-      statusBadgeLabel = 'Spot Released (TNR)'
+      statusBadgeLabel = isCruelty ? 'Resolved On-Site' : 'Spot Released (TNR)'
       statusBadgeClass = 'status-badge-clean shelter'
     } else if (disp === 'admitted_shelter') {
-      statusBadgeLabel = 'In Shelter Care'
+      statusBadgeLabel = isCruelty ? 'In Shelter Custody' : 'In Shelter Care'
       statusBadgeClass = 'status-badge-clean shelter'
     } else {
-      statusBadgeLabel = 'Attended'
+      statusBadgeLabel = isCruelty ? 'In Custody' : 'Attended'
       statusBadgeClass = 'status-badge-clean shelter'
     }
   } else if (status === 'cancelled') {
-    statusBadgeLabel = 'Declined / Cancelled'
+    statusBadgeLabel = isCruelty ? 'Dismissed / Closed' : 'Declined / Cancelled'
     statusBadgeClass = 'status-badge-clean declined'
   }
 
@@ -268,9 +278,17 @@ export function ReportDetailScreen() {
                   onClick={() => handleStageTransition('accepted')}
                   disabled={actionLoading}
                 >
-                  <CheckCircle size={16} weight="bold" aria-hidden />
-                  <span className="btn-text-full">Accept &amp; Triage</span>
-                  <span className="btn-text-mobile">Accept</span>
+                  {isCruelty ? (
+                    <MagnifyingGlass size={16} weight="bold" aria-hidden />
+                  ) : (
+                    <CheckCircle size={16} weight="bold" aria-hidden />
+                  )}
+                  <span className="btn-text-full">
+                    {isCruelty ? 'Begin Investigation' : 'Accept & Triage'}
+                  </span>
+                  <span className="btn-text-mobile">
+                    {isCruelty ? 'Investigate' : 'Accept'}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -301,7 +319,7 @@ export function ReportDetailScreen() {
                       onClick={() => handleStageTransition('cancelled')}
                     >
                       <XCircle size={15} weight="bold" aria-hidden />
-                      <span>Decline / Cancel Report</span>
+                      <span>{isCruelty ? 'Dismiss / Close Complaint' : 'Decline / Cancel Report'}</span>
                     </button>
                   </div>
                 )}
@@ -313,12 +331,24 @@ export function ReportDetailScreen() {
                 <button
                   type="button"
                   className="btn-brand-amber btn-main pressable"
-                  onClick={() => handleStageTransition('dispatched', 'ambulance')}
+                  onClick={() =>
+                    isCruelty
+                      ? handleStageTransition('dispatched')
+                      : handleStageTransition('dispatched', 'ambulance')
+                  }
                   disabled={actionLoading}
                 >
-                  <Truck size={16} weight="bold" aria-hidden />
-                  <span className="btn-text-full">Dispatch Ambulance</span>
-                  <span className="btn-text-mobile">Dispatch</span>
+                  {isCruelty ? (
+                    <Scales size={16} weight="bold" aria-hidden />
+                  ) : (
+                    <Truck size={16} weight="bold" aria-hidden />
+                  )}
+                  <span className="btn-text-full">
+                    {isCruelty ? 'Log Notice / Legal Action' : 'Dispatch Ambulance'}
+                  </span>
+                  <span className="btn-text-mobile">
+                    {isCruelty ? 'Legal Action' : 'Dispatch'}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -343,14 +373,16 @@ export function ReportDetailScreen() {
                       <PencilSimple size={15} weight="bold" aria-hidden />
                       <span>Edit report</span>
                     </button>
-                    <button
-                      type="button"
-                      className="dropdown-item"
-                      onClick={() => handleStageTransition('dispatched', 'reporter')}
-                    >
-                      <User size={15} weight="bold" aria-hidden />
-                      <span>Reporter Arranging Transport</span>
-                    </button>
+                    {!isCruelty && (
+                      <button
+                        type="button"
+                        className="dropdown-item"
+                        onClick={() => handleStageTransition('dispatched', 'reporter')}
+                      >
+                        <User size={15} weight="bold" aria-hidden />
+                        <span>Reporter Arranging Transport</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="dropdown-item"
@@ -365,7 +397,7 @@ export function ReportDetailScreen() {
                       onClick={() => handleStageTransition('cancelled')}
                     >
                       <XCircle size={15} weight="bold" aria-hidden />
-                      <span>Decline / Cancel Report</span>
+                      <span>{isCruelty ? 'Dismiss / Close Complaint' : 'Decline / Cancel Report'}</span>
                     </button>
                   </div>
                 )}
@@ -380,9 +412,17 @@ export function ReportDetailScreen() {
                   onClick={() => handleStageTransition('attended')}
                   disabled={actionLoading}
                 >
-                  <FirstAid size={16} weight="bold" aria-hidden />
-                  <span className="btn-text-full">Mark Attended</span>
-                  <span className="btn-text-mobile">Attended</span>
+                  {isCruelty ? (
+                    <HouseSimple size={16} weight="bold" aria-hidden />
+                  ) : (
+                    <FirstAid size={16} weight="bold" aria-hidden />
+                  )}
+                  <span className="btn-text-full">
+                    {isCruelty ? 'Take into Custody' : 'Mark Attended'}
+                  </span>
+                  <span className="btn-text-mobile">
+                    {isCruelty ? 'In Custody' : 'Attended'}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -407,6 +447,28 @@ export function ReportDetailScreen() {
                       <PencilSimple size={15} weight="bold" aria-hidden />
                       <span>Edit report</span>
                     </button>
+                    {isCruelty && (
+                      <button
+                        type="button"
+                        className="dropdown-item"
+                        onClick={async () => {
+                          if (!db || !report) return
+                          setActionLoading(true)
+                          setIsDropdownOpen(false)
+                          try {
+                            await completeReportWithDisposition(db, report.id, 'spot_released')
+                            await loadReport()
+                          } catch (err) {
+                            console.error('Failed to resolve cruelty case on site', err)
+                          } finally {
+                            setActionLoading(false)
+                          }
+                        }}
+                      >
+                        <CheckCircle size={15} weight="bold" aria-hidden />
+                        <span>Resolve On-Site</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="dropdown-item"
@@ -421,7 +483,7 @@ export function ReportDetailScreen() {
                       onClick={() => handleStageTransition('cancelled')}
                     >
                       <XCircle size={15} weight="bold" aria-hidden />
-                      <span>Cancel Dispatch / Untraceable</span>
+                      <span>{isCruelty ? 'Dismiss / Close Complaint' : 'Cancel Dispatch / Untraceable'}</span>
                     </button>
                   </div>
                 )}
@@ -518,7 +580,9 @@ export function ReportDetailScreen() {
                   disabled={actionLoading}
                 >
                   <ArrowCounterClockwise size={16} weight="bold" aria-hidden />
-                  <span className="btn-text-full">Reopen as Logged</span>
+                  <span className="btn-text-full">
+                    {isCruelty ? 'Reopen Complaint' : 'Reopen as Logged'}
+                  </span>
                   <span className="btn-text-mobile">Reopen</span>
                 </button>
                 <button
@@ -550,7 +614,9 @@ export function ReportDetailScreen() {
                       onClick={() => handleStageTransition('accepted')}
                     >
                       <CheckCircle size={15} weight="bold" aria-hidden />
-                      <span>Reopen as Accepted</span>
+                      <span>
+                        {isCruelty ? 'Reopen as Investigating' : 'Reopen as Accepted'}
+                      </span>
                     </button>
                   </div>
                 )}

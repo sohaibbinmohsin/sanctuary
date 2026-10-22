@@ -42,16 +42,28 @@ function getStatusBadgeInfo(
   status?: string | null,
   dispositionType?: string | null,
   transportType?: string | null,
+  category?: string | null,
 ): { label: string; className: string } {
+  const isCruelty = category === 'cruelty'
   if (!status || status === 'logged') {
-    return { label: 'New Report', className: 'status-badge-clean new' }
+    return {
+      label: isCruelty ? 'New Complaint' : 'New Report',
+      className: 'status-badge-clean new',
+    }
   }
   if (status === 'accepted') {
-    return { label: 'Accepted', className: 'status-badge-clean accepted' }
+    return {
+      label: isCruelty ? 'Investigating' : 'Accepted',
+      className: 'status-badge-clean accepted',
+    }
   }
   if (status === 'dispatched') {
     return {
-      label: transportType === 'reporter' ? 'Dispatched (Reporter)' : 'Dispatched',
+      label: isCruelty
+        ? 'Legal / Notice'
+        : transportType === 'reporter'
+          ? 'Dispatched (Reporter)'
+          : 'Dispatched',
       className: 'status-badge-clean active',
     }
   }
@@ -60,15 +72,27 @@ function getStatusBadgeInfo(
       return { label: 'At Partner Vet', className: 'status-badge-clean vet' }
     }
     if (dispositionType === 'admitted_shelter') {
-      return { label: 'In Shelter', className: 'status-badge-clean shelter' }
+      return {
+        label: isCruelty ? 'In Custody' : 'In Shelter',
+        className: 'status-badge-clean shelter',
+      }
     }
     if (dispositionType === 'spot_released') {
-      return { label: 'Spot Released', className: 'status-badge-clean shelter' }
+      return {
+        label: isCruelty ? 'Resolved On-Site' : 'Spot Released',
+        className: 'status-badge-clean shelter',
+      }
     }
-    return { label: 'Attended', className: 'status-badge-clean shelter' }
+    return {
+      label: isCruelty ? 'In Custody' : 'Attended',
+      className: 'status-badge-clean shelter',
+    }
   }
   if (status === 'cancelled') {
-    return { label: 'Cancelled', className: 'status-badge-clean declined' }
+    return {
+      label: isCruelty ? 'Dismissed' : 'Cancelled',
+      className: 'status-badge-clean declined',
+    }
   }
   return { label: status, className: 'status-badge-clean' }
 }
@@ -76,7 +100,12 @@ function getStatusBadgeInfo(
 export function ReportTimelineCard({ report }: ReportTimelineCardProps) {
   const navigate = useNavigate()
   const { timeStr, relStr } = formatCardTime(report.created_at)
-  const statusInfo = getStatusBadgeInfo(report.status, report.disposition_type, report.transport_type)
+  const statusInfo = getStatusBadgeInfo(
+    report.status,
+    report.disposition_type,
+    report.transport_type,
+    report.category,
+  )
   const speciesDisplay = report.species ? report.species.toUpperCase() : 'OTHER'
 
   return (

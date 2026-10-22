@@ -351,4 +351,73 @@ describe('ReportDetailScreen', () => {
       expect(updateStageSpy).toHaveBeenCalledWith(expect.anything(), 'rep-1', 'dispatched')
     })
   })
+
+  it('renders cruelty 4-step pipeline and dedicated action buttons for cruelty category', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-c1',
+      org_id: 'org-1',
+      report_number: 'PARC-R201',
+      category: 'cruelty',
+      species: 'dog',
+      chief_complaint: 'Chained continuously without water',
+      status: 'logged',
+      location_area: 'Gulshan',
+      location_landmark: 'Block 4',
+      stage_logged_at: '2026-10-13T14:10:00Z',
+      created_at: '2026-10-13T14:10:00Z',
+    } as any)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-c1']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R201')).toBeInTheDocument()
+    expect(screen.getByText(/New Complaint \(Awaiting Investigation\)/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Begin Investigation/i })).toBeInTheDocument()
+
+    // 4-step cruelty pipeline titles
+    expect(screen.getByText('Complaint Logged')).toBeInTheDocument()
+    expect(screen.getByText('Investigation')).toBeInTheDocument()
+    expect(screen.getByText('Notice / Legal Action')).toBeInTheDocument()
+    expect(screen.getByText('Custody / Resolution')).toBeInTheDocument()
+    expect(screen.getByText('Incident & Animal')).toBeInTheDocument()
+  })
+
+  it('supports transitioning cruelty complaint to notice/action and taking into custody', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-c2',
+      org_id: 'org-1',
+      report_number: 'PARC-R202',
+      category: 'cruelty',
+      species: 'horse',
+      chief_complaint: 'Severe beating by cart owner',
+      status: 'accepted',
+      location_area: 'Saddar',
+      stage_logged_at: '2026-10-13T14:10:00Z',
+      stage_accepted_at: '2026-10-13T15:00:00Z',
+      created_at: '2026-10-13T14:10:00Z',
+    } as any)
+
+    const updateStageSpy = vi.spyOn(domainModule, 'updateReportStage').mockResolvedValue(undefined)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-c2']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText(/Under Investigation/i)).toBeInTheDocument()
+    const actionBtn = screen.getByRole('button', { name: /Log Notice \/ Legal Action/i })
+    fireEvent.click(actionBtn)
+
+    await waitFor(() => {
+      expect(updateStageSpy).toHaveBeenCalledWith(expect.anything(), 'rep-c2', 'dispatched')
+    })
+  })
 })

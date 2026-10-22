@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Camera, FirstAid, MapPin, Phone, LockKey, User } from '@phosphor-icons/react'
+import { Camera, FirstAid, MapPin, Phone, LockKey, User, Scales } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   type RescueReport,
@@ -118,8 +118,14 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
       <div className="detail-card">
         <div className="detail-card__header">
           <div className="detail-card__heading">
-            <FirstAid weight="bold" size={18} aria-hidden />
-            <span>Condition &amp; Animal</span>
+            {report.category === 'cruelty' ? (
+              <Scales weight="bold" size={18} aria-hidden />
+            ) : (
+              <FirstAid weight="bold" size={18} aria-hidden />
+            )}
+            <span>
+              {report.category === 'cruelty' ? 'Incident & Animal' : 'Condition & Animal'}
+            </span>
           </div>
         </div>
         <div className="facts-kv-list">
@@ -134,7 +140,9 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
             <span className="fact-value font-medium">{speciesFormatted}</span>
           </div>
           <div className="fact-row">
-            <span className="fact-label">Chief Complaint</span>
+            <span className="fact-label">
+              {report.category === 'cruelty' ? 'Incident / Complaint' : 'Chief Complaint'}
+            </span>
             <span className="fact-value font-medium">{report.chief_complaint}</span>
           </div>
         </div>
