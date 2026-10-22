@@ -4,7 +4,8 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ReportIntakeScreen } from '@/features/reports/screens/ReportIntakeScreen'
 import * as domainModule from '@/features/reports/domain/rescueReports'
 
-vi.mock('@/shared/hooks/useDb', () => ({ useDb: () => ({ execute: vi.fn(), getAll: vi.fn() }) }))
+const mockDb = { execute: vi.fn(), getAll: vi.fn().mockResolvedValue([]) }
+vi.mock('@/shared/hooks/useDb', () => ({ useDb: () => mockDb }))
 vi.mock('@/shared/hooks/useCurrentMember', () => ({
   useCurrentMember: () => ({
     member: { orgId: 'org-1', orgInitials: 'PARC' },
@@ -89,6 +90,9 @@ describe('ReportIntakeScreen', () => {
         reporterName: 'Kamran',
         reporterPhone: '0300 1122334',
         reporterCnic: null,
+        intakeSource: 'citizen',
+        animalCount: 1,
+        groupBreakdown: null,
       })
     })
   })
@@ -161,6 +165,9 @@ describe('ReportIntakeScreen', () => {
         reporterPhone: '0300 1234567',
         reporterCnic: null,
         legalNotes: null,
+        intakeSource: 'citizen',
+        animalCount: 1,
+        groupBreakdown: null,
       })
     })
   })
@@ -231,6 +238,9 @@ describe('ReportIntakeScreen', () => {
         reporterPhone: '0300 9876543',
         reporterCnic: '42101-1234567-1',
         legalNotes: 'Updated FIR #12/26 with section 428 IPC',
+        intakeSource: 'citizen',
+        animalCount: 1,
+        groupBreakdown: null,
       })
     })
   })
@@ -254,6 +264,7 @@ describe('ReportIntakeScreen', () => {
       reporter_cnic: null,
       intake_source: 'citizen',
       animal_count: 1,
+      group_breakdown: null,
       status: 'logged',
       transport_type: null,
       disposition_type: null,
@@ -311,6 +322,163 @@ describe('ReportIntakeScreen', () => {
           latitude: 24.8197,
           longitude: 67.0289,
           lifeStage: 'adult',
+        }),
+      )
+    })
+  })
+
+  it('supports avian presets under Bird and multi-animal litter count', async () => {
+    vi.spyOn(domainModule, 'generateReportNumber').mockResolvedValue('PARC-R103')
+    const createReportSpy = vi.spyOn(domainModule, 'createRescueReport').mockResolvedValue({
+      id: 'rep-avian',
+      org_id: 'org-1',
+      report_number: 'PARC-R103',
+      species: 'black kite',
+      animal_count: 4,
+    } as any)
+
+    render(
+      <MemoryRouter>
+        <ReportIntakeScreen />
+      </MemoryRouter>,
+    )
+
+    // Select Litter / Family mode
+    fireEvent.click(screen.getByRole('button', { name: 'Litter / Family' }))
+
+    // Select Bird species
+    fireEvent.click(screen.getByRole('button', { name: 'Bird' }))
+
+    // Avian presets should appear
+    expect(screen.getByText('Avian Sub-type')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Black Kite' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pigeon / Dove' })).toBeInTheDocument()
+
+    // Select Black Kite
+    fireEvent.click(screen.getByRole('button', { name: 'Black Kite' }))
+
+    // Set animal count to 4
+    const countInput = screen.getByRole('spinbutton', { name: /^Animal count$/i })
+    fireEvent.change(countInput, { target: { value: '4' } })
+    expect(screen.getByText(/Litter of 4/i)).toBeInTheDocument()
+
+    // Fill required complaint & location
+    fireEvent.change(screen.getByLabelText(/Chief complaint \/ Injury/i), {
+      target: { value: 'Fledglings fell from nest' },
+    })
+    fireEvent.change(screen.getByLabelText(/Area \/ Neighborhood/i), {
+      target: { value: 'Model Town' },
+    })
+
+    // Submit
+    fireEvent.click(screen.getByRole('button', { name: /Log rescue report/i }))
+
+    await waitFor(() => {
+      expect(createReportSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          species: 'black kite',
+          animalCount: 4,
+          locationArea: 'Model Town',
+        }),
+      )
+    })
+  })
+
+  it('supports Multiple Animals / Mixed intake mode with multi-species roster', async () => {
+    vi.spyOn(domainModule, 'generateReportNumber').mockResolvedValue('PARC-R108')
+    const createReportSpy = vi.spyOn(domainModule, 'createRescueReport').mockResolvedValue({
+      id: 'rep-multi',
+      org_id: 'org-1',
+      report_number: 'PARC-R108',
+    } as any)
+
+    render(
+      <MemoryRouter>
+        <ReportIntakeScreen />
+      </MemoryRouter>,
+    )
+
+    // Select Multiple Animals / Mixed
+    fireEvent.click(screen.getByRole('button', { name: 'Multiple Animals / Mixed' }))
+
+    // Expect roster and total animals
+    expect(screen.getByText(/Animals in Group \/ Scene/i)).toBeInTheDocument()
+    expect(screen.getByText(/Total: 2 animals/i)).toBeInTheDocument()
+
+    // Add another row
+    fireEvent.click(screen.getByRole('button', { name: /\+ Add another animal \/ species/i }))
+    expect(screen.getByText(/Total: 3 animals/i)).toBeInTheDocument()
+
+    // Fill required complaint & location
+    fireEvent.change(screen.getByLabelText(/Chief complaint \/ Injury/i), {
+      target: { value: 'Abandoned animals after eviction' },
+    })
+    fireEvent.change(screen.getByLabelText(/Area \/ Neighborhood/i), {
+      target: { value: 'Ichra' },
+    })
+
+    // Submit
+    fireEvent.click(screen.getByRole('button', { name: /Log rescue report/i }))
+
+    await waitFor(() => {
+      expect(createReportSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          animalCount: 3,
+          locationArea: 'Ichra',
+          groupBreakdown: expect.stringContaining('dog'),
+        }),
+      )
+    })
+  })
+
+  it('supports Rescue 1122 intake source with dynamic labels', async () => {
+    vi.spyOn(domainModule, 'generateReportNumber').mockResolvedValue('PARC-R104')
+    const createReportSpy = vi.spyOn(domainModule, 'createRescueReport').mockResolvedValue({
+      id: 'rep-1122',
+      org_id: 'org-1',
+      report_number: 'PARC-R104',
+      intake_source: 'rescue_1122',
+    } as any)
+
+    render(
+      <MemoryRouter>
+        <ReportIntakeScreen />
+      </MemoryRouter>,
+    )
+
+    // Select Rescue 1122 intake source
+    fireEvent.click(screen.getByRole('button', { name: 'Rescue 1122' }))
+
+    // Expect dynamic labels
+    expect(screen.getByLabelText(/Dispatcher \/ Officer Name/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Contact Phone/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Incident \/ Case Ref #/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/Dispatcher \/ Officer Name/i), {
+      target: { value: 'Dispatcher Imran' },
+    })
+    fireEvent.change(screen.getByLabelText(/Incident \/ Case Ref #/i), {
+      target: { value: '1122-LHR-8910' },
+    })
+    fireEvent.change(screen.getByLabelText(/Chief complaint \/ Injury/i), {
+      target: { value: 'Trapped dog in drain' },
+    })
+    fireEvent.change(screen.getByLabelText(/Area \/ Neighborhood/i), {
+      target: { value: 'Thokar Niaz Baig' },
+    })
+
+    // Submit
+    fireEvent.click(screen.getByRole('button', { name: /Log rescue report/i }))
+
+    await waitFor(() => {
+      expect(createReportSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          intakeSource: 'rescue_1122',
+          reporterName: 'Dispatcher Imran',
+          reporterCnic: '1122-LHR-8910',
         }),
       )
     })

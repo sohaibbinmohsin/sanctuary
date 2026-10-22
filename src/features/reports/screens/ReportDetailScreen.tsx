@@ -13,6 +13,7 @@ import {
   PencilSimple,
   MagnifyingGlass,
   Scales,
+  Skull,
 } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
@@ -25,6 +26,7 @@ import {
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
 import { createAnimal } from '@/features/animals/domain/animals'
+import { linkAnimals } from '@/features/animals/domain/relationships'
 import { listStatuses } from '@/features/statuses/domain/statuses'
 import { ReportPipelineTracker } from '@/features/reports/components/ReportPipelineTracker'
 import { ReportFactsGrid } from '@/features/reports/components/ReportFactsGrid'
@@ -157,7 +159,101 @@ export function ReportDetailScreen() {
       console.warn('Could not copy report photos to animal', photoErr)
     }
 
+    // Multi-animal / litter intake support (Gap 1 & Item 5)
+    let parsedGroup: Array<{ count: number; species: string; lifeStage?: string; avianSubtype?: string }> = []
+    if (report.group_breakdown) {
+      try {
+        const parsed = JSON.parse(report.group_breakdown)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parsedGroup = parsed
+        }
+      } catch (err) {
+        console.warn('Failed to parse group_breakdown', err)
+      }
+    }
+
+    if (parsedGroup.length > 0) {
+      const allAnimals = parsedGroup.flatMap((item) =>
+        Array.from({ length: Math.max(1, item.count) }, () => ({
+          species: item.avianSubtype || item.species || report.species || 'other',
+          lifeStage: item.lifeStage as 'adult' | 'child' | undefined,
+        })),
+      )
+
+      for (let i = 1; i < allAnimals.length; i++) {
+        const spec = allAnimals[i]
+        try {
+          const companion = await createAnimal(db, {
+            orgId,
+            prefix,
+            species: spec.species.toLowerCase(),
+            lifeStage: spec.lifeStage || (report.life_stage === 'adult' ? 'child' : undefined),
+            statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
+            notes: `${notesText}\nCompanion #${i + 1} of ${allAnimals.length} in batch intake`,
+            markings: markingsText,
+            intakeDate: new Date().toISOString().slice(0, 10),
+          })
+          await linkAnimals(db, {
+            orgId,
+            animalId: animal.id,
+            relatedAnimalId: companion.id,
+            relationshipType:
+              spec.lifeStage === 'child' && animal.life_stage === 'adult' ? 'child' : 'sibling',
+            notes: `Auto-linked from rescue report ${report.report_number || ''}`,
+          })
+        } catch (compErr) {
+          console.warn('Could not create companion animal for group', compErr)
+        }
+      }
+    } else {
+      const count = report.animal_count && report.animal_count > 1 ? report.animal_count : 1
+      if (count > 1) {
+        for (let i = 2; i <= count; i++) {
+          try {
+            const companion = await createAnimal(db, {
+              orgId,
+              prefix,
+              species: report.species || 'other',
+              lifeStage:
+                report.life_stage === 'adult'
+                  ? 'child'
+                  : report.life_stage === 'child'
+                    ? 'child'
+                    : undefined,
+              statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
+              notes: `${notesText}\nCompanion #${i} of ${count} in batch litter/group admission`,
+              markings: markingsText,
+              intakeDate: new Date().toISOString().slice(0, 10),
+            })
+            await linkAnimals(db, {
+              orgId,
+              animalId: animal.id,
+              relatedAnimalId: companion.id,
+              relationshipType: report.life_stage === 'adult' ? 'child' : 'sibling',
+              notes: `Auto-linked from rescue report ${report.report_number || ''}`,
+            })
+          } catch (compErr) {
+            console.warn('Could not create companion animal for litter', compErr)
+          }
+        }
+      }
+    }
+
     return animal.id
+  }
+
+  async function handleMarkDOA() {
+    if (!db || !report) return
+    setActionLoading(true)
+    setIsDropdownOpen(false)
+    try {
+      await completeReportWithDisposition(db, report.id, 'deceased_doa')
+      await loadReport()
+    } catch (err) {
+      console.error('Failed to mark report DOA', err)
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   async function handleStageTransition(
@@ -256,6 +352,9 @@ export function ReportDetailScreen() {
     } else if (disp === 'admitted_shelter') {
       statusBadgeLabel = isCruelty ? 'In Shelter Custody' : 'In Shelter Care'
       statusBadgeClass = 'status-badge-clean shelter'
+    } else if (disp === 'deceased_doa') {
+      statusBadgeLabel = 'Dead on Arrival (DOA)'
+      statusBadgeClass = 'status-badge-clean declined'
     } else {
       statusBadgeLabel = isCruelty ? 'In Custody' : 'Attended'
       statusBadgeClass = 'status-badge-clean shelter'
@@ -486,6 +585,14 @@ export function ReportDetailScreen() {
                     )}
                     <button
                       type="button"
+                      className="dropdown-item danger"
+                      onClick={handleMarkDOA}
+                    >
+                      <Skull size={15} weight="bold" aria-hidden />
+                      <span>Dead on Arrival</span>
+                    </button>
+                    <button
+                      type="button"
                       className="dropdown-item"
                       onClick={() => handleStageTransition('accepted')}
                     >
@@ -508,7 +615,60 @@ export function ReportDetailScreen() {
               </div>
             )}
 
-            {status === 'attended' && (
+            {status === 'attended' && disp === 'deceased_doa' ? (
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="pressable"
+                  onClick={() => setIsDropdownOpen((prev) => !prev)}
+                  aria-expanded={isDropdownOpen}
+                  title="More stage actions"
+                  aria-label="Dead on Arrival stage actions"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'var(--color-surface)',
+                    color: 'var(--color-ink-muted)',
+                    border: '1px solid var(--color-border)',
+                    height: '44px',
+                    padding: '0 16px',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Skull size={16} weight="bold" aria-hidden />
+                  <span className="btn-text-full">Dead on Arrival</span>
+                  <span className="btn-text-mobile">DOA</span>
+                  <CaretDown size={14} weight="bold" aria-hidden style={{ marginLeft: '4px', opacity: 0.7 }} />
+                </button>
+                {isDropdownOpen && (
+                  <div className="dropdown-menu is-open">
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => {
+                        setIsDropdownOpen(false)
+                        navigate(`/reports/${report.id}/edit`)
+                      }}
+                    >
+                      <PencilSimple size={15} weight="bold" aria-hidden />
+                      <span>Edit report</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => handleStageTransition('dispatched')}
+                    >
+                      <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
+                      <span>Change decision</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : status === 'attended' ? (
               <div className="split-btn-group">
                 {report.animal_id ? (
                   <Link
@@ -587,7 +747,7 @@ export function ReportDetailScreen() {
                   </div>
                 )}
               </div>
-            )}
+            ) : null}
 
             {status === 'cancelled' && (
               <div className="split-btn-group">

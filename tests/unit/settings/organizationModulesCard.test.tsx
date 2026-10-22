@@ -14,9 +14,13 @@ describe('OrganizationModulesCard', () => {
     )
 
     expect(screen.getByText('Organization modules')).toBeInTheDocument()
-    // In summary view, shows enabled modules
+    // In summary view, shows enabled and disabled modules
+    expect(screen.getByText('Enabled')).toBeInTheDocument()
     expect(screen.getByText('Animal Records')).toBeInTheDocument()
     expect(screen.getByText('Daily Checklist')).toBeInTheDocument()
+    expect(screen.getByText('Disabled')).toBeInTheDocument()
+    expect(screen.getByText('Rescue Reports')).toBeInTheDocument()
+    expect(screen.getByText('Financial Ledger')).toBeInTheDocument()
     expect(screen.queryByLabelText(/Rescue Reports/i)).not.toBeInTheDocument()
 
     // Click Edit
@@ -55,5 +59,23 @@ describe('OrganizationModulesCard', () => {
 
     expect(onSave).toHaveBeenCalledWith(['reports', 'animals', 'checklist'])
     expect(await screen.findByText(/Modules saved/i)).toBeInTheDocument()
+  })
+
+  it('disables unchecking the last enabled module to ensure at least one module remains enabled', () => {
+    const onSave = vi.fn()
+    render(
+      <OrganizationModulesCard
+        enabledModules={new Set(['animals'])}
+        canManage={true}
+        onSave={onSave}
+      />,
+    )
+
+    const editBtn = screen.getByRole('button', { name: /Edit/i })
+    fireEvent.click(editBtn)
+
+    const animalsCheckbox = screen.getByLabelText(/Animal Records/i)
+    expect(animalsCheckbox).toBeChecked()
+    expect(animalsCheckbox).toBeDisabled()
   })
 })

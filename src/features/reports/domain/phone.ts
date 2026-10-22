@@ -6,7 +6,7 @@ export function formatPhoneNumber(value: string): string {
   if (!value) return ''
   const trimmed = value.trim()
   const isPlus = trimmed.startsWith('+')
-  const digits = trimmed.replace(/\D/g, '')
+  let digits = trimmed.replace(/\D/g, '')
 
   if (!digits) return isPlus ? '+' : ''
 
@@ -24,25 +24,34 @@ export function formatPhoneNumber(value: string): string {
     return `+${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 12)}`.trim()
   }
 
-  // Pakistan local mobile numbers starting with 03 (11 digits: 03XX-XXXXXXX)
+  // If exactly 10 digits starting with '3', it is a Pakistan mobile missing the leading 0 (common from spreadsheets)
+  if (digits.length === 10 && digits.startsWith('3')) {
+    digits = `0${digits}`
+  }
+
+  // Pakistan local mobile numbers starting with 03 (11 digits: 03XX XXXXXXX)
   if (digits.startsWith('03')) {
     if (digits.length <= 4) {
       return digits
     }
-    return `${digits.slice(0, 4)}-${digits.slice(4, 11)}`
+    return `${digits.slice(0, 4)} ${digits.slice(4, 11)}`
   }
 
-  // Pakistan landlines starting with 021 (10-11 digits: 021-XXXXXXXX)
-  if (digits.startsWith('021')) {
-    if (digits.length <= 3) {
-      return digits
+  // Pakistan landlines starting with 0 (e.g. 021, 042, 051, 041, 061, 091, 081, 052, 055, or smaller city area codes)
+  if (digits.startsWith('0')) {
+    // 3-digit metro area codes (021 Karachi, 042 Lahore, 051 Islamabad/Rwp, 041 Faisalabad, 061 Multan, 091 Peshawar, 081 Quetta, 052 Sialkot, 055 Gujranwala)
+    if (/^0(21|42|51|41|61|91|81|52|55)/.test(digits)) {
+      if (digits.length <= 3) return digits
+      return `${digits.slice(0, 3)} ${digits.slice(3, 11)}`
     }
-    return `${digits.slice(0, 3)}-${digits.slice(3, 11)}`
+    // 4-digit area codes for smaller cities (e.g. 0492, 0563)
+    if (digits.length <= 4) return digits
+    return `${digits.slice(0, 4)} ${digits.slice(4, 11)}`
   }
 
   // Other standard 10-11 digit numbers
   if (digits.length > 4 && digits.length <= 11) {
-    return `${digits.slice(0, 4)}-${digits.slice(4)}`
+    return `${digits.slice(0, 4)} ${digits.slice(4)}`
   }
 
   return trimmed

@@ -8,8 +8,8 @@ import { PublicShelterScreen } from '@/features/public/screens/PublicShelterScre
 import { isPlaygroundPath } from '@/features/playground/mode'
 import { isReservedPublicSlug } from '@/shared/lib/public/slug'
 import { supabase, supabaseConfigured } from '@/shared/lib/supabase'
-import { PwaUpdateBanner } from '@/shared/ui/PwaUpdateBanner'
 import { SplashScreen } from '@/shared/ui/SplashScreen'
+
 
 const playground = isPlaygroundPath(window.location.pathname)
 
@@ -109,10 +109,6 @@ export default function App() {
     )
   }
 
-  return (
-    <>
-      <PwaUpdateBanner />
-      {tree}
-    </>
-  )
+  return tree
 }
+

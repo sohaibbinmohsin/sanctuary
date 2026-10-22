@@ -1131,3 +1131,113 @@
   color: var(--color-ink-muted);
 }
 
+/* Frequent Rescuers / Callers Suggestions */
+.frequent-callers-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 50;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.frequent-caller-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-border-subtle, #f0f0f0);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  color: var(--color-ink);
+  transition: background var(--duration) var(--ease-out);
+}
+
+.frequent-caller-item:last-child {
+  border-bottom: none;
+}
+
+.frequent-caller-item:hover,
+.frequent-caller-item:focus {
+  background: var(--color-mist);
+}
+
+.frequent-caller-star {
+  color: var(--color-amber);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* Number input without browser spin buttons */
+input.input-no-spinner::-webkit-outer-spin-button,
+input.input-no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input.input-no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Group Roster in Intake */
+.group-roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.group-roster-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: 8px 10px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+}
+
+.group-roster-row .select-field {
+  flex: 1 1 120px;
+  min-width: 105px;
+}
+
+.group-roster-row .select-trigger {
+  height: 38px;
+  min-height: 38px;
+  padding: 0 0.75rem;
+  font-size: 13.5px;
+}
+
+.group-roster-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  padding: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface, #ffffff);
+  color: var(--color-ink-muted, #64748b);
+  cursor: pointer;
+  transition: all var(--duration) var(--ease-out);
+}
+
+.group-roster-delete-btn:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}

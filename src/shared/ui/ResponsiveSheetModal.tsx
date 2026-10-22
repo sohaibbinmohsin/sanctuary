@@ -7,6 +7,7 @@ export type ResponsiveSheetModalProps = {
   onClose: () => void
   title: string
   children: React.ReactNode
+  closeable?: boolean
 }
 
 export function ResponsiveSheetModal({
@@ -14,11 +15,12 @@ export function ResponsiveSheetModal({
   onClose,
   title,
   children,
+  closeable = true,
 }: ResponsiveSheetModalProps) {
   useEffect(() => {
     if (!isOpen) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (closeable && e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKeyDown)
     const prevOverflow = document.body.style.overflow
@@ -27,13 +29,16 @@ export function ResponsiveSheetModal({
       window.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = prevOverflow
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, closeable])
 
   if (!isOpen) return null
 
   return createPortal(
     <div className="responsive-modal-root" role="dialog" aria-modal="true">
-      <div className="responsive-modal__backdrop" onClick={onClose} />
+      <div
+        className="responsive-modal__backdrop"
+        onClick={closeable ? onClose : undefined}
+      />
       <div className="responsive-modal__card">
         <div className="responsive-modal__header">
           <h2 className="responsive-modal__title">{title}</h2>

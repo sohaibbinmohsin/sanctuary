@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ALL_MODULE_IDS,
   type AppModuleId,
@@ -56,11 +56,23 @@ export function OrganizationModulesCard({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
+  // Sync state when enabledModules changes from parent
+  useEffect(() => {
+    if (!editing) {
+      setSelectedModules(new Set(enabledModules))
+    }
+  }, [enabledModules, editing])
+
   function handleToggleModule(moduleId: AppModuleId, checked: boolean) {
     const updated = new Set(selectedModules)
     if (checked) {
       updated.add(moduleId)
+      setErrorMessage(null)
     } else {
+      if (selectedModules.size <= 1) {
+        setErrorMessage('At least one module must remain enabled.')
+        return
+      }
       updated.delete(moduleId)
     }
     setSelectedModules(updated)
@@ -76,6 +88,11 @@ export function OrganizationModulesCard({
       return
     }
 
+    if (selectedModules.size === 0) {
+      setErrorMessage('At least one module must remain enabled.')
+      return
+    }
+
     // Currently editing and clicking "Done"
     const hasChanged =
       selectedModules.size !== enabledModules.size ||
@@ -88,13 +105,6 @@ export function OrganizationModulesCard({
         await onSave(sortedList)
         setStatusMessage('Modules saved successfully.')
         setEditing(false)
-        try {
-          if (typeof window !== 'undefined' && typeof window.location?.reload === 'function') {
-            window.location.reload()
-          }
-        } catch {
-          // Ignore in environments where reload is not implemented (e.g. JSDOM)
-        }
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : 'Failed to update modules.',
@@ -126,6 +136,7 @@ export function OrganizationModulesCard({
             {MODULE_DEFINITIONS.map((def) => {
               const inputId = `module-${def.id}`
               const isChecked = selectedModules.has(def.id)
+              const isLastEnabled = isChecked && selectedModules.size === 1
               return (
                 <label
                   key={def.id}
@@ -134,17 +145,18 @@ export function OrganizationModulesCard({
                   style={{
                     display: 'flex',
                     alignItems: 'flex-start',
-                    cursor: canManage && !isSaving ? 'pointer' : 'default',
+                    cursor: canManage && !isSaving && !isLastEnabled ? 'pointer' : 'default',
                     gap: '0.75rem',
                     padding: '0.5rem 0',
                     minHeight: '44px',
                   }}
+                  title={isLastEnabled ? 'At least one module must remain enabled' : undefined}
                 >
                   <input
                     id={inputId}
                     type="checkbox"
                     checked={isChecked}
-                    disabled={!canManage || isSaving}
+                    disabled={!canManage || isSaving || isLastEnabled}
                     onChange={(e) => handleToggleModule(def.id, e.target.checked)}
                     style={{
                       marginTop: '0.2rem',
@@ -171,13 +183,25 @@ export function OrganizationModulesCard({
           <div className="settings-group">
             <p className="settings-group__label">Enabled</p>
             <ul className="settings-group__items">
-              {MODULE_DEFINITIONS.filter((def) => selectedModules.has(def.id)).map((def) => (
+              {MODULE_DEFINITIONS.filter((def) => enabledModules.has(def.id)).map((def) => (
                 <li key={def.id} className="settings-group__item">
                   <span>{def.label}</span>
                 </li>
               ))}
             </ul>
           </div>
+          {MODULE_DEFINITIONS.some((def) => !enabledModules.has(def.id)) ? (
+            <div className="settings-group">
+              <p className="settings-group__label">Disabled</p>
+              <ul className="settings-group__items">
+                {MODULE_DEFINITIONS.filter((def) => !enabledModules.has(def.id)).map((def) => (
+                  <li key={def.id} className="settings-group__item">
+                    <span>{def.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       )}
 

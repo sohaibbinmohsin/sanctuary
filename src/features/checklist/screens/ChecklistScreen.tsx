@@ -220,12 +220,12 @@ export function ChecklistScreen() {
           actionDisabled={!hasAnimals}
         />
       ) : (
-        <div className="panel" style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
+        <div className="checklist-cards stack stack--tight">
           {sorted.map((row) => {
             const label = animalLabel(row)
             const disabled = busyId === row.id
             return (
-              <div className="list-item list-item--row" key={row.id}>
+              <div className="checklist-card" key={row.id}>
                 <label className="check-row" style={{ flex: 1, minWidth: 0 }}>
                   <CheckMark
                     checked={row.checkedToday}

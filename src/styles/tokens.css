@@ -71,8 +71,9 @@
   --duration-slow: 280ms;
 
   /* Layout */
-  --nav-height: 4.25rem;
-  --sidebar-width: 15rem;
+  --nav-height: 0px;
+  --sidebar-width: 18.5rem;
+  --sidebar-collapsed-width: 4.5rem;
   --content-max: 70rem;
   --touch-min: 44px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);

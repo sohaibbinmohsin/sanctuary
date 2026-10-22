@@ -25,6 +25,9 @@ vi.mock('@/features/statuses/domain/statuses', () => ({
     { id: 'stat-released', label: 'Released', counts_as_in_care: 0, archived: 0 },
   ]),
 }))
+vi.mock('@/features/animals/domain/relationships', () => ({
+  linkAnimals: vi.fn().mockResolvedValue(undefined),
+}))
 
 describe('ReportDetailScreen', () => {
   beforeEach(() => {
@@ -65,7 +68,7 @@ describe('ReportDetailScreen', () => {
     expect(screen.getByText('Burns Road')).toBeInTheDocument()
     expect(screen.getByText('Near Fresco')).toBeInTheDocument()
     expect(screen.getByText('Usman')).toBeInTheDocument()
-    expect(screen.getByText('0300-1234567')).toBeInTheDocument()
+    expect(screen.getByText('0300 1234567')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Call/i })).toHaveAttribute('href', 'tel:0300-1234567')
 
     // Pipeline steps
@@ -562,5 +565,80 @@ describe('ReportDetailScreen', () => {
       'href',
       'https://www.google.com/maps/dir/?api=1&destination=24.918,67.0971',
     )
+  })
+
+  it('supports marking report DOA (Dead on Arrival) from dispatched stage without creating animal record', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-doa',
+      org_id: 'org-1',
+      report_number: 'PARC-R109',
+      category: 'emergency',
+      species: 'dog',
+      chief_complaint: 'Severe trauma',
+      status: 'dispatched',
+      location_area: 'Thokar Niaz Baig',
+      stage_logged_at: '2026-10-22T14:10:00Z',
+      stage_accepted_at: '2026-10-22T14:20:00Z',
+      stage_dispatched_at: '2026-10-22T14:30:00Z',
+      created_at: '2026-10-22T14:10:00Z',
+    } as any)
+
+    const completeSpy = vi.spyOn(domainModule, 'completeReportWithDisposition').mockResolvedValue(undefined)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-doa']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R109')).toBeInTheDocument()
+
+    // Open top dropdown
+    fireEvent.click(screen.getByRole('button', { name: /More stage actions/i }))
+
+    // Click "Dead on Arrival"
+    const doaBtn = screen.getByRole('button', { name: /^Dead on Arrival$/i })
+    expect(doaBtn).toBeInTheDocument()
+    fireEvent.click(doaBtn)
+
+    await waitFor(() => {
+      expect(completeSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        'rep-doa',
+        'deceased_doa',
+      )
+    })
+  })
+
+  it('renders Dead on Arrival (DOA) badge when disposition is deceased_doa', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-doa-done',
+      org_id: 'org-1',
+      report_number: 'PARC-R110',
+      category: 'emergency',
+      species: 'dog',
+      chief_complaint: 'Pronounced dead',
+      status: 'attended',
+      disposition_type: 'deceased_doa',
+      location_area: 'Niaz Baig',
+      animal_id: null,
+      stage_logged_at: '2026-10-22T14:10:00Z',
+      stage_attended_at: '2026-10-22T15:00:00Z',
+      created_at: '2026-10-22T14:10:00Z',
+    } as any)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-doa-done']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R110')).toBeInTheDocument()
+    expect(screen.getAllByText(/Dead on Arrival \(DOA\)/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('button', { name: /Dead on Arrival/i })).toBeInTheDocument()
   })
 })

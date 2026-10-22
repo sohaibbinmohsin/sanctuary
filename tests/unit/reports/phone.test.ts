@@ -3,16 +3,16 @@ import { formatPhoneNumber, validatePhoneNumber } from '@/features/reports/domai
 
 describe('phone domain utilities', () => {
   describe('formatPhoneNumber', () => {
-    it('formats 11-digit Pakistan mobile numbers with a hyphen after 4 digits', () => {
-      expect(formatPhoneNumber('03001234567')).toBe('0300-1234567')
-      expect(formatPhoneNumber('03219876543')).toBe('0321-9876543')
-      expect(formatPhoneNumber('0300-1234567')).toBe('0300-1234567')
-      expect(formatPhoneNumber('0300 1234567')).toBe('0300-1234567')
+    it('formats 11-digit Pakistan mobile numbers with a space after 4 digits', () => {
+      expect(formatPhoneNumber('03001234567')).toBe('0300 1234567')
+      expect(formatPhoneNumber('03219876543')).toBe('0321 9876543')
+      expect(formatPhoneNumber('0300-1234567')).toBe('0300 1234567')
+      expect(formatPhoneNumber('0300 1234567')).toBe('0300 1234567')
     })
 
     it('handles partial mobile numbers during typing', () => {
       expect(formatPhoneNumber('0300')).toBe('0300')
-      expect(formatPhoneNumber('03001')).toBe('0300-1')
+      expect(formatPhoneNumber('03001')).toBe('0300 1')
       expect(formatPhoneNumber('03')).toBe('03')
       expect(formatPhoneNumber('')).toBe('')
     })
@@ -22,8 +22,16 @@ describe('phone domain utilities', () => {
       expect(formatPhoneNumber('+92 300 1234567')).toBe('+92 300 1234567')
     })
 
-    it('formats local landline numbers starting with 021', () => {
-      expect(formatPhoneNumber('02134567890')).toBe('021-34567890')
+    it('formats local landline numbers starting with 021, 042, 051 etc.', () => {
+      expect(formatPhoneNumber('02134567890')).toBe('021 34567890')
+      expect(formatPhoneNumber('04235881234')).toBe('042 35881234')
+      expect(formatPhoneNumber('0519201234')).toBe('051 9201234')
+    })
+
+    it('normalizes 10-digit Pakistan mobile numbers missing the leading zero', () => {
+      expect(formatPhoneNumber('3244317495')).toBe('0324 4317495')
+      expect(formatPhoneNumber('3006880426')).toBe('0300 6880426')
+      expect(formatPhoneNumber('3128144866')).toBe('0312 8144866')
     })
   })
 

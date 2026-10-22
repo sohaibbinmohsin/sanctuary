@@ -47,6 +47,12 @@ import { MoraleToast } from '@/shared/ui/MoraleToast'
 import { pickMessage, TREATMENT_MESSAGES } from '@/shared/lib/morale/messages'
 import { Button } from '@/shared/ui/Button'
 import { SelectField, TextareaField, TextField } from '@/shared/ui/Field'
+import { AutocompleteField } from '@/shared/ui/AutocompleteField'
+import {
+  PRESET_VET_CLINICS,
+  PRESET_PARTNER_ORGS,
+  normalizeEntitySlug,
+} from '@/features/reports/domain/partnerDirectory'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import {
   deletePhoto,
@@ -173,6 +179,10 @@ export function AnimalDetailScreen() {
     toDatetimeLocalValue(new Date().toISOString()),
   )
   const [statusNotes, setStatusNotes] = useState('')
+  const [clinicName, setClinicName] = useState('')
+  const [attendingVet, setAttendingVet] = useState('')
+  const [partnerName, setPartnerName] = useState('')
+  const [partnerContact, setPartnerContact] = useState('')
   const [selectedTab, setSelectedTab] = useState<AnimalDetailTab | null>(null)
 
   const [showEditDetailsModal, setShowEditDetailsModal] = useState(false)
@@ -479,6 +489,10 @@ export function AnimalDetailScreen() {
     setShowStatusModal(false)
     setStatusNotes('')
     setStatusId(null)
+    setClinicName('')
+    setAttendingVet('')
+    setPartnerName('')
+    setPartnerContact('')
     setError(null)
   }
 
@@ -492,25 +506,63 @@ export function AnimalDetailScreen() {
     setError(null)
     try {
       const effectiveIso = new Date(statusEffectiveAt).toISOString()
-      const trimmedNotes = statusNotes.trim()
+      const selectedStatus = statuses.find((s) => s.id === statusId)
+      const label = selectedStatus?.label || 'Status update'
+      const labelLower = label.toLowerCase()
+      const isTreatmentOrCritical =
+        labelLower.includes('treatment') ||
+        labelLower.includes('critical') ||
+        labelLower.includes('hospital') ||
+        labelLower.includes('clinic') ||
+        labelLower.includes('vet')
+      const isTransferred =
+        labelLower.includes('transfer') ||
+        labelLower.includes('partner')
+
+      const extraParts: string[] = []
+      if (isTreatmentOrCritical) {
+        if (clinicName.trim()) {
+          const slug = normalizeEntitySlug(clinicName)
+          extraParts.push(`Clinic: ${clinicName.trim()} [${slug}]`)
+        }
+        if (attendingVet.trim()) {
+          extraParts.push(`Attending Vet: ${attendingVet.trim()}`)
+        }
+      } else if (isTransferred) {
+        if (partnerName.trim()) {
+          const slug = normalizeEntitySlug(partnerName)
+          extraParts.push(`Transferred to: ${partnerName.trim()} [${slug}]`)
+        }
+        if (partnerContact.trim()) {
+          extraParts.push(`Contact: ${partnerContact.trim()}`)
+        }
+      }
+
+      let fullNotes = statusNotes.trim()
+      if (extraParts.length > 0) {
+        fullNotes = fullNotes ? `${extraParts.join(' · ')}\n${fullNotes}` : extraParts.join(' · ')
+      }
+
       await setSingleStatusAssignment(db, {
         orgId: member.orgId,
         animalId: id,
         statusId,
         treatedAt: statusEffectiveAt,
-        notes: trimmedNotes,
+        notes: fullNotes || undefined,
       })
-      const selectedStatus = statuses.find((s) => s.id === statusId)
-      const label = selectedStatus?.label || 'Status update'
       await addTreatment(db, {
         orgId: member.orgId,
         animalId: id,
         treatmentType: 'status',
-        notes: trimmedNotes ? `${label} - ${trimmedNotes}` : label,
+        notes: fullNotes ? `${label} - ${fullNotes}` : label,
         treatedAt: effectiveIso,
       })
       setShowStatusModal(false)
       setStatusNotes('')
+      setClinicName('')
+      setAttendingVet('')
+      setPartnerName('')
+      setPartnerContact('')
       setToast('Status updated')
       await reload()
     } catch (err) {
@@ -1464,6 +1516,71 @@ export function AnimalDetailScreen() {
             }}
             onAddStatus={() => setShowAddStatusModal(true)}
           />
+
+          {(() => {
+            const selectedStatus = statuses.find((s) => s.id === statusId)
+            const labelLower = (selectedStatus?.label || '').toLowerCase()
+            const isTreatmentOrCritical =
+              labelLower.includes('treatment') ||
+              labelLower.includes('critical') ||
+              labelLower.includes('hospital') ||
+              labelLower.includes('clinic') ||
+              labelLower.includes('vet')
+            const isTransferred =
+              labelLower.includes('transfer') ||
+              labelLower.includes('partner')
+
+            if (isTreatmentOrCritical) {
+              return (
+                <div className="panel stack stack--tight" style={{ background: 'var(--color-surface)', padding: '12px' }}>
+                  <p className="section-label" style={{ margin: 0 }}>
+                    Veterinary Hospital &amp; Doctor
+                  </p>
+                  <AutocompleteField
+                    label="Clinic / Hospital Name"
+                    placeholder="e.g. UVAS Small Animal Hospital"
+                    value={clinicName}
+                    onChange={setClinicName}
+                    suggestions={PRESET_VET_CLINICS as unknown as string[]}
+                  />
+                  <TextField
+                    label="Attending Vet"
+                    hint="optional"
+                    placeholder="e.g. Dr. Adeel / Dr. Usman"
+                    value={attendingVet}
+                    onChange={(e) => setAttendingVet(e.target.value)}
+                  />
+                </div>
+              )
+            }
+
+            if (isTransferred) {
+              return (
+                <div className="panel stack stack--tight" style={{ background: 'var(--color-surface)', padding: '12px' }}>
+                  <p className="section-label" style={{ margin: 0 }}>
+                    Partner Transfer Details
+                  </p>
+                  <AutocompleteField
+                    label="Partner Organization / Shelter Name"
+                    placeholder="e.g. Todd's Welfare Society (TWS)"
+                    value={partnerName}
+                    onChange={setPartnerName}
+                    suggestions={PRESET_PARTNER_ORGS as unknown as string[]}
+                  />
+                  <TextField
+                    label="Focal Person / Contact"
+                    hint="optional"
+                    placeholder="e.g. Case coordinator or phone"
+                    value={partnerContact}
+                    onChange={(e) => setPartnerContact(e.target.value)}
+                  />
+                </div>
+              )
+            }
+
+            return null
+          })()}
+
           <TextField
             label="Effective date & time"
             type="datetime-local"

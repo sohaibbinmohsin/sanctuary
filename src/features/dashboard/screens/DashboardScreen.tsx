@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { GearSix } from '@phosphor-icons/react'
 import type { AppModuleId } from '@/shared/domain/modules'
 import { OverviewChecklistCard } from '@/features/checklist/components/OverviewChecklistCard'
 import { OverviewUploadsCard } from '@/features/uploads/components/OverviewUploadsCard'
@@ -18,7 +17,6 @@ import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { isPlaygroundMode } from '@/features/playground/mode'
 import { DASHBOARD_GREETINGS, pickMessage } from '@/shared/lib/morale/messages'
 import { PageHeader } from '@/shared/ui/PageHeader'
-import { Button } from '@/shared/ui/Button'
 
 const GREETING_KEY = 'sanctuary.dashboardGreetingShown'
 
@@ -36,31 +34,11 @@ export function DashboardScreen() {
 
   const hasModule = (m: AppModuleId) => (isPlayground ? true : member?.hasModule(m) ?? true)
 
-  const allModulesActive = Boolean(
-    hasModule('reports') &&
-    hasModule('animals') &&
-    hasModule('ledger') &&
-    hasModule('checklist')
-  )
-
   return (
     <section className="screen">
       <PageHeader
         title="Overview"
         subtitle={greeting ?? 'Telemetry and operations overview for your team.'}
-        actions={
-          allModulesActive ? (
-            <Button
-              to="/settings"
-              variant="secondary"
-              className="btn--icon mobile-only"
-              aria-label="Settings"
-              title="Settings"
-            >
-              <GearSix size={20} weight="duotone" aria-hidden />
-            </Button>
-          ) : undefined
-        }
       />
 
       {/* Uploads Queue (system level) */}

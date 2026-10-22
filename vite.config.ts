@@ -22,7 +22,10 @@ function sanctuaryBuildId(): string {
 const sanctuaryBuild = sanctuaryBuildId()
 
 function sanctuaryVersionPlugin(version: string): Plugin {
-  const body = JSON.stringify({ version })
+  const isCritical =
+    process.env.SANCTUARY_CRITICAL_UPDATE === 'true' ||
+    process.env.VITE_CRITICAL_UPDATE === 'true'
+  const body = JSON.stringify({ version, critical: isCritical })
   return {
     name: 'sanctuary-build-version',
     configureServer(server) {

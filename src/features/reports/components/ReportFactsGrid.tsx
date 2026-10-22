@@ -145,6 +145,46 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
               {report.life_stage ? ` · ${report.life_stage === 'child' ? 'Child' : 'Adult'}` : ''}
             </span>
           </div>
+          {report.animal_count && report.animal_count > 1 ? (
+            <div className="fact-row">
+              <span className="fact-label">Animal Count</span>
+              <span className="fact-value font-medium" style={{ color: 'var(--color-brand, #de6b2b)' }}>
+                {report.animal_count} animals (litter / group)
+              </span>
+            </div>
+          ) : null}
+          {report.group_breakdown ? (() => {
+            try {
+              const parsed = JSON.parse(report.group_breakdown)
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                const summary = parsed
+                  .map((p: any) => {
+                    const count = p.count || 1
+                    const stage = p.lifeStage ? (p.lifeStage === 'adult' ? 'Adult' : 'Child') : ''
+                    const sp = p.species ? p.species.charAt(0).toUpperCase() + p.species.slice(1) : ''
+                    return [count, stage, sp].filter(Boolean).join(' ')
+                  })
+                  .join(' · ')
+                return (
+                  <div className="fact-row">
+                    <span className="fact-label">Group Roster</span>
+                    <span className="fact-value font-medium" style={{ color: 'var(--color-brand, #de6b2b)' }}>
+                      {summary}
+                    </span>
+                  </div>
+                )
+              }
+            } catch {}
+            return null
+          })() : null}
+          {report.disposition_type === 'deceased_doa' ? (
+            <div className="fact-row">
+              <span className="fact-label">Disposition</span>
+              <span className="fact-value" style={{ color: 'var(--color-danger, #b91c1c)', fontWeight: 600 }}>
+                Dead on Arrival (DOA)
+              </span>
+            </div>
+          ) : null}
           <div className="fact-row">
             <span className="fact-label">
               {report.category === 'cruelty' ? 'Incident / Complaint' : 'Chief Complaint'}
@@ -272,6 +312,18 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
           </span>
         </div>
         <div className="facts-kv-list">
+          <div className="fact-row">
+            <span className="fact-label">Intake Source</span>
+            <span className="fact-value font-medium">
+              {report.intake_source === 'rescue_1122'
+                ? 'Rescue 1122'
+                : report.intake_source === 'field_patrol'
+                  ? 'Field Patrol (Self)'
+                  : report.intake_source === 'partner_transfer'
+                    ? 'Partner Transfer'
+                    : 'Citizen Call'}
+            </span>
+          </div>
           <div className="fact-row">
             <span className="fact-label">Name</span>
             {report.reporter_name ? (

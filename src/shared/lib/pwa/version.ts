@@ -1,8 +1,14 @@
 export const LOCAL_BUILD =
   typeof __SANCTUARY_BUILD__ === 'string' ? __SANCTUARY_BUILD__ : ''
 
+export type RemoteBuildInfo = {
+  version: string
+  critical: boolean
+}
+
 type VersionPayload = {
   version?: unknown
+  critical?: unknown
 }
 
 export async function readRemoteBuildVersion(
@@ -11,11 +17,14 @@ export async function readRemoteBuildVersion(
     if (!res.ok) throw new Error('version fetch failed')
     return res.json()
   },
-): Promise<string | null> {
+): Promise<RemoteBuildInfo | null> {
   try {
     const data = (await load()) as VersionPayload
     return typeof data?.version === 'string' && data.version.length > 0
-      ? data.version
+      ? {
+          version: data.version,
+          critical: Boolean(data.critical),
+        }
       : null
   } catch {
     return null
@@ -23,8 +32,11 @@ export async function readRemoteBuildVersion(
 }
 
 export function hasAppUpdate(
-  remote: string | null,
+  remote: RemoteBuildInfo | string | null,
   local: string = LOCAL_BUILD,
 ): boolean {
-  return Boolean(remote && local && remote !== local)
+  const remoteVersion =
+    typeof remote === 'object' && remote !== null ? remote.version : remote
+  return Boolean(remoteVersion && local && remoteVersion !== local)
 }
+

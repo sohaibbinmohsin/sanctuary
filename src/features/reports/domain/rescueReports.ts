@@ -36,6 +36,13 @@ export type RescueReportFilter = 'all' | 'new' | 'in_progress' | 'completed'
 
 export type RescueReport = RescueReportRecord
 export type ReportPhoto = ReportPhotoRecord
+export type AnimalGroupItem = {
+  id: string
+  count: number
+  species: string
+  lifeStage?: 'adult' | 'child' | null
+  avianSubtype?: string | null
+}
 
 export type CreateRescueReportInput = {
   orgId: string
@@ -54,6 +61,7 @@ export type CreateRescueReportInput = {
   reporterCnic?: string | null
   intakeSource?: IntakeSource | null
   animalCount?: number | null
+  groupBreakdown?: string | null
 }
 
 /**
@@ -129,7 +137,8 @@ export async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
       cols.has('city') &&
       cols.has('life_stage') &&
       cols.has('intake_source') &&
-      cols.has('animal_count')
+      cols.has('animal_count') &&
+      cols.has('group_breakdown')
     ) {
       return
     }
@@ -147,6 +156,7 @@ export async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN life_stage TEXT`).catch(() => {})
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN intake_source TEXT`).catch(() => {})
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN animal_count INTEGER`).catch(() => {})
+        await db.execute(`ALTER TABLE rescue_reports ADD COLUMN group_breakdown TEXT`).catch(() => {})
       }
     }
   } catch (err) {
@@ -243,6 +253,7 @@ export async function createRescueReport(
     dismissal_reason: null,
     intake_source: input.intakeSource || 'citizen',
     animal_count: input.animalCount && input.animalCount > 0 ? input.animalCount : 1,
+    group_breakdown: input.groupBreakdown ?? null,
     stage_logged_at: now,
     stage_accepted_at: null,
     stage_dispatched_at: null,
@@ -275,6 +286,7 @@ export async function createRescueReport(
     dismissal_reason: report.dismissal_reason,
     intake_source: report.intake_source,
     animal_count: report.animal_count,
+    group_breakdown: report.group_breakdown,
     stage_logged_at: report.stage_logged_at,
     stage_accepted_at: report.stage_accepted_at,
     stage_dispatched_at: report.stage_dispatched_at,
@@ -528,6 +540,7 @@ export type UpdateRescueReportInput = {
   legalNotes?: string | null
   intakeSource?: IntakeSource | null
   animalCount?: number | null
+  groupBreakdown?: string | null
 }
 
 /**
@@ -599,6 +612,11 @@ export async function updateRescueReport(
   if (cols.size === 0 || cols.has('animal_count')) {
     setClauses.push('animal_count = COALESCE(?, animal_count)')
     params.push(input.animalCount ?? null)
+  }
+
+  if (cols.size === 0 || cols.has('group_breakdown')) {
+    setClauses.push('group_breakdown = ?')
+    params.push(input.groupBreakdown ?? null)
   }
 
   setClauses.push('updated_at = ?')
