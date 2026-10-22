@@ -1,21 +1,21 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Camera, FirstAid, MapPin, Phone, LockKey, User, Scales, PencilSimple, XCircle } from '@phosphor-icons/react'
+import { Camera, FirstAid, MapPin, Phone, LockKey, User, Scales, XCircle } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   type RescueReport,
   type ReportPhoto,
   getPhotosForReport,
   formatPhoneNumber,
+  formatCnic,
 } from '@/features/reports/domain/rescueReports'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 
 export type ReportFactsGridProps = {
   report: RescueReport
-  onEditLegalNotes?: () => void
 }
 
-export function ReportFactsGrid({ report, onEditLegalNotes }: ReportFactsGridProps) {
+export function ReportFactsGrid({ report }: ReportFactsGridProps) {
   const db = useDb()
   const [photos, setPhotos] = useState<ReportPhoto[]>([])
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
@@ -151,38 +151,12 @@ export function ReportFactsGrid({ report, onEditLegalNotes }: ReportFactsGridPro
 
       {/* Legal Action & Notice Card */}
       {report.legal_notes && (
-        <div className="detail-card" style={{ borderColor: 'var(--color-primary-light, #dbeafe)' }}>
-          <div
-            className="detail-card__header"
-            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-          >
-            <div className="detail-card__heading" style={{ color: 'var(--color-primary-dark, #1e40af)' }}>
+        <div className="detail-card">
+          <div className="detail-card__header">
+            <div className="detail-card__heading">
               <Scales weight="bold" size={18} aria-hidden />
               <span>Legal Action &amp; Notice</span>
             </div>
-            {onEditLegalNotes && (
-              <button
-                type="button"
-                className="btn-text pressable"
-                onClick={onEditLegalNotes}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--color-primary, #2563eb)',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  padding: '4px 8px',
-                  borderRadius: 'var(--radius-sm)',
-                }}
-              >
-                <PencilSimple size={13} weight="bold" />
-                <span>Edit</span>
-              </button>
-            )}
           </div>
           <div className="facts-kv-list" style={{ padding: '0.5rem 0 0.25rem 0' }}>
             <p
@@ -238,14 +212,20 @@ export function ReportFactsGrid({ report, onEditLegalNotes }: ReportFactsGridPro
         <div className="facts-kv-list">
           <div className="fact-row">
             <span className="fact-label">Area / Location</span>
-            <span className="fact-value font-medium">{report.location_area}</span>
+            {report.location_area ? (
+              <span className="fact-value font-medium">{report.location_area}</span>
+            ) : (
+              <span className="fact-value font-muted">No location provided</span>
+            )}
           </div>
-          {report.location_landmark ? (
-            <div className="fact-row highlight-row">
-              <span className="fact-label">Landmark</span>
+          <div className="fact-row">
+            <span className="fact-label">Landmark</span>
+            {report.location_landmark ? (
               <span className="fact-value landmark-highlight">{report.location_landmark}</span>
-            </div>
-          ) : null}
+            ) : (
+              <span className="fact-value font-muted">No landmark provided</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -262,15 +242,17 @@ export function ReportFactsGrid({ report, onEditLegalNotes }: ReportFactsGridPro
           </span>
         </div>
         <div className="facts-kv-list">
-          {report.reporter_name ? (
-            <div className="fact-row">
-              <span className="fact-label">Reporter Name</span>
+          <div className="fact-row">
+            <span className="fact-label">Reporter Name</span>
+            {report.reporter_name ? (
               <span className="fact-value font-medium">{report.reporter_name}</span>
-            </div>
-          ) : null}
-          {report.reporter_phone ? (
-            <div className="fact-row">
-              <span className="fact-label">Phone</span>
+            ) : (
+              <span className="fact-value font-muted">No name provided</span>
+            )}
+          </div>
+          <div className="fact-row">
+            <span className="fact-label">Phone</span>
+            {report.reporter_phone ? (
               <div className="caller-contact-actions">
                 <span className="fact-value font-mono font-semibold">{formattedPhone}</span>
                 <a
@@ -282,13 +264,20 @@ export function ReportFactsGrid({ report, onEditLegalNotes }: ReportFactsGridPro
                   <span>Call</span>
                 </a>
               </div>
-            </div>
-          ) : (
-            <div className="fact-row">
-              <span className="fact-label">Phone</span>
+            ) : (
               <span className="fact-value font-muted">No phone provided</span>
-            </div>
-          )}
+            )}
+          </div>
+          <div className="fact-row">
+            <span className="fact-label">CNIC</span>
+            {report.reporter_cnic ? (
+              <span className="fact-value font-mono font-medium">
+                {formatCnic(report.reporter_cnic)}
+              </span>
+            ) : (
+              <span className="fact-value font-muted">No CNIC provided</span>
+            )}
+          </div>
         </div>
       </div>
     </div>

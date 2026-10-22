@@ -20,6 +20,8 @@ import {
   deleteReportPhoto,
   formatPhoneNumber,
   validatePhoneNumber,
+  formatCnic,
+  validateCnic,
   type ReportPhoto,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
@@ -54,6 +56,8 @@ export function ReportIntakeScreen() {
   const [locationLandmark, setLocationLandmark] = useState('')
   const [reporterName, setReporterName] = useState('')
   const [reporterPhone, setReporterPhone] = useState('')
+  const [reporterCnic, setReporterCnic] = useState('')
+  const [legalNotes, setLegalNotes] = useState('')
   const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -85,6 +89,8 @@ export function ReportIntakeScreen() {
         setLocationLandmark(report.location_landmark || '')
         setReporterName(report.reporter_name || '')
         setReporterPhone(report.reporter_phone ? formatPhoneNumber(report.reporter_phone) : '')
+        setReporterCnic(report.reporter_cnic ? formatCnic(report.reporter_cnic) : '')
+        setLegalNotes(report.legal_notes || '')
 
         // Load existing photos
         const photos = await getPhotosForReport(db, id!)
@@ -119,6 +125,7 @@ export function ReportIntakeScreen() {
       : speciesPreset
 
   const phoneValidation = validatePhoneNumber(reporterPhone)
+  const cnicValidation = validateCnic(reporterCnic)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -145,6 +152,11 @@ export function ReportIntakeScreen() {
       return
     }
 
+    if (reporterCnic.trim() && !cnicValidation.isValid) {
+      setError(cnicValidation.error || 'Please enter a valid 13-digit CNIC (e.g. 42101-1234567-1).')
+      return
+    }
+
     setSubmitting(true)
     setError(null)
 
@@ -159,6 +171,8 @@ export function ReportIntakeScreen() {
           locationLandmark: locationLandmark.trim() || null,
           reporterName: reporterName.trim() || null,
           reporterPhone: reporterPhone.trim() ? formatPhoneNumber(reporterPhone) : null,
+          reporterCnic: reporterCnic.trim() ? formatCnic(reporterCnic) : null,
+          legalNotes: legalNotes.trim() || null,
         })
 
         // Delete any marked photos
@@ -202,6 +216,7 @@ export function ReportIntakeScreen() {
           locationLandmark: locationLandmark.trim() || null,
           reporterName: reporterName.trim() || null,
           reporterPhone: reporterPhone.trim() ? formatPhoneNumber(reporterPhone) : null,
+          reporterCnic: reporterCnic.trim() ? formatCnic(reporterCnic) : null,
         })
 
         // Attach any staged photos to this report
@@ -489,7 +504,62 @@ export function ReportIntakeScreen() {
               )
             ) : null}
           </div>
+
+          <div className="field stack stack--tight">
+            <TextField
+              label="Reporter CNIC"
+              hint="optional"
+              placeholder="e.g. 42101-1234567-1"
+              value={reporterCnic}
+              onChange={(e) => {
+                setReporterCnic(formatCnic(e.target.value))
+                if (error) setError(null)
+              }}
+            />
+            {reporterCnic.trim() ? (
+              cnicValidation.isValid ? (
+                <span
+                  className="field__hint"
+                  style={{
+                    color: 'var(--color-forest)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontWeight: 500,
+                  }}
+                >
+                  <Check size={14} weight="bold" /> Valid 13-digit CNIC
+                </span>
+              ) : (
+                <span
+                  className="field__hint"
+                  style={{ color: 'var(--color-amber)', fontWeight: 500 }}
+                >
+                  {cnicValidation.error}
+                </span>
+              )
+            ) : null}
+          </div>
         </div>
+
+        {/* 5. Legal Action & Notice (Extra card in edit mode) */}
+        {isEditMode && (category === 'cruelty' || existingReport?.legal_notes) && (
+          <div className="panel stack">
+            <div className="stack stack--tight">
+              <p className="section-label">Legal Action &amp; Notice</p>
+              <span className="field__hint">
+                Official warning notice issued, Police FIR number, station, or actions taken
+              </span>
+            </div>
+            <TextareaField
+              label="Legal action details / Notice summary"
+              placeholder="e.g. Warning notice issued under Animal Cruelty Act 1890, Police FIR #402/26 registered at Saddar PS. Owner instructed to cease heavy labor."
+              value={legalNotes}
+              onChange={(e) => setLegalNotes(e.target.value)}
+              rows={4}
+            />
+          </div>
+        )}
 
         {error ? <p className="form-error">{error}</p> : null}
 

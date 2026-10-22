@@ -75,6 +75,7 @@ describe('ReportIntakeScreen', () => {
         locationLandmark: 'Near Fresco Sweets',
         reporterName: 'Kamran',
         reporterPhone: '0300-1122334',
+        reporterCnic: null,
       })
     })
   })
@@ -136,6 +137,70 @@ describe('ReportIntakeScreen', () => {
         locationLandmark: 'Near Empress Market',
         reporterName: 'Usman',
         reporterPhone: '0300-1234567',
+        reporterCnic: null,
+        legalNotes: null,
+      })
+    })
+  })
+
+  it('renders extra Legal Action & Notice card in edit mode for cruelty reports and handles CNIC', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-c10',
+      org_id: 'org-1',
+      report_number: 'PARC-R210',
+      category: 'cruelty',
+      species: 'horse',
+      chief_complaint: 'Overworking',
+      location_area: 'Tower',
+      location_landmark: 'Near bus stop',
+      reporter_name: 'Bilal',
+      reporter_phone: '0300-9876543',
+      reporter_cnic: '42101-1234567-1',
+      legal_notes: 'Initial FIR #12 filed',
+      status: 'dispatched',
+      created_at: '2026-10-22T10:00:00Z',
+    } as any)
+    vi.spyOn(domainModule, 'getPhotosForReport').mockResolvedValue([])
+
+    const updateReportSpy = vi.spyOn(domainModule, 'updateRescueReport').mockResolvedValue(undefined)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-c10/edit']}>
+        <Routes>
+          <Route path="/reports/:id/edit" element={<ReportIntakeScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { name: /Edit Report PARC-R210/i })).toBeInTheDocument()
+
+    // CNIC should be populated
+    expect(screen.getByDisplayValue('42101-1234567-1')).toBeInTheDocument()
+    expect(screen.getByText(/Valid 13-digit CNIC/i)).toBeInTheDocument()
+
+    // Extra card "Legal Action & Notice" should be visible
+    expect(screen.getByText('Legal Action & Notice')).toBeInTheDocument()
+    const legalField = screen.getByDisplayValue('Initial FIR #12 filed')
+    expect(legalField).toBeInTheDocument()
+
+    // Edit legal action
+    fireEvent.change(legalField, {
+      target: { value: 'Updated FIR #12/26 with section 428 IPC' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Save changes/i }))
+
+    await waitFor(() => {
+      expect(updateReportSpy).toHaveBeenCalledWith(expect.anything(), 'rep-c10', {
+        category: 'cruelty',
+        species: 'horse',
+        chiefComplaint: 'Overworking',
+        locationArea: 'Tower',
+        locationLandmark: 'Near bus stop',
+        reporterName: 'Bilal',
+        reporterPhone: '0300-9876543',
+        reporterCnic: '42101-1234567-1',
+        legalNotes: 'Updated FIR #12/26 with section 428 IPC',
       })
     })
   })

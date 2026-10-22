@@ -74,13 +74,9 @@ export function ReportPipelineTracker({ report, onStepClick }: ReportPipelineTra
               ? '—'
               : currentStatus === 'accepted'
                 ? 'Awaiting notice / action'
-                : currentStatus === 'dispatched'
-                  ? report.stage_dispatched_at
-                    ? `Action Filed (${formatPipelineTime(report.stage_dispatched_at)})`
-                    : 'Action Filed'
-                  : report.stage_dispatched_at
-                    ? formatPipelineTime(report.stage_dispatched_at)
-                    : '—',
+                : report.stage_dispatched_at
+                  ? formatPipelineTime(report.stage_dispatched_at)
+                  : '—',
         },
         {
           number: 4,
@@ -88,11 +84,9 @@ export function ReportPipelineTracker({ report, onStepClick }: ReportPipelineTra
           status: currentStatus === 'attended' ? 'completed' : 'upcoming',
           timeText:
             currentStatus === 'attended'
-              ? report.disposition_type === 'spot_released'
-                ? `Resolved On-Site (${formatPipelineTime(report.stage_attended_at)})`
-                : report.stage_attended_at
-                  ? `In Custody (${formatPipelineTime(report.stage_attended_at)})`
-                  : 'In Custody'
+              ? report.stage_attended_at
+                ? formatPipelineTime(report.stage_attended_at)
+                : 'Attended'
               : '—',
         },
       ]
@@ -135,15 +129,9 @@ export function ReportPipelineTracker({ report, onStepClick }: ReportPipelineTra
               ? '—'
               : currentStatus === 'accepted'
                 ? 'Awaiting dispatch'
-                : currentStatus === 'dispatched'
-                  ? report.transport_type === 'reporter'
-                    ? `Reporter Transporting (${formatPipelineTime(report.stage_dispatched_at)})`
-                    : `En Route (${formatPipelineTime(report.stage_dispatched_at)})`
-                  : report.stage_dispatched_at
-                    ? report.transport_type === 'reporter'
-                      ? `Reporter Transported (${formatPipelineTime(report.stage_dispatched_at)})`
-                      : formatPipelineTime(report.stage_dispatched_at)
-                    : '—',
+                : report.stage_dispatched_at
+                  ? formatPipelineTime(report.stage_dispatched_at)
+                  : '—',
         },
         {
           number: 4,
@@ -151,11 +139,9 @@ export function ReportPipelineTracker({ report, onStepClick }: ReportPipelineTra
           status: currentStatus === 'attended' ? 'completed' : 'upcoming',
           timeText:
             currentStatus === 'attended'
-              ? report.disposition_type === 'spot_released'
-                ? `Spot Released (${formatPipelineTime(report.stage_attended_at)})`
-                : report.stage_attended_at
-                  ? formatPipelineTime(report.stage_attended_at)
-                  : 'Attended'
+              ? report.stage_attended_at
+                ? formatPipelineTime(report.stage_attended_at)
+                : 'Attended'
               : '—',
         },
       ]

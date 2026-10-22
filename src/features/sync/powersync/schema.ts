@@ -198,6 +198,7 @@ const rescue_reports = new Table(
     location_landmark: column.text,
     reporter_name: column.text,
     reporter_phone: column.text,
+    reporter_cnic: column.text,
     transport_type: column.text,
     disposition_type: column.text,
     animal_id: column.text,

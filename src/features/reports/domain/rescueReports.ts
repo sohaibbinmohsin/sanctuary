@@ -30,6 +30,7 @@ export type CreateRescueReportInput = {
   locationLandmark?: string | null
   reporterName?: string | null
   reporterPhone?: string | null
+  reporterCnic?: string | null
 }
 
 /**
@@ -88,6 +89,7 @@ async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
     if (typeof db.execute === 'function') {
       await db.execute(`ALTER TABLE rescue_reports ADD COLUMN legal_notes TEXT`).catch(() => {})
       await db.execute(`ALTER TABLE rescue_reports ADD COLUMN dismissal_reason TEXT`).catch(() => {})
+      await db.execute(`ALTER TABLE rescue_reports ADD COLUMN reporter_cnic TEXT`).catch(() => {})
       columnsEnsured = true
     }
   } catch {
@@ -119,6 +121,7 @@ export async function createRescueReport(
     location_landmark: input.locationLandmark?.trim() || null,
     reporter_name: input.reporterName?.trim() || null,
     reporter_phone: input.reporterPhone?.trim() || null,
+    reporter_cnic: input.reporterCnic?.trim() || null,
     transport_type: null,
     disposition_type: null,
     animal_id: null,
@@ -135,11 +138,11 @@ export async function createRescueReport(
   await db.execute(
     `INSERT INTO rescue_reports (
       id, org_id, report_number, category, species, chief_complaint, status,
-      location_area, location_landmark, reporter_name, reporter_phone,
+      location_area, location_landmark, reporter_name, reporter_phone, reporter_cnic,
       transport_type, disposition_type, animal_id, legal_notes, dismissal_reason,
       stage_logged_at, stage_accepted_at, stage_dispatched_at, stage_attended_at,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       report.id,
       report.org_id,
@@ -152,6 +155,7 @@ export async function createRescueReport(
       report.location_landmark,
       report.reporter_name,
       report.reporter_phone,
+      report.reporter_cnic,
       report.transport_type,
       report.disposition_type,
       report.animal_id,
@@ -393,6 +397,8 @@ export type UpdateRescueReportInput = {
   locationLandmark?: string | null
   reporterName?: string | null
   reporterPhone?: string | null
+  reporterCnic?: string | null
+  legalNotes?: string | null
 }
 
 /**
@@ -403,6 +409,7 @@ export async function updateRescueReport(
   reportId: string,
   input: UpdateRescueReportInput,
 ): Promise<void> {
+  await ensureReportColumns(db)
   const now = new Date().toISOString()
   await db.execute(
     `UPDATE rescue_reports
@@ -413,6 +420,8 @@ export async function updateRescueReport(
          location_landmark = ?,
          reporter_name = ?,
          reporter_phone = ?,
+         reporter_cnic = ?,
+         legal_notes = COALESCE(?, legal_notes),
          updated_at = ?
      WHERE id = ?`,
     [
@@ -423,6 +432,8 @@ export async function updateRescueReport(
       input.locationLandmark ?? null,
       input.reporterName ?? null,
       input.reporterPhone ?? null,
+      input.reporterCnic ?? null,
+      input.legalNotes ?? null,
       now,
       reportId,
     ],
@@ -440,4 +451,5 @@ export async function deleteReportPhoto(
 }
 
 export { formatPhoneNumber, validatePhoneNumber } from './phone'
+export { formatCnic, validateCnic } from './cnic'
 

@@ -653,26 +653,15 @@ export function ReportDetailScreen() {
         <ReportPipelineTracker
           report={report}
           onStepClick={(stepNumber) => {
-            if (isCruelty && stepNumber === 3) {
-              if (status === 'accepted') {
-                setIsLegalEditingOnly(false)
-                setIsLegalModalOpen(true)
-              } else if (status === 'dispatched' || status === 'attended') {
-                setIsLegalEditingOnly(true)
-                setIsLegalModalOpen(true)
-              }
+            if (isCruelty && status === 'accepted' && stepNumber === 3) {
+              setIsLegalEditingOnly(false)
+              setIsLegalModalOpen(true)
             }
           }}
         />
 
         {/* Intake Facts Grid */}
-        <ReportFactsGrid
-          report={report}
-          onEditLegalNotes={() => {
-            setIsLegalEditingOnly(true)
-            setIsLegalModalOpen(true)
-          }}
-        />
+        <ReportFactsGrid report={report} />
 
         {/* Legal Action Modal */}
         <LegalActionModal
