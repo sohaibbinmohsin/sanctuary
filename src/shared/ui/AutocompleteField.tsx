@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
 } from 'react'
+import { Check } from '@phosphor-icons/react'
 
 export type AutocompleteFieldProps = {
   label: string
@@ -162,12 +163,13 @@ export function AutocompleteField({
                     borderRadius: 'var(--radius-sm)',
                     fontSize: '0.875rem',
                     fontFamily: 'var(--font-sans)',
-                    color: 'var(--color-ink)',
-                    background: isHighlighted
-                      ? 'var(--color-surface-hover, #f3f4f6)'
-                      : isSelected
-                        ? 'var(--color-brand-soft, #fef3c7)'
+                    color: isSelected ? 'var(--color-forest)' : 'var(--color-ink)',
+                    background: isSelected
+                      ? 'var(--color-forest-soft)'
+                      : isHighlighted
+                        ? 'var(--color-mist)'
                         : 'transparent',
+                    fontWeight: isSelected ? 600 : 400,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -177,9 +179,7 @@ export function AutocompleteField({
                 >
                   <span>{item}</span>
                   {isSelected && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-forest)', fontWeight: 600 }}>
-                      Selected
-                    </span>
+                    <Check size={16} weight="bold" color="var(--color-forest)" aria-hidden />
                   )}
                 </li>
               )
