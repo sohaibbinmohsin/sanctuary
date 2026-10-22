@@ -11,7 +11,6 @@ import {
   User,
   ArrowCounterClockwise,
   PencilSimple,
-  X,
 } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
@@ -39,7 +38,6 @@ export function ReportDetailScreen() {
   const [error, setError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
-  const [justCreatedAnimal, setJustCreatedAnimal] = useState(false)
 
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -167,7 +165,6 @@ export function ReportDetailScreen() {
         if (!animalId) {
           try {
             animalId = await createAnimalFromReport('admitted_shelter')
-            setJustCreatedAnimal(true)
           } catch (animalErr) {
             console.error('Failed to automatically create animal record', animalErr)
           }
@@ -456,7 +453,6 @@ export function ReportDetailScreen() {
                       setActionLoading(true)
                       try {
                         const animalId = await createAnimalFromReport('admitted_shelter')
-                        setJustCreatedAnimal(true)
                         await completeReportWithDisposition(
                           db,
                           report.id,
@@ -571,39 +567,6 @@ export function ReportDetailScreen() {
 
         {/* 4-Stage Lifecycle Stepper */}
         <ReportPipelineTracker report={report} />
-
-        {/* Interlink Banner when Animal Profile is newly created */}
-        {justCreatedAnimal && report.animal_id && (
-          <div className="animal-interlink-banner">
-            <div className="interlink-badge-icon">
-              <HouseSimple size={22} weight="bold" aria-hidden />
-            </div>
-            <div className="interlink-copy">
-              <div className="interlink-title">Report addressed · Animal record registered in Sanctuary</div>
-              <div className="interlink-desc">
-                Permanent animal record created. Clinical treatments, medications, and shelter care are managed in the Animal registry.
-              </div>
-            </div>
-            <div className="interlink-actions">
-              <Link
-                to={`/animals/${report.animal_id}`}
-                className="btn-primary-forest pressable"
-                style={{ textDecoration: 'none' }}
-              >
-                <span>Open Animal Profile &rarr;</span>
-              </Link>
-              <button
-                type="button"
-                className="btn-icon-dismiss pressable"
-                onClick={() => setJustCreatedAnimal(false)}
-                aria-label="Dismiss banner"
-                title="Dismiss"
-              >
-                <X size={18} weight="bold" />
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Intake Facts Grid */}
         <ReportFactsGrid report={report} />

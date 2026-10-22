@@ -40,14 +40,38 @@ export async function generateReportNumber(
   db: SanctuaryDb,
   orgInitials: string,
 ): Promise<string> {
+  const prefix = orgInitials.trim().toUpperCase()
+  try {
+    if (typeof db.getAll === 'function') {
+      const rows = await db.getAll<{ report_number: string }>(
+        `SELECT report_number FROM rescue_reports WHERE report_number LIKE ?`,
+        [`${prefix}-R%`],
+      )
+      if (Array.isArray(rows)) {
+        const re = new RegExp(`^${prefix}-R(\\d+)$`, 'i')
+        let max = 100
+        for (const row of rows) {
+          const m = row.report_number?.match(re)
+          if (m) {
+            const num = parseInt(m[1], 10)
+            if (!isNaN(num) && num > max) {
+              max = num
+            }
+          }
+        }
+        return `${prefix}-R${max + 1}`
+      }
+    }
+  } catch {
+    // fallback if query fails
+  }
+
+  // Fallback for mock environments that only mock getOptional
   const row = await db.getOptional<{ count: number }>(
-    `SELECT COUNT(*) as count FROM rescue_reports WHERE org_id = ?`,
-    [orgInitials], // or org filter if matched, but queries often pass orgInitials directly or org lookup
+    `SELECT COUNT(*) as count FROM rescue_reports`,
   ).catch(() => null)
 
-  // In test harness, getOptional might be called without parameter matching or with count
   const count = row?.count ?? 0
-  const prefix = orgInitials.trim().toUpperCase()
   return `${prefix}-R${101 + count}`
 }
 

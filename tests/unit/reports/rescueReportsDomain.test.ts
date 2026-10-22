@@ -11,7 +11,27 @@ import {
 
 describe('rescueReports domain', () => {
   describe('generateReportNumber', () => {
-    it('generates sequential report numbers with prefix', async () => {
+    it('finds maximum existing sequence from getAll and increments', async () => {
+      const mockDb = {
+        getAll: async () => [
+          { report_number: 'PARC-R101' },
+          { report_number: 'PARC-R105' },
+          { report_number: 'PARC-R103' },
+        ],
+      } as any
+      const code = await generateReportNumber(mockDb, 'PARC')
+      expect(code).toBe('PARC-R106')
+    })
+
+    it('starts at R101 when getAll returns empty list', async () => {
+      const mockDb = {
+        getAll: async () => [],
+      } as any
+      const code = await generateReportNumber(mockDb, 'PARC')
+      expect(code).toBe('PARC-R101')
+    })
+
+    it('generates sequential report numbers with prefix via count fallback', async () => {
       const mockDb = {
         getOptional: async () => ({ count: 5 }),
       } as any
