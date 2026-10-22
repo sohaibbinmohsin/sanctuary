@@ -1,5 +1,9 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
-import type { RescueReportRecord, ReportPhotoRecord } from '@/features/sync/powersync/schema'
+import {
+  AppSchema,
+  type RescueReportRecord,
+  type ReportPhotoRecord,
+} from '@/features/sync/powersync/schema'
 import { compressImage } from '@/shared/lib/r2/upload'
 import { storeLocalPhoto } from '@/features/photos/domain/photos'
 
@@ -82,18 +86,36 @@ export type UpdateReportStageOptions = {
   dismissalReason?: string | null
 }
 
-let columnsEnsured = false
-async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
-  if (columnsEnsured) return
+export async function getExistingColumns(db: SanctuaryDb, tableName: string): Promise<Set<string>> {
   try {
-    if (typeof db.execute === 'function') {
-      await db.execute(`ALTER TABLE rescue_reports ADD COLUMN legal_notes TEXT`).catch(() => {})
-      await db.execute(`ALTER TABLE rescue_reports ADD COLUMN dismissal_reason TEXT`).catch(() => {})
-      await db.execute(`ALTER TABLE rescue_reports ADD COLUMN reporter_cnic TEXT`).catch(() => {})
-      columnsEnsured = true
+    if (typeof db.getAll === 'function') {
+      const rows = await db.getAll<{ name: string }>(`PRAGMA table_info(${tableName})`)
+      if (Array.isArray(rows) && rows.length > 0) {
+        return new Set(rows.map((r) => r.name))
+      }
     }
-  } catch {
-    // Ignore error if columns already exist or alter table fails in mock
+  } catch {}
+  return new Set()
+}
+
+export async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
+  try {
+    const cols = await getExistingColumns(db, 'rescue_reports')
+    if (cols.has('reporter_cnic') && cols.has('legal_notes') && cols.has('dismissal_reason')) {
+      return
+    }
+
+    if (typeof db.execute === 'function') {
+      try {
+        await db.execute('SELECT powersync_replace_schema(?)', [JSON.stringify(AppSchema.toJSON())])
+      } catch {
+        await db.execute(`ALTER TABLE rescue_reports ADD COLUMN legal_notes TEXT`).catch(() => {})
+        await db.execute(`ALTER TABLE rescue_reports ADD COLUMN dismissal_reason TEXT`).catch(() => {})
+        await db.execute(`ALTER TABLE rescue_reports ADD COLUMN reporter_cnic TEXT`).catch(() => {})
+      }
+    }
+  } catch (err) {
+    console.warn('ensureReportColumns error', err)
   }
 }
 
@@ -106,6 +128,7 @@ export async function createRescueReport(
   input: CreateRescueReportInput,
 ): Promise<RescueReport> {
   await ensureReportColumns(db)
+  const cols = await getExistingColumns(db, 'rescue_reports')
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
 
@@ -135,39 +158,39 @@ export async function createRescueReport(
     updated_at: now,
   }
 
+  const recordMap: Record<string, any> = {
+    id: report.id,
+    org_id: report.org_id,
+    report_number: report.report_number,
+    category: report.category,
+    species: report.species,
+    chief_complaint: report.chief_complaint,
+    status: report.status,
+    location_area: report.location_area,
+    location_landmark: report.location_landmark,
+    reporter_name: report.reporter_name,
+    reporter_phone: report.reporter_phone,
+    reporter_cnic: report.reporter_cnic,
+    transport_type: report.transport_type,
+    disposition_type: report.disposition_type,
+    animal_id: report.animal_id,
+    legal_notes: report.legal_notes,
+    dismissal_reason: report.dismissal_reason,
+    stage_logged_at: report.stage_logged_at,
+    stage_accepted_at: report.stage_accepted_at,
+    stage_dispatched_at: report.stage_dispatched_at,
+    stage_attended_at: report.stage_attended_at,
+    created_at: report.created_at,
+    updated_at: report.updated_at,
+  }
+
+  const insertCols = Object.keys(recordMap).filter((k) => cols.size === 0 || cols.has(k))
+  const placeholders = insertCols.map(() => '?').join(', ')
+  const values = insertCols.map((k) => recordMap[k])
+
   await db.execute(
-    `INSERT INTO rescue_reports (
-      id, org_id, report_number, category, species, chief_complaint, status,
-      location_area, location_landmark, reporter_name, reporter_phone, reporter_cnic,
-      transport_type, disposition_type, animal_id, legal_notes, dismissal_reason,
-      stage_logged_at, stage_accepted_at, stage_dispatched_at, stage_attended_at,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      report.id,
-      report.org_id,
-      report.report_number,
-      report.category,
-      report.species,
-      report.chief_complaint,
-      report.status,
-      report.location_area,
-      report.location_landmark,
-      report.reporter_name,
-      report.reporter_phone,
-      report.reporter_cnic,
-      report.transport_type,
-      report.disposition_type,
-      report.animal_id,
-      report.legal_notes,
-      report.dismissal_reason,
-      report.stage_logged_at,
-      report.stage_accepted_at,
-      report.stage_dispatched_at,
-      report.stage_attended_at,
-      report.created_at,
-      report.updated_at,
-    ],
+    `INSERT INTO rescue_reports (${insertCols.join(', ')}) VALUES (${placeholders})`,
+    values,
   )
 
   return report
@@ -197,6 +220,7 @@ export async function updateReportStage(
       ? transportTypeOrOptions
       : { transportType: transportTypeOrOptions }
 
+  const cols = await getExistingColumns(db, 'rescue_reports')
   const setClauses: string[] = ['status = ?', 'updated_at = ?']
   const params: any[] = [stage, now]
 
@@ -210,12 +234,12 @@ export async function updateReportStage(
     params.push(options.transportType)
   }
 
-  if (options.legalNotes !== undefined) {
+  if (options.legalNotes !== undefined && (cols.size === 0 || cols.has('legal_notes'))) {
     setClauses.push('legal_notes = ?')
     params.push(options.legalNotes)
   }
 
-  if (options.dismissalReason !== undefined) {
+  if (options.dismissalReason !== undefined && (cols.size === 0 || cols.has('dismissal_reason'))) {
     setClauses.push('dismissal_reason = ?')
     params.push(options.dismissalReason)
   }
@@ -410,33 +434,47 @@ export async function updateRescueReport(
   input: UpdateRescueReportInput,
 ): Promise<void> {
   await ensureReportColumns(db)
+  const cols = await getExistingColumns(db, 'rescue_reports')
   const now = new Date().toISOString()
+
+  const setClauses: string[] = [
+    'category = COALESCE(?, category)',
+    'species = COALESCE(?, species)',
+    'chief_complaint = COALESCE(?, chief_complaint)',
+    'location_area = COALESCE(?, location_area)',
+    'location_landmark = ?',
+    'reporter_name = ?',
+    'reporter_phone = ?',
+  ]
+  const params: any[] = [
+    input.category ?? null,
+    input.species ?? null,
+    input.chiefComplaint ?? null,
+    input.locationArea ?? null,
+    input.locationLandmark ?? null,
+    input.reporterName ?? null,
+    input.reporterPhone ?? null,
+  ]
+
+  if (cols.size === 0 || cols.has('reporter_cnic')) {
+    setClauses.push('reporter_cnic = ?')
+    params.push(input.reporterCnic ?? null)
+  }
+
+  if (cols.size === 0 || cols.has('legal_notes')) {
+    setClauses.push('legal_notes = COALESCE(?, legal_notes)')
+    params.push(input.legalNotes ?? null)
+  }
+
+  setClauses.push('updated_at = ?')
+  params.push(now)
+  params.push(reportId)
+
   await db.execute(
     `UPDATE rescue_reports
-     SET category = COALESCE(?, category),
-         species = COALESCE(?, species),
-         chief_complaint = COALESCE(?, chief_complaint),
-         location_area = COALESCE(?, location_area),
-         location_landmark = ?,
-         reporter_name = ?,
-         reporter_phone = ?,
-         reporter_cnic = ?,
-         legal_notes = COALESCE(?, legal_notes),
-         updated_at = ?
+     SET ${setClauses.join(', ')}
      WHERE id = ?`,
-    [
-      input.category ?? null,
-      input.species ?? null,
-      input.chiefComplaint ?? null,
-      input.locationArea ?? null,
-      input.locationLandmark ?? null,
-      input.reporterName ?? null,
-      input.reporterPhone ?? null,
-      input.reporterCnic ?? null,
-      input.legalNotes ?? null,
-      now,
-      reportId,
-    ],
+    params,
   )
 }
 
