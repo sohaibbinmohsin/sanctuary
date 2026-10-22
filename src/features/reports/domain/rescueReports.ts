@@ -536,6 +536,189 @@ export async function deleteReportPhoto(
   await db.execute(`DELETE FROM report_photos WHERE id = ?`, [photoId])
 }
 
+export type RescueOperationsSummary = {
+  total: number
+  awaitingTriage: number
+  inField: number
+  attended: number
+  cancelled: number
+}
+
+export type RescueCategoryBreakdown = {
+  emergency: number
+  cruelty: number
+  crueltyLegalNotice: number
+  crueltyDismissed: number
+}
+
+export type RescueSpeciesCount = {
+  species: string
+  count: number
+}
+
+export type RescueHotspot = {
+  area: string
+  city: string | null
+  count: number
+}
+
+export type RescueMonthlyTrend = {
+  month: string
+  count: number
+}
+
+export async function getRescueOperationsSummary(
+  db: SanctuaryDb,
+  orgId: string,
+): Promise<RescueOperationsSummary> {
+  const rows = await db.getAll<{ status: string; count: number }>(
+    `SELECT status, COUNT(*) as count
+     FROM rescue_reports
+     WHERE org_id = ?
+     GROUP BY status`,
+    [orgId],
+  ).catch(() => [])
+
+  let total = 0
+  let awaitingTriage = 0
+  let inField = 0
+  let attended = 0
+  let cancelled = 0
+
+  for (const row of rows) {
+    const count = Number(row.count) || 0
+    total += count
+    if (row.status === 'logged') awaitingTriage += count
+    else if (row.status === 'accepted' || row.status === 'dispatched') inField += count
+    else if (row.status === 'attended') attended += count
+    else if (row.status === 'cancelled') cancelled += count
+  }
+
+  return { total, awaitingTriage, inField, attended, cancelled }
+}
+
+export async function getRescueCategoryBreakdown(
+  db: SanctuaryDb,
+  orgId: string,
+): Promise<RescueCategoryBreakdown> {
+  const catRows = await db.getAll<{ category: string; count: number }>(
+    `SELECT category, COUNT(*) as count
+     FROM rescue_reports
+     WHERE org_id = ?
+     GROUP BY category`,
+    [orgId],
+  ).catch(() => [])
+
+  let emergency = 0
+  let cruelty = 0
+  for (const row of catRows) {
+    const count = Number(row.count) || 0
+    if (row.category === 'cruelty') cruelty += count
+    else emergency += count
+  }
+
+  const legalRows = await db.getAll<{ count: number }>(
+    `SELECT COUNT(*) as count
+     FROM rescue_reports
+     WHERE org_id = ? AND category = 'cruelty' AND legal_notes IS NOT NULL AND legal_notes != ''`,
+    [orgId],
+  ).catch(() => [])
+  const crueltyLegalNotice = Number(legalRows[0]?.count) || 0
+
+  const dismissedRows = await db.getAll<{ count: number }>(
+    `SELECT COUNT(*) as count
+     FROM rescue_reports
+     WHERE org_id = ? AND category = 'cruelty' AND dismissal_reason IS NOT NULL AND dismissal_reason != ''`,
+    [orgId],
+  ).catch(() => [])
+  const crueltyDismissed = Number(dismissedRows[0]?.count) || 0
+
+  return { emergency, cruelty, crueltyLegalNotice, crueltyDismissed }
+}
+
+export async function getRescueSpeciesBreakdown(
+  db: SanctuaryDb,
+  orgId: string,
+): Promise<RescueSpeciesCount[]> {
+  const rows = await db.getAll<{ species: string; count: number }>(
+    `SELECT species, COUNT(*) as count
+     FROM rescue_reports
+     WHERE org_id = ?
+     GROUP BY species
+     ORDER BY count DESC`,
+    [orgId],
+  ).catch(() => [])
+
+  return rows.map((r) => ({
+    species: r.species?.trim() || 'Unknown',
+    count: Number(r.count) || 0,
+  }))
+}
+
+export async function getRescueHotspots(
+  db: SanctuaryDb,
+  orgId: string,
+  limit = 5,
+): Promise<RescueHotspot[]> {
+  const rows = await db.getAll<{ location_area: string; city: string | null; count: number }>(
+    `SELECT location_area, city, COUNT(*) as count
+     FROM rescue_reports
+     WHERE org_id = ? AND location_area IS NOT NULL AND location_area != ''
+     GROUP BY location_area, city
+     ORDER BY count DESC
+     LIMIT ?`,
+    [orgId, limit],
+  ).catch(() => [])
+
+  return rows.map((r) => ({
+    area: r.location_area?.trim() || 'Unknown area',
+    city: r.city?.trim() || null,
+    count: Number(r.count) || 0,
+  }))
+}
+
+export async function getRescueMonthlyTrend(
+  db: SanctuaryDb,
+  orgId: string,
+  months = 6,
+): Promise<RescueMonthlyTrend[]> {
+  const now = new Date()
+  const keys: string[] = []
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    keys.push(`${y}-${m}`)
+  }
+
+  const from = `${keys[0]}-01`
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  const to = end.toISOString().slice(0, 10)
+
+  const rows = await db.getAll<{ month: string; count: number }>(
+    `SELECT substr(created_at, 1, 7) as month, COUNT(*) as count
+     FROM rescue_reports
+     WHERE org_id = ? AND created_at >= ? AND created_at <= ?
+     GROUP BY month`,
+    [orgId, from, `${to}T23:59:59.999Z`],
+  ).catch(() => [])
+
+  const map = new Map<string, number>()
+  for (const key of keys) {
+    map.set(key, 0)
+  }
+  for (const row of rows) {
+    if (row.month && map.has(row.month)) {
+      map.set(row.month, Number(row.count) || 0)
+    }
+  }
+
+  return keys.map((month) => ({
+    month,
+    count: map.get(month) ?? 0,
+  }))
+}
+
 export { formatPhoneNumber, validatePhoneNumber } from './phone'
 export { formatCnic, validateCnic } from './cnic'
 export {
@@ -547,4 +730,5 @@ export {
   type Coordinates,
 } from './coordinates'
 export * from './pakistanLocations'
+
 

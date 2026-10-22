@@ -490,3 +490,54 @@ export async function countAnimalsByStatus(
     sortOrder: r.sort_order ?? 999,
   }))
 }
+
+export type AnimalLifeStageCount = {
+  adult: number
+  child: number
+}
+
+export async function countAnimalsByLifeStage(
+  db: SanctuaryDb,
+  orgId: string,
+): Promise<AnimalLifeStageCount> {
+  const rows = await db.getAll<{ life_stage: string | null; count: number }>(
+    `SELECT life_stage, COUNT(*) as count
+     FROM animals
+     WHERE org_id = ? AND archived = 0
+     GROUP BY life_stage`,
+    [orgId],
+  ).catch(() => [])
+
+  let adult = 0
+  let child = 0
+  for (const row of rows) {
+    if (row.life_stage === 'child') child += Number(row.count) || 0
+    else adult += Number(row.count) || 0
+  }
+  return { adult, child }
+}
+
+export type AnimalSpeciesCount = {
+  species: string
+  count: number
+}
+
+export async function countAnimalsBySpecies(
+  db: SanctuaryDb,
+  orgId: string,
+): Promise<AnimalSpeciesCount[]> {
+  const rows = await db.getAll<{ species: string; count: number }>(
+    `SELECT species, COUNT(*) as count
+     FROM animals
+     WHERE org_id = ? AND archived = 0
+     GROUP BY species
+     ORDER BY count DESC`,
+    [orgId],
+  ).catch(() => [])
+
+  return rows.map((r) => ({
+    species: r.species?.trim() || 'Unknown',
+    count: Number(r.count) || 0,
+  }))
+}
+

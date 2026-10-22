@@ -1,269 +1,53 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { useQuery } from '@powersync/react'
-import { Check, CaretDown, GearSix } from '@phosphor-icons/react'
-import { useDb } from '@/shared/hooks/useDb'
-import {
-  countAnimalsByStatus,
-  countInCare,
-  type StatusCount,
-} from '@/features/animals/domain/animals'
+import { useEffect, useState } from 'react'
+import { GearSix } from '@phosphor-icons/react'
+import type { AppModuleId } from '@/shared/domain/modules'
 import { OverviewChecklistCard } from '@/features/checklist/components/OverviewChecklistCard'
 import { OverviewUploadsCard } from '@/features/uploads/components/OverviewUploadsCard'
-import {
-  formatCurrency,
-  sumLedger,
-  sumLedgerByMonth,
-  type MonthlyLedgerPoint,
-} from '@/features/ledger/domain/ledger'
-import { ensurePartnerLogoCached } from '@/features/settings/domain/partnerLogo'
+import { RescueOperationsSummaryCard } from '@/features/reports/components/overview/RescueOperationsSummaryCard'
+import { RescueCategoryCard } from '@/features/reports/components/overview/RescueCategoryCard'
+import { RescueSpeciesCard } from '@/features/reports/components/overview/RescueSpeciesCard'
+import { RescueHotspotsCard } from '@/features/reports/components/overview/RescueHotspotsCard'
+import { RescueTrendCard } from '@/features/reports/components/overview/RescueTrendCard'
+import { ShelterHeadcountCard } from '@/features/animals/components/overview/ShelterHeadcountCard'
+import { AnimalsByStatusCard } from '@/features/animals/components/overview/AnimalsByStatusCard'
+import { AnimalsSpeciesCard } from '@/features/animals/components/overview/AnimalsSpeciesCard'
+import { FinancialSummaryCard } from '@/features/ledger/components/overview/FinancialSummaryCard'
+import { LedgerTrendCard } from '@/features/ledger/components/overview/LedgerTrendCard'
+import { ExpenseCategoriesCard } from '@/features/ledger/components/overview/ExpenseCategoriesCard'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
+import { isPlaygroundMode } from '@/features/playground/mode'
 import { DASHBOARD_GREETINGS, pickMessage } from '@/shared/lib/morale/messages'
-import { renderDashboardImage } from '@/shared/lib/share/dashboardImage'
-import { MoraleToast } from '@/shared/ui/MoraleToast'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
-import { TextField } from '@/shared/ui/Field'
 
 const GREETING_KEY = 'sanctuary.dashboardGreetingShown'
 
-type OverviewPeriod = 'all' | 'today' | 'yesterday' | 'month' | 'custom'
-type CardMenu = 'period' | 'share' | null
-
-const PERIOD_OPTIONS: { value: OverviewPeriod; label: string }[] = [
-  { value: 'all', label: 'All time' },
-  { value: 'today', label: 'Today' },
-  { value: 'yesterday', label: 'Yesterday' },
-  { value: 'month', label: 'This month' },
-  { value: 'custom', label: 'Custom' },
-]
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function dayIso(offsetDays = 0, now = new Date()): string {
-  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-function dayRange(offsetDays = 0): { from: string; to: string } {
-  const iso = dayIso(offsetDays)
-  return { from: iso, to: iso }
-}
-
-function monthRange(now = new Date()): { from: string; to: string } {
-  const y = now.getFullYear()
-  const m = now.getMonth()
-  const from = new Date(y, m, 1).toISOString().slice(0, 10)
-  const to = new Date(y, m + 1, 0).toISOString().slice(0, 10)
-  return { from, to }
-}
-
-function monthLabel(now = new Date()): string {
-  return now.toLocaleString(undefined, { month: 'long', year: 'numeric' })
-}
-
-function formatDay(iso: string): string {
-  if (!iso) return ''
-  const d = new Date(`${iso}T12:00:00`)
-  if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
-
-function defaultCustomRange(): { from: string; to: string } {
-  const to = todayIso()
-  const fromDate = new Date()
-  fromDate.setDate(fromDate.getDate() - 30)
-  return { from: fromDate.toISOString().slice(0, 10), to }
-}
-
-function shortMonth(ym: string): string {
-  const [y, m] = ym.split('-')
-  const d = new Date(Number(y), Number(m) - 1, 1)
-  return d.toLocaleString(undefined, { month: 'short' })
-}
-
 export function DashboardScreen() {
-  const db = useDb()
   const { member } = useCurrentMember()
-  const cardRef = useRef<HTMLDivElement>(null)
-  const [headcount, setHeadcount] = useState(0)
-  const [money, setMoney] = useState({ inCents: 0, outCents: 0 })
-  const [statusCounts, setStatusCounts] = useState<StatusCount[]>([])
-  const [monthly, setMonthly] = useState<MonthlyLedgerPoint[]>([])
-  const [period, setPeriod] = useState<OverviewPeriod>('month')
-  const [customFrom, setCustomFrom] = useState(() => defaultCustomRange().from)
-  const [customTo, setCustomTo] = useState(() => defaultCustomRange().to)
+  const isPlayground = isPlaygroundMode()
   const [greeting, setGreeting] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
-  const [openMenu, setOpenMenu] = useState<CardMenu>(null)
-  const actionsRef = useRef<HTMLDivElement>(null)
-  const periodListId = useId()
-  const shareListId = useId()
-
-  const { data: orgRows } = useQuery<{ logo_r2_key: string | null }>(
-    member?.orgId
-      ? `SELECT logo_r2_key FROM organizations WHERE id = ?`
-      : `SELECT logo_r2_key FROM organizations WHERE 0`,
-    member?.orgId ? [member.orgId] : [],
-  )
-  const logoR2Key = orgRows?.[0]?.logo_r2_key ?? member?.orgLogoR2Key ?? null
-
-  const activeRange = useMemo(() => {
-    if (period === 'today') return dayRange(0)
-    if (period === 'yesterday') return dayRange(-1)
-    if (period === 'month') return monthRange()
-    if (period === 'custom') {
-      const from = customFrom || undefined
-      const to = customTo || undefined
-      if (from && to && from > to) return { from: to, to: from }
-      return { from, to }
-    }
-    return {}
-  }, [period, customFrom, customTo])
 
   useEffect(() => {
-    if (!db || !member) return
-    void countInCare(db, member.orgId).then(setHeadcount)
-    void countAnimalsByStatus(db, member.orgId).then(setStatusCounts)
-    void sumLedgerByMonth(db, member.orgId, 6).then(setMonthly)
-
     if (!sessionStorage.getItem(GREETING_KEY)) {
       sessionStorage.setItem(GREETING_KEY, '1')
       setGreeting(pickMessage(DASHBOARD_GREETINGS))
     }
-  }, [db, member])
+  }, [])
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadLogo() {
-      if (!member) {
-        setLogoUrl(null)
-        return
-      }
-      const blob = await ensurePartnerLogoCached(member.orgId, logoR2Key)
-      if (cancelled) return
-      if (!blob) {
-        setLogoUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev)
-          return null
-        })
-        return
-      }
-      const url = URL.createObjectURL(blob)
-      if (cancelled) {
-        URL.revokeObjectURL(url)
-        return
-      }
-      setLogoUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev)
-        return url
-      })
-    }
-
-    void loadLogo()
-    return () => {
-      cancelled = true
-      setLogoUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev)
-        return null
-      })
-    }
-  }, [member?.orgId, logoR2Key])
-
-  useEffect(() => {
-    if (!db || !member) return
-    void sumLedger(db, member.orgId, activeRange).then(setMoney)
-  }, [db, member, activeRange])
-
-  const net = money.inCents - money.outCents
-  const statusMax = Math.max(...statusCounts.map((s) => s.count), 1)
-  const moneyMax = Math.max(
-    ...monthly.flatMap((p) => [p.inCents, p.outCents]),
-    1,
-  )
-  const periodHint =
-    period === 'all'
-      ? 'All time'
-      : period === 'today'
-        ? 'Today'
-        : period === 'yesterday'
-          ? 'Yesterday'
-          : period === 'month'
-            ? monthLabel()
-            : customFrom && customTo
-              ? `${formatDay(customFrom)} to ${formatDay(customTo)}`
-              : 'Custom range'
-
-  const summaryText = [
-    member?.orgName ?? 'Sanctuary',
-    `In care: ${headcount}`,
-    `Money in (${periodHint}): ${formatCurrency(money.inCents, member?.currency)}`,
-    `Money out (${periodHint}): ${formatCurrency(money.outCents, member?.currency)}`,
-    `Net (${periodHint}): ${formatCurrency(net, member?.currency)}`,
-  ].join('\n')
-
-  async function copySummary() {
-    await navigator.clipboard.writeText(summaryText)
-    setToast('Summary copied')
-    setOpenMenu(null)
-  }
-
-  async function downloadPng() {
-    if (!cardRef.current) return
-    setOpenMenu(null)
-    try {
-      const blob = await renderDashboardImage(cardRef.current)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `sanctuary-overview-${new Date().toISOString().slice(0, 10)}.png`
-      a.click()
-      URL.revokeObjectURL(url)
-      setToast('Image saved')
-    } catch (err) {
-      console.error('Save image failed', err)
-      setToast('Could not save image. Try again.')
-    }
-  }
-
-  useEffect(() => {
-    if (!openMenu) return
-    function onPointer(e: MouseEvent) {
-      if (!actionsRef.current?.contains(e.target as Node)) setOpenMenu(null)
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpenMenu(null)
-    }
-    document.addEventListener('mousedown', onPointer)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onPointer)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [openMenu])
+  const hasModule = (m: AppModuleId) => (isPlayground ? true : member?.hasModule(m) ?? true)
 
   const allModulesActive = Boolean(
-    member?.hasModule('reports') &&
-    member?.hasModule('animals') &&
-    member?.hasModule('ledger') &&
-    member?.hasModule('checklist')
+    hasModule('reports') &&
+    hasModule('animals') &&
+    hasModule('ledger') &&
+    hasModule('checklist')
   )
 
   return (
     <section className="screen">
       <PageHeader
         title="Overview"
-        subtitle={greeting ?? 'Checklist and shelter numbers for your team.'}
+        subtitle={greeting ?? 'Telemetry and operations overview for your team.'}
         actions={
           allModulesActive ? (
             <Button
@@ -279,267 +63,42 @@ export function DashboardScreen() {
         }
       />
 
+      {/* Uploads Queue (system level) */}
       <OverviewUploadsCard />
-      <OverviewChecklistCard />
 
-      <section
-        className="overview-panel"
-        aria-labelledby="overview-summary-title"
-      >
-        <div className="overview-panel__header row">
-          <div className="overview-panel__heading">
-            <h2 id="overview-summary-title">
-              Summary
-            </h2>
-            <p className="muted overview-panel__lede">
-              Headcount and ledger totals. Copy text or save an image.
-            </p>
-          </div>
-          <div className="dashboard-card__actions" ref={actionsRef}>
-            <div className="filter-menu">
-              <Button
-                type="button"
-                variant="secondary"
-                aria-label={`Ledger period: ${periodHint}`}
-                aria-haspopup="listbox"
-                aria-expanded={openMenu === 'period'}
-                aria-controls={periodListId}
-                onClick={() =>
-                  setOpenMenu((m) => (m === 'period' ? null : 'period'))
-                }
-              >
-                {PERIOD_OPTIONS.find((o) => o.value === period)?.label ??
-                  'Period'}
-                <CaretDown size={14} weight="bold" aria-hidden />
-              </Button>
-              {openMenu === 'period' ? (
-                <ul
-                  id={periodListId}
-                  className="filter-menu__panel filter-menu__panel--end"
-                  role="listbox"
-                  aria-label="Ledger period"
-                >
-                  {PERIOD_OPTIONS.map((option) => {
-                    const isSelected = option.value === period
-                    return (
-                      <li key={option.value} role="presentation">
-                        <button
-                          type="button"
-                          role="option"
-                          aria-selected={isSelected}
-                          className={
-                            isSelected
-                              ? 'filter-menu__option filter-menu__option--selected'
-                              : 'filter-menu__option'
-                          }
-                          onClick={() => {
-                            setPeriod(option.value)
-                            setOpenMenu(null)
-                          }}
-                        >
-                          <span>{option.label}</span>
-                          {isSelected ? (
-                            <Check size={16} weight="bold" aria-hidden />
-                          ) : null}
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              ) : null}
-            </div>
+      {/* Rescue Reports Module */}
+      {hasModule('reports') && (
+        <>
+          <RescueOperationsSummaryCard />
+          <RescueCategoryCard />
+          <RescueSpeciesCard />
+          <RescueHotspotsCard />
+          <RescueTrendCard />
+        </>
+      )}
 
-            <div className="filter-menu">
-              <Button
-                type="button"
-                variant="secondary"
-                aria-label="Copy or save summary"
-                aria-haspopup="menu"
-                aria-expanded={openMenu === 'share'}
-                aria-controls={shareListId}
-                onClick={() =>
-                  setOpenMenu((m) => (m === 'share' ? null : 'share'))
-                }
-              >
-                Copy
-                <CaretDown size={14} weight="bold" aria-hidden />
-              </Button>
-              {openMenu === 'share' ? (
-                <ul
-                  id={shareListId}
-                  className="filter-menu__panel filter-menu__panel--end"
-                  role="menu"
-                  aria-label="Share summary"
-                >
-                  <li role="presentation">
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="filter-menu__option"
-                      onClick={() => void copySummary()}
-                    >
-                      <span>Copy text</span>
-                    </button>
-                  </li>
-                  <li role="presentation">
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="filter-menu__option"
-                      onClick={() => void downloadPng()}
-                    >
-                      <span>Save image</span>
-                    </button>
-                  </li>
-                </ul>
-              ) : null}
-            </div>
-          </div>
-        </div>
+      {/* Animal Records Module */}
+      {hasModule('animals') && (
+        <>
+          <ShelterHeadcountCard />
+          <AnimalsByStatusCard />
+          <AnimalsSpeciesCard />
+        </>
+      )}
 
-        {period === 'custom' ? (
-          <div className="dashboard-card__money-range" style={{ marginBottom: '0.75rem' }}>
-            <TextField
-              label="From"
-              type="date"
-              value={customFrom}
-              max={customTo || undefined}
-              onChange={(e) => setCustomFrom(e.target.value)}
-            />
-            <TextField
-              label="To"
-              type="date"
-              value={customTo}
-              min={customFrom || undefined}
-              onChange={(e) => setCustomTo(e.target.value)}
-            />
-          </div>
-        ) : null}
+      {/* Daily Checklist Module */}
+      {hasModule('checklist') && (
+        <OverviewChecklistCard />
+      )}
 
-        <div className="dashboard-card" ref={cardRef}>
-          <div className="dashboard-card__header dashboard-card__header--brand">
-            <h2 className="dashboard-card__title dashboard-card__title--brand">
-              {member?.orgName ?? 'Your shelter'}
-            </h2>
-            {logoUrl ? (
-              <img className="dashboard-card__logo" src={logoUrl} alt="" />
-            ) : null}
-          </div>
-
-          <div className="dashboard-card__hero">
-            <p className="dashboard-card__count">{headcount}</p>
-            <p className="dashboard-card__count-label">animals in care</p>
-          </div>
-
-          <div
-            className="dashboard-card__metrics"
-            aria-label={`Ledger · ${periodHint}`}
-          >
-            <div className="dashboard-card__metric">
-              <span className="dashboard-card__metric-label">
-                Money in
-                <span className="dashboard-card__metric-period">
-                  {' '}
-                  · {periodHint}
-                </span>
-              </span>
-              <strong className="money-in">{formatCurrency(money.inCents, member?.currency)}</strong>
-            </div>
-            <div className="dashboard-card__metric">
-              <span className="dashboard-card__metric-label">
-                Money out
-                <span className="dashboard-card__metric-period">
-                  {' '}
-                  · {periodHint}
-                </span>
-              </span>
-              <strong className="money-out">{formatCurrency(money.outCents, member?.currency)}</strong>
-            </div>
-            <div className="dashboard-card__metric dashboard-card__metric--net">
-              <span className="dashboard-card__metric-label">
-                Net
-                <span className="dashboard-card__metric-period">
-                  {' '}
-                  · {periodHint}
-                </span>
-              </span>
-              <strong className={net >= 0 ? 'money-in' : 'money-out'}>
-                {formatCurrency(net, member?.currency)}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="overview-panel" aria-labelledby="status-chart-title">
-        <h2 id="status-chart-title">Animals by status</h2>
-        <p className="muted overview-panel__lede">
-          Where everyone is right now. Tap Animals to dig in.
-        </p>
-        {statusCounts.length === 0 ? (
-          <p className="muted">No animals in care yet.</p>
-        ) : (
-          <ul className="status-bars">
-            {statusCounts.map((s) => (
-              <li key={s.statusId} className="status-bars__row">
-                <div className="status-bars__meta">
-                  <span>{s.label}</span>
-                  <strong>{s.count}</strong>
-                </div>
-                <div className="status-bars__track" aria-hidden>
-                  <div
-                    className="status-bars__fill"
-                    style={{ width: `${(s.count / statusMax) * 100}%` }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="overview-panel" aria-labelledby="money-chart-title">
-        <h2 id="money-chart-title">Ledger trend</h2>
-        <p className="muted overview-panel__lede">
-          Last 6 months. Green is money in, amber is money out.
-        </p>
-        <div className="trend-legend" aria-hidden>
-          <span className="trend-legend__item trend-legend__item--in">In</span>
-          <span className="trend-legend__item trend-legend__item--out">Out</span>
-        </div>
-        <div
-          className="money-trend"
-          role="img"
-          aria-label="Bar chart of money in and out for the last six months"
-        >
-          {monthly.map((point) => {
-            const inH = Math.max((point.inCents / moneyMax) * 100, point.inCents > 0 ? 4 : 0)
-            const outH = Math.max(
-              (point.outCents / moneyMax) * 100,
-              point.outCents > 0 ? 4 : 0,
-            )
-            return (
-              <div key={point.month} className="money-trend__col">
-                <div className="money-trend__bars">
-                  <div
-                    className="money-trend__bar money-trend__bar--in"
-                    style={{ height: `${inH}%` }}
-                    title={`In ${formatCurrency(point.inCents, member?.currency)}`}
-                  />
-                  <div
-                    className="money-trend__bar money-trend__bar--out"
-                    style={{ height: `${outH}%` }}
-                    title={`Out ${formatCurrency(point.outCents, member?.currency)}`}
-                  />
-                </div>
-                <span className="money-trend__label">{shortMonth(point.month)}</span>
-              </div>
-            )
-          })}
-        </div>
-      </section>
-
-      <MoraleToast message={toast} onDone={() => setToast(null)} />
+      {/* Financial Ledger Module */}
+      {hasModule('ledger') && (
+        <>
+          <FinancialSummaryCard />
+          <LedgerTrendCard />
+          <ExpenseCategoriesCard />
+        </>
+      )}
     </section>
   )
 }
