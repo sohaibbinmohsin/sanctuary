@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   CaretDown,
@@ -10,6 +10,7 @@ import {
   HouseSimple,
   User,
   ArrowCounterClockwise,
+  PencilSimple,
   X,
 } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
@@ -29,6 +30,7 @@ import '@/features/reports/reports.css'
 
 export function ReportDetailScreen() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const db = useDb()
   const { member } = useCurrentMember()
 
@@ -287,6 +289,17 @@ export function ReportDetailScreen() {
                   <div className="dropdown-menu is-open">
                     <button
                       type="button"
+                      className="dropdown-item"
+                      onClick={() => {
+                        setIsDropdownOpen(false)
+                        navigate(`/reports/${report.id}/edit`)
+                      }}
+                    >
+                      <PencilSimple size={15} weight="bold" aria-hidden />
+                      <span>Edit report</span>
+                    </button>
+                    <button
+                      type="button"
                       className="dropdown-item danger"
                       onClick={() => handleStageTransition('cancelled')}
                     >
@@ -322,6 +335,17 @@ export function ReportDetailScreen() {
                 </button>
                 {isDropdownOpen && (
                   <div className="dropdown-menu is-open">
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => {
+                        setIsDropdownOpen(false)
+                        navigate(`/reports/${report.id}/edit`)
+                      }}
+                    >
+                      <PencilSimple size={15} weight="bold" aria-hidden />
+                      <span>Edit report</span>
+                    </button>
                     <button
                       type="button"
                       className="dropdown-item"
@@ -375,6 +399,17 @@ export function ReportDetailScreen() {
                 </button>
                 {isDropdownOpen && (
                   <div className="dropdown-menu is-open">
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => {
+                        setIsDropdownOpen(false)
+                        navigate(`/reports/${report.id}/edit`)
+                      }}
+                    >
+                      <PencilSimple size={15} weight="bold" aria-hidden />
+                      <span>Edit report</span>
+                    </button>
                     <button
                       type="button"
                       className="dropdown-item"
@@ -457,6 +492,17 @@ export function ReportDetailScreen() {
                     <button
                       type="button"
                       className="dropdown-item"
+                      onClick={() => {
+                        setIsDropdownOpen(false)
+                        navigate(`/reports/${report.id}/edit`)
+                      }}
+                    >
+                      <PencilSimple size={15} weight="bold" aria-hidden />
+                      <span>Edit report</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdown-item"
                       onClick={() => handleStageTransition('dispatched')}
                     >
                       <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
@@ -491,6 +537,17 @@ export function ReportDetailScreen() {
                 </button>
                 {isDropdownOpen && (
                   <div className="dropdown-menu is-open">
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => {
+                        setIsDropdownOpen(false)
+                        navigate(`/reports/${report.id}/edit`)
+                      }}
+                    >
+                      <PencilSimple size={15} weight="bold" aria-hidden />
+                      <span>Edit report</span>
+                    </button>
                     <button
                       type="button"
                       className="dropdown-item"
@@ -549,7 +606,7 @@ export function ReportDetailScreen() {
         )}
 
         {/* Intake Facts Grid */}
-        <ReportFactsGrid report={report} onPhotoAdded={() => loadReport()} />
+        <ReportFactsGrid report={report} />
       </div>
     </div>
   )

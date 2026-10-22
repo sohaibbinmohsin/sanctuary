@@ -1,10 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ReportIntakeScreen } from '@/features/reports/screens/ReportIntakeScreen'
 import * as domainModule from '@/features/reports/domain/rescueReports'
 
-vi.mock('@/shared/hooks/useDb', () => ({ useDb: () => ({}) }))
+vi.mock('@/shared/hooks/useDb', () => ({ useDb: () => ({ execute: vi.fn(), getAll: vi.fn() }) }))
 vi.mock('@/shared/hooks/useCurrentMember', () => ({
   useCurrentMember: () => ({
     member: { orgId: 'org-1', orgInitials: 'PARC' },
@@ -32,6 +32,11 @@ describe('ReportIntakeScreen', () => {
 
     expect(screen.getByRole('heading', { name: /Log a rescue report/i })).toBeInTheDocument()
 
+    // Verify Welfare check is NOT present in category options
+    expect(screen.queryByRole('button', { name: /Welfare check/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Medical emergency/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Animal cruelty/i })).toBeInTheDocument()
+
     // Select Cat species
     fireEvent.click(screen.getByRole('button', { name: 'Cat' }))
 
@@ -49,8 +54,12 @@ describe('ReportIntakeScreen', () => {
       target: { value: 'Kamran' },
     })
     fireEvent.change(screen.getByLabelText(/Reporter phone/i), {
-      target: { value: '0300-1122334' },
+      target: { value: '03001122334' },
     })
+
+    // Expect formatted phone and valid phone indicator
+    expect(screen.getByDisplayValue('0300-1122334')).toBeInTheDocument()
+    expect(screen.getByText(/Valid phone number/i)).toBeInTheDocument()
 
     // Submit
     fireEvent.click(screen.getByRole('button', { name: /Log rescue report/i }))
@@ -66,6 +75,67 @@ describe('ReportIntakeScreen', () => {
         locationLandmark: 'Near Fresco Sweets',
         reporterName: 'Kamran',
         reporterPhone: '0300-1122334',
+      })
+    })
+  })
+
+  it('supports edit mode to modify report details without altering stage timeline', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-existing',
+      org_id: 'org-1',
+      report_number: 'PARC-R105',
+      category: 'emergency',
+      species: 'dog',
+      chief_complaint: 'Fractured leg',
+      location_area: 'Saddar',
+      location_landmark: 'Near Empress Market',
+      reporter_name: 'Usman',
+      reporter_phone: '0300-1234567',
+      status: 'dispatched',
+      stage_logged_at: '2026-10-13T10:00:00Z',
+      stage_accepted_at: '2026-10-13T10:15:00Z',
+      stage_dispatched_at: '2026-10-13T10:30:00Z',
+      stage_attended_at: null,
+    } as any)
+    vi.spyOn(domainModule, 'getPhotosForReport').mockResolvedValue([])
+
+    const updateReportSpy = vi.spyOn(domainModule, 'updateRescueReport').mockResolvedValue(undefined)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-existing/edit']}>
+        <Routes>
+          <Route path="/reports/:id/edit" element={<ReportIntakeScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Heading for edit mode
+    expect(await screen.findByRole('heading', { name: /Edit Report PARC-R105/i })).toBeInTheDocument()
+
+    // Form fields are populated with existing data
+    expect(screen.getByDisplayValue('Fractured leg')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Saddar')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Near Empress Market')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Usman')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('0300-1234567')).toBeInTheDocument()
+
+    // Update chief complaint
+    fireEvent.change(screen.getByLabelText(/Chief complaint \/ Injury/i), {
+      target: { value: 'Fractured rear leg • Splint needed' },
+    })
+
+    // Submit save changes
+    fireEvent.click(screen.getByRole('button', { name: /Save changes/i }))
+
+    await waitFor(() => {
+      expect(updateReportSpy).toHaveBeenCalledWith(expect.anything(), 'rep-existing', {
+        category: 'emergency',
+        species: 'dog',
+        chiefComplaint: 'Fractured rear leg • Splint needed',
+        locationArea: 'Saddar',
+        locationLandmark: 'Near Empress Market',
+        reporterName: 'Usman',
+        reporterPhone: '0300-1234567',
       })
     })
   })

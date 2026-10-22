@@ -348,6 +348,16 @@ export function AppShell() {
               }
             />
             <Route
+              path="/reports/:id/edit"
+              element={
+                hasModule('reports') ? (
+                  <ReportIntakeScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+            <Route
               path="/reports/:id"
               element={
                 hasModule('reports') ? (

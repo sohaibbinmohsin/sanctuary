@@ -90,6 +90,6 @@ describe('Rescue details needed placement on AnimalDetailScreen', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'Bella' })
     expect(screen.queryByText('Rescue details needed')).toBeNull()
-    expect(screen.getByText('Dog · Female · Brown spots')).toBeDefined()
+    expect(await screen.findByText('Dog · Female · Brown spots')).toBeDefined()
   })
 })

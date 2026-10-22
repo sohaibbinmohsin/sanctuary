@@ -260,3 +260,60 @@ export async function getPhotosForReport(
     [reportId],
   )
 }
+
+export type UpdateRescueReportInput = {
+  category?: string
+  species?: string
+  chiefComplaint?: string
+  locationArea?: string
+  locationLandmark?: string | null
+  reporterName?: string | null
+  reporterPhone?: string | null
+}
+
+/**
+ * Updates rescue report details without modifying lifecycle status or timeline milestones.
+ */
+export async function updateRescueReport(
+  db: SanctuaryDb,
+  reportId: string,
+  input: UpdateRescueReportInput,
+): Promise<void> {
+  const now = new Date().toISOString()
+  await db.execute(
+    `UPDATE rescue_reports
+     SET category = COALESCE(?, category),
+         species = COALESCE(?, species),
+         chief_complaint = COALESCE(?, chief_complaint),
+         location_area = COALESCE(?, location_area),
+         location_landmark = ?,
+         reporter_name = ?,
+         reporter_phone = ?,
+         updated_at = ?
+     WHERE id = ?`,
+    [
+      input.category ?? null,
+      input.species ?? null,
+      input.chiefComplaint ?? null,
+      input.locationArea ?? null,
+      input.locationLandmark ?? null,
+      input.reporterName ?? null,
+      input.reporterPhone ?? null,
+      now,
+      reportId,
+    ],
+  )
+}
+
+/**
+ * Deletes a report photo entry.
+ */
+export async function deleteReportPhoto(
+  db: SanctuaryDb,
+  photoId: string,
+): Promise<void> {
+  await db.execute(`DELETE FROM report_photos WHERE id = ?`, [photoId])
+}
+
+export { formatPhoneNumber, validatePhoneNumber } from './phone'
+

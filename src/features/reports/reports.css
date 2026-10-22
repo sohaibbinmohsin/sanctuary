@@ -62,24 +62,46 @@
   }
 }
 
+.reports-search-bar-wrap {
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
+}
+
+.reports-search-bar-wrap .filter-bar__search {
+  width: 100%;
+  position: relative;
+}
+
+.reports-search-bar-wrap .filter-bar__search input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.filter-chips.reports-status-filter,
 .reports-status-filter {
-  display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
   gap: var(--space-2);
   scrollbar-width: none;
   -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 2px;
+  padding-bottom: 4px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-.reports-status-filter::-webkit-scrollbar {
+.reports-status-filter::-webkit-scrollbar,
+.filter-chips.reports-status-filter::-webkit-scrollbar {
   display: none;
 }
 
-.reports-status-filter .chip {
-  flex-shrink: 0;
-  white-space: nowrap;
+.reports-status-filter .chip,
+.filter-chips.reports-status-filter .chip {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
 }
 
 .timeline-reports-feed {

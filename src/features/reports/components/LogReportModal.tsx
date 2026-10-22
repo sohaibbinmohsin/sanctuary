@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Check } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { ResponsiveSheetModal } from '@/shared/ui/ResponsiveSheetModal'
 import { Button } from '@/shared/ui/Button'
@@ -6,6 +7,8 @@ import { TextField } from '@/shared/ui/Field'
 import {
   createRescueReport,
   generateReportNumber,
+  formatPhoneNumber,
+  validatePhoneNumber,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
 
@@ -56,6 +59,12 @@ export function LogReportModal({
       return
     }
 
+    const phoneValidation = validatePhoneNumber(reporterPhone)
+    if (reporterPhone.trim() && !phoneValidation.isValid) {
+      setError(phoneValidation.error || 'Please enter a valid phone number (e.g. 0300-1234567).')
+      return
+    }
+
     setSubmitting(true)
     setError(null)
 
@@ -69,7 +78,7 @@ export function LogReportModal({
         locationArea: areaTrimmed,
         locationLandmark: locationLandmark.trim() || null,
         reporterName: reporterName.trim() || null,
-        reporterPhone: reporterPhone.trim() || null,
+        reporterPhone: reporterPhone.trim() ? formatPhoneNumber(reporterPhone) : null,
       })
 
       // Reset form fields
@@ -88,6 +97,8 @@ export function LogReportModal({
       setSubmitting(false)
     }
   }
+
+  const phoneValidation = validatePhoneNumber(reporterPhone)
 
   return (
     <ResponsiveSheetModal isOpen={isOpen} onClose={onClose} title="Log incoming rescue report">
@@ -141,20 +152,48 @@ export function LogReportModal({
 
         <TextField
           label="Reporter name"
-          hint="Internal / Confidential"
+          hint="Confidential"
           placeholder="e.g. Usman Ali"
           value={reporterName}
           onChange={(e) => setReporterName(e.target.value)}
         />
 
-        <TextField
-          label="Reporter phone"
-          hint="Internal / Confidential"
-          type="tel"
-          placeholder="e.g. 0300-1234567"
-          value={reporterPhone}
-          onChange={(e) => setReporterPhone(e.target.value)}
-        />
+        <div className="field stack stack--tight">
+          <TextField
+            label="Reporter phone"
+            hint="Confidential"
+            type="tel"
+            placeholder="e.g. 0300-1234567"
+            value={reporterPhone}
+            onChange={(e) => {
+              setReporterPhone(formatPhoneNumber(e.target.value))
+              if (error) setError(null)
+            }}
+          />
+          {reporterPhone.trim() ? (
+            phoneValidation.isValid ? (
+              <span
+                className="field__hint"
+                style={{
+                  color: 'var(--color-forest)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontWeight: 500,
+                }}
+              >
+                <Check size={14} weight="bold" /> Valid phone number
+              </span>
+            ) : (
+              <span
+                className="field__hint"
+                style={{ color: 'var(--color-amber)', fontWeight: 500 }}
+              >
+                {phoneValidation.error}
+              </span>
+            )
+          ) : null}
+        </div>
 
         {error ? <p className="form-error">{error}</p> : null}
 

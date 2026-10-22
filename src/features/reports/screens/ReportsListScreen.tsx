@@ -148,7 +148,7 @@ export function ReportsListScreen() {
         }
       />
 
-      <div className="filter-bar filter-bar--chrome" style={{ marginBottom: '0.75rem' }}>
+      <div className="reports-search-bar-wrap" style={{ marginBottom: '0.75rem' }}>
         <div className="filter-bar__search">
           <MagnifyingGlass size={18} weight="bold" aria-hidden />
           <input
@@ -171,7 +171,7 @@ export function ReportsListScreen() {
         </div>
       </div>
 
-      <div className="filter-chips reports-status-filter" role="group" aria-label="Report status filter" style={{ marginBottom: '1.25rem' }}>
+      <div className="reports-status-filter" role="group" aria-label="Report status filter" style={{ marginBottom: '1.25rem' }}>
         {FILTER_CONFIG.map(({ key, label }) => (
           <button
             key={key}
