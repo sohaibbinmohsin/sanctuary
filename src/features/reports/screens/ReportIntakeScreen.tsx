@@ -6,6 +6,7 @@ import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { TextField, TextareaField } from '@/shared/ui/Field'
+import { AutocompleteField } from '@/shared/ui/AutocompleteField'
 import {
   IntakePhotoPicker,
   type StagedPhoto,
@@ -26,6 +27,8 @@ import {
   getNavigationUrl,
   requestCurrentPosition,
   parseCoordinates,
+  PAKISTAN_CITIES,
+  getAreasForCity,
   type ReportPhoto,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
@@ -55,7 +58,9 @@ export function ReportIntakeScreen() {
   const [category, setCategory] = useState<string>('emergency')
   const [speciesPreset, setSpeciesPreset] = useState<string>('Dog')
   const [speciesOther, setSpeciesOther] = useState('')
+  const [lifeStage, setLifeStage] = useState<'adult' | 'child'>('adult')
   const [chiefComplaint, setChiefComplaint] = useState('')
+  const [city, setCity] = useState('Lahore')
   const [locationArea, setLocationArea] = useState('')
   const [locationLandmark, setLocationLandmark] = useState('')
   const [latitude, setLatitude] = useState<number | null>(null)
@@ -93,7 +98,9 @@ export function ReportIntakeScreen() {
           setSpeciesPreset('Other')
           setSpeciesOther(report.species || '')
         }
+        setLifeStage((report.life_stage as 'adult' | 'child') || 'adult')
         setChiefComplaint(report.chief_complaint || '')
+        setCity(report.city || 'Lahore')
         setLocationArea(report.location_area || '')
         setLocationLandmark(report.location_landmark || '')
         setLatitude(report.latitude ?? null)
@@ -146,6 +153,7 @@ export function ReportIntakeScreen() {
     }
 
     const complaintTrimmed = chiefComplaint.trim()
+    const cityTrimmed = city.trim() || 'Lahore'
     const areaTrimmed = locationArea.trim()
 
     if (!complaintTrimmed) {
@@ -177,7 +185,9 @@ export function ReportIntakeScreen() {
         await updateRescueReport(db, id, {
           category,
           species: effectiveSpecies.toLowerCase(),
+          lifeStage,
           chiefComplaint: complaintTrimmed,
+          city: cityTrimmed,
           locationArea: areaTrimmed,
           locationLandmark: locationLandmark.trim() || null,
           latitude: latitude ?? null,
@@ -224,7 +234,9 @@ export function ReportIntakeScreen() {
           reportNumber,
           category,
           species: effectiveSpecies.toLowerCase(),
+          lifeStage,
           chiefComplaint: complaintTrimmed,
+          city: cityTrimmed,
           locationArea: areaTrimmed,
           locationLandmark: locationLandmark.trim() || null,
           latitude: latitude ?? null,
@@ -343,6 +355,29 @@ export function ReportIntakeScreen() {
             />
           ) : null}
 
+          {/* Life Stage */}
+          <div className="stack stack--tight">
+            <span className="field__label">Life stage</span>
+            <div className="segmented" role="group" aria-label="Life stage">
+              {(
+                [
+                  { value: 'adult', label: 'Adult' },
+                  { value: 'child', label: 'Child' },
+                ] as const
+              ).map((stage) => (
+                <button
+                  key={stage.value}
+                  type="button"
+                  className="segmented__btn"
+                  aria-pressed={lifeStage === stage.value}
+                  onClick={() => setLifeStage(stage.value)}
+                >
+                  {stage.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <TextareaField
             label="Chief complaint / Injury"
             placeholder="e.g. Hit by rickshaw • Fractured rear leg & bleeding"
@@ -448,14 +483,31 @@ export function ReportIntakeScreen() {
         <div className="panel stack">
           <p className="section-label">Location Details</p>
 
-          <TextField
-            label="Location area"
-            placeholder="e.g. Burns Road Food Street, Saddar, Karachi"
-            value={locationArea}
-            onChange={(e) => {
-              setLocationArea(e.target.value)
+          <AutocompleteField
+            label="City"
+            placeholder="e.g. Lahore, Karachi, Islamabad"
+            value={city}
+            onChange={(val) => {
+              setCity(val)
               if (error) setError(null)
             }}
+            suggestions={PAKISTAN_CITIES}
+            required
+          />
+
+          <AutocompleteField
+            label="Area / Neighborhood"
+            placeholder={
+              city.toLowerCase() === 'lahore'
+                ? 'e.g. Gulberg III, DHA Phase 5, Model Town'
+                : 'e.g. Area or neighborhood'
+            }
+            value={locationArea}
+            onChange={(val) => {
+              setLocationArea(val)
+              if (error) setError(null)
+            }}
+            suggestions={getAreasForCity(city)}
             required
           />
 
@@ -469,12 +521,9 @@ export function ReportIntakeScreen() {
 
           {/* Coordinates & Map Pin (Zero-cost GPS & Link Parser) */}
           <div className="field stack stack--tight">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label className="field__label" style={{ margin: 0 }}>
-                GPS Coordinates
-              </label>
-              <span className="field__hint">optional · free GPS / link</span>
-            </div>
+            <label className="field__label" style={{ margin: 0 }}>
+              GPS Coordinates <span className="field__hint">· optional</span>
+            </label>
 
             {latitude != null && longitude != null ? (
               <div
@@ -607,7 +656,7 @@ export function ReportIntakeScreen() {
           </div>
 
           <TextField
-            label="Reporter name"
+            label="Name"
             hint="optional"
             placeholder="e.g. Usman Ali"
             value={reporterName}
@@ -616,7 +665,7 @@ export function ReportIntakeScreen() {
 
           <div className="field stack stack--tight">
             <TextField
-              label="Reporter phone"
+              label="Phone"
               hint="optional"
               type="tel"
               placeholder="e.g. 0300-1234567"
@@ -653,7 +702,7 @@ export function ReportIntakeScreen() {
 
           <div className="field stack stack--tight">
             <TextField
-              label="Reporter CNIC"
+              label="CNIC"
               hint="optional"
               placeholder="e.g. 42101-1234567-1"
               value={reporterCnic}

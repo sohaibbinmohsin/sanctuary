@@ -40,20 +40,29 @@ describe('ReportIntakeScreen', () => {
     // Select Cat species
     fireEvent.click(screen.getByRole('button', { name: 'Cat' }))
 
+    // Verify Life stage buttons are present and select Child
+    expect(screen.getByRole('button', { name: 'Adult' })).toBeInTheDocument()
+    const childBtn = screen.getByRole('button', { name: 'Child' })
+    expect(childBtn).toBeInTheDocument()
+    fireEvent.click(childBtn)
+
     // Fill required fields
     fireEvent.change(screen.getByLabelText(/Chief complaint \/ Injury/i), {
       target: { value: 'Injured tail' },
     })
-    fireEvent.change(screen.getByLabelText(/Location area/i), {
-      target: { value: 'Burns Road' },
+    fireEvent.change(screen.getByLabelText(/City/i), {
+      target: { value: 'Lahore' },
+    })
+    fireEvent.change(screen.getByLabelText(/Area \/ Neighborhood/i), {
+      target: { value: 'Gulberg III' },
     })
     fireEvent.change(screen.getByLabelText(/Landmark/i), {
-      target: { value: 'Near Fresco Sweets' },
+      target: { value: 'Near Main Market' },
     })
-    fireEvent.change(screen.getByLabelText(/Reporter name/i), {
+    fireEvent.change(screen.getByLabelText(/^Name/i), {
       target: { value: 'Kamran' },
     })
-    fireEvent.change(screen.getByLabelText(/Reporter phone/i), {
+    fireEvent.change(screen.getByLabelText(/^Phone/i), {
       target: { value: '03001122334' },
     })
 
@@ -70,9 +79,11 @@ describe('ReportIntakeScreen', () => {
         reportNumber: 'PARC-R101',
         category: 'emergency',
         species: 'cat',
+        lifeStage: 'child',
         chiefComplaint: 'Injured tail',
-        locationArea: 'Burns Road',
-        locationLandmark: 'Near Fresco Sweets',
+        city: 'Lahore',
+        locationArea: 'Gulberg III',
+        locationLandmark: 'Near Main Market',
         latitude: null,
         longitude: null,
         reporterName: 'Kamran',
@@ -89,7 +100,9 @@ describe('ReportIntakeScreen', () => {
       report_number: 'PARC-R105',
       category: 'emergency',
       species: 'dog',
+      life_stage: 'adult',
       chief_complaint: 'Fractured leg',
+      city: 'Karachi',
       location_area: 'Saddar',
       location_landmark: 'Near Empress Market',
       latitude: null,
@@ -119,6 +132,7 @@ describe('ReportIntakeScreen', () => {
 
     // Form fields are populated with existing data
     expect(screen.getByDisplayValue('Fractured leg')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Karachi')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Saddar')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Near Empress Market')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Usman')).toBeInTheDocument()
@@ -136,7 +150,9 @@ describe('ReportIntakeScreen', () => {
       expect(updateReportSpy).toHaveBeenCalledWith(expect.anything(), 'rep-existing', {
         category: 'emergency',
         species: 'dog',
+        lifeStage: 'adult',
         chiefComplaint: 'Fractured rear leg • Splint needed',
+        city: 'Karachi',
         locationArea: 'Saddar',
         locationLandmark: 'Near Empress Market',
         latitude: null,
@@ -156,7 +172,9 @@ describe('ReportIntakeScreen', () => {
       report_number: 'PARC-R210',
       category: 'cruelty',
       species: 'horse',
+      life_stage: 'adult',
       chief_complaint: 'Overworking',
+      city: 'Karachi',
       location_area: 'Tower',
       location_landmark: 'Near bus stop',
       latitude: null,
@@ -202,7 +220,9 @@ describe('ReportIntakeScreen', () => {
       expect(updateReportSpy).toHaveBeenCalledWith(expect.anything(), 'rep-c10', {
         category: 'cruelty',
         species: 'horse',
+        lifeStage: 'adult',
         chiefComplaint: 'Overworking',
+        city: 'Karachi',
         locationArea: 'Tower',
         locationLandmark: 'Near bus stop',
         latitude: null,
@@ -222,7 +242,9 @@ describe('ReportIntakeScreen', () => {
       report_number: 'PARC-R102',
       category: 'emergency',
       species: 'dog',
+      life_stage: 'adult',
       chief_complaint: 'Hit by car',
+      city: 'Karachi',
       location_area: 'Clifton Block 4',
       location_landmark: 'Near Boat Basin',
       latitude: 24.8197,
@@ -262,7 +284,7 @@ describe('ReportIntakeScreen', () => {
     fireEvent.change(screen.getByLabelText(/Chief complaint \/ Injury/i), {
       target: { value: 'Hit by car' },
     })
-    fireEvent.change(screen.getByLabelText(/Location area/i), {
+    fireEvent.change(screen.getByLabelText(/Area \/ Neighborhood/i), {
       target: { value: 'Clifton Block 4' },
     })
 
@@ -286,6 +308,7 @@ describe('ReportIntakeScreen', () => {
         expect.objectContaining({
           latitude: 24.8197,
           longitude: 67.0289,
+          lifeStage: 'adult',
         }),
       )
     })

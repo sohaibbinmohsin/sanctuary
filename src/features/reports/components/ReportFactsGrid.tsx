@@ -139,8 +139,11 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
             </span>
           </div>
           <div className="fact-row">
-            <span className="fact-label">Species</span>
-            <span className="fact-value font-medium">{speciesFormatted}</span>
+            <span className="fact-label">Species &amp; Stage</span>
+            <span className="fact-value font-medium">
+              {speciesFormatted}
+              {report.life_stage ? ` · ${report.life_stage === 'child' ? 'Child' : 'Adult'}` : ''}
+            </span>
           </div>
           <div className="fact-row">
             <span className="fact-label">
@@ -215,7 +218,10 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
           <div className="fact-row">
             <span className="fact-label">Area / Location</span>
             {report.location_area ? (
-              <span className="fact-value font-medium">{report.location_area}</span>
+              <span className="fact-value font-medium">
+                {report.location_area}
+                {report.city ? `, ${report.city}` : ''}
+              </span>
             ) : (
               <span className="fact-value font-muted">No location provided</span>
             )}
@@ -267,7 +273,7 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
         </div>
         <div className="facts-kv-list">
           <div className="fact-row">
-            <span className="fact-label">Reporter Name</span>
+            <span className="fact-label">Name</span>
             {report.reporter_name ? (
               <span className="fact-value font-medium">{report.reporter_name}</span>
             ) : (

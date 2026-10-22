@@ -29,7 +29,9 @@ export type CreateRescueReportInput = {
   reportNumber: string
   category?: string
   species: string
+  lifeStage?: 'adult' | 'child' | null
   chiefComplaint: string
+  city?: string | null
   locationArea: string
   locationLandmark?: string | null
   latitude?: number | null
@@ -108,7 +110,9 @@ export async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
       cols.has('legal_notes') &&
       cols.has('dismissal_reason') &&
       cols.has('latitude') &&
-      cols.has('longitude')
+      cols.has('longitude') &&
+      cols.has('city') &&
+      cols.has('life_stage')
     ) {
       return
     }
@@ -122,6 +126,8 @@ export async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN reporter_cnic TEXT`).catch(() => {})
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN latitude REAL`).catch(() => {})
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN longitude REAL`).catch(() => {})
+        await db.execute(`ALTER TABLE rescue_reports ADD COLUMN city TEXT`).catch(() => {})
+        await db.execute(`ALTER TABLE rescue_reports ADD COLUMN life_stage TEXT`).catch(() => {})
       }
     }
   } catch (err) {
@@ -148,8 +154,10 @@ export async function createRescueReport(
     report_number: input.reportNumber.trim(),
     category: input.category?.trim() || 'emergency',
     species: input.species.trim(),
+    life_stage: input.lifeStage ?? 'adult',
     chief_complaint: input.chiefComplaint.trim(),
     status: 'logged',
+    city: input.city?.trim() || 'Lahore',
     location_area: input.locationArea.trim(),
     location_landmark: input.locationLandmark?.trim() || null,
     latitude: input.latitude ?? null,
@@ -176,8 +184,10 @@ export async function createRescueReport(
     report_number: report.report_number,
     category: report.category,
     species: report.species,
+    life_stage: report.life_stage,
     chief_complaint: report.chief_complaint,
     status: report.status,
+    city: report.city,
     location_area: report.location_area,
     location_landmark: report.location_landmark,
     latitude: report.latitude,
@@ -430,7 +440,9 @@ export async function getPhotosForReport(
 export type UpdateRescueReportInput = {
   category?: string
   species?: string
+  lifeStage?: 'adult' | 'child' | null
   chiefComplaint?: string
+  city?: string | null
   locationArea?: string
   locationLandmark?: string | null
   latitude?: number | null
@@ -471,6 +483,16 @@ export async function updateRescueReport(
     input.reporterName ?? null,
     input.reporterPhone ?? null,
   ]
+
+  if (cols.size === 0 || cols.has('life_stage')) {
+    setClauses.push('life_stage = COALESCE(?, life_stage)')
+    params.push(input.lifeStage ?? null)
+  }
+
+  if (cols.size === 0 || cols.has('city')) {
+    setClauses.push('city = COALESCE(?, city)')
+    params.push(input.city ?? null)
+  }
 
   if (cols.size === 0 || cols.has('latitude')) {
     setClauses.push('latitude = ?')
@@ -524,4 +546,5 @@ export {
   requestCurrentPosition,
   type Coordinates,
 } from './coordinates'
+export * from './pakistanLocations'
 
