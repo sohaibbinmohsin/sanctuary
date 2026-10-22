@@ -201,6 +201,8 @@ const rescue_reports = new Table(
     transport_type: column.text,
     disposition_type: column.text,
     animal_id: column.text,
+    legal_notes: column.text,
+    dismissal_reason: column.text,
     stage_logged_at: column.text,
     stage_accepted_at: column.text,
     stage_dispatched_at: column.text,

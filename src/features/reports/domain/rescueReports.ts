@@ -75,6 +75,26 @@ export async function generateReportNumber(
   return `${prefix}-R${101 + count}`
 }
 
+export type UpdateReportStageOptions = {
+  transportType?: 'ambulance' | 'reporter' | null
+  legalNotes?: string | null
+  dismissalReason?: string | null
+}
+
+let columnsEnsured = false
+async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
+  if (columnsEnsured) return
+  try {
+    if (typeof db.execute === 'function') {
+      await db.execute(`ALTER TABLE rescue_reports ADD COLUMN legal_notes TEXT`).catch(() => {})
+      await db.execute(`ALTER TABLE rescue_reports ADD COLUMN dismissal_reason TEXT`).catch(() => {})
+      columnsEnsured = true
+    }
+  } catch {
+    // Ignore error if columns already exist or alter table fails in mock
+  }
+}
+
 /**
  * Creates an emergency rescue report in the database with status 'logged'.
  * Citizen reporter information is recorded internally/confidentially.
@@ -83,6 +103,7 @@ export async function createRescueReport(
   db: SanctuaryDb,
   input: CreateRescueReportInput,
 ): Promise<RescueReport> {
+  await ensureReportColumns(db)
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
 
@@ -101,6 +122,8 @@ export async function createRescueReport(
     transport_type: null,
     disposition_type: null,
     animal_id: null,
+    legal_notes: null,
+    dismissal_reason: null,
     stage_logged_at: now,
     stage_accepted_at: null,
     stage_dispatched_at: null,
@@ -113,9 +136,10 @@ export async function createRescueReport(
     `INSERT INTO rescue_reports (
       id, org_id, report_number, category, species, chief_complaint, status,
       location_area, location_landmark, reporter_name, reporter_phone,
-      transport_type, disposition_type, animal_id, stage_logged_at, stage_accepted_at,
-      stage_dispatched_at, stage_attended_at, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      transport_type, disposition_type, animal_id, legal_notes, dismissal_reason,
+      stage_logged_at, stage_accepted_at, stage_dispatched_at, stage_attended_at,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       report.id,
       report.org_id,
@@ -131,6 +155,8 @@ export async function createRescueReport(
       report.transport_type,
       report.disposition_type,
       report.animal_id,
+      report.legal_notes,
+      report.dismissal_reason,
       report.stage_logged_at,
       report.stage_accepted_at,
       report.stage_dispatched_at,
@@ -145,13 +171,15 @@ export async function createRescueReport(
 
 /**
  * Updates report stage along with recording the respective stage timestamp.
+ * Allows passing transportType or UpdateReportStageOptions containing legalNotes or dismissalReason.
  */
 export async function updateReportStage(
   db: SanctuaryDb,
   reportId: string,
   stage: RescueReportStage,
-  transportType?: 'ambulance' | 'reporter' | null,
+  transportTypeOrOptions?: 'ambulance' | 'reporter' | null | UpdateReportStageOptions,
 ): Promise<void> {
+  await ensureReportColumns(db)
   const now = new Date().toISOString()
   let stageColumn: string | null = null
 
@@ -160,27 +188,98 @@ export async function updateReportStage(
   else if (stage === 'dispatched') stageColumn = 'stage_dispatched_at'
   else if (stage === 'attended') stageColumn = 'stage_attended_at'
 
-  const transportClause =
-    transportType !== undefined
-      ? `, transport_type = ${transportType ? `'${transportType}'` : 'NULL'}`
-      : ''
-  const dispClause = stage !== 'attended' ? `, disposition_type = NULL` : ''
+  const options: UpdateReportStageOptions =
+    typeof transportTypeOrOptions === 'object' && transportTypeOrOptions !== null
+      ? transportTypeOrOptions
+      : { transportType: transportTypeOrOptions }
+
+  const setClauses: string[] = ['status = ?', 'updated_at = ?']
+  const params: any[] = [stage, now]
 
   if (stageColumn) {
-    await db.execute(
-      `UPDATE rescue_reports
-       SET status = ?, ${stageColumn} = ?, updated_at = ?${transportClause}${dispClause}
-       WHERE id = ?`,
-      [stage, now, now, reportId],
+    setClauses.push(`${stageColumn} = ?`)
+    params.push(now)
+  }
+
+  if (options.transportType !== undefined) {
+    setClauses.push('transport_type = ?')
+    params.push(options.transportType)
+  }
+
+  if (options.legalNotes !== undefined) {
+    setClauses.push('legal_notes = ?')
+    params.push(options.legalNotes)
+  }
+
+  if (options.dismissalReason !== undefined) {
+    setClauses.push('dismissal_reason = ?')
+    params.push(options.dismissalReason)
+  }
+
+  if (stage !== 'attended') {
+    setClauses.push('disposition_type = NULL')
+  }
+
+  params.push(reportId)
+
+  await db.execute(
+    `UPDATE rescue_reports
+     SET ${setClauses.join(', ')}
+     WHERE id = ?`,
+    params,
+  )
+}
+
+/**
+ * Updates existing legal notes for a report.
+ */
+export async function updateReportLegalNotes(
+  db: SanctuaryDb,
+  reportId: string,
+  legalNotes: string,
+): Promise<void> {
+  await ensureReportColumns(db)
+  const now = new Date().toISOString()
+  await db.execute(
+    `UPDATE rescue_reports SET legal_notes = ?, updated_at = ? WHERE id = ?`,
+    [legalNotes.trim(), now, reportId],
+  )
+}
+
+/**
+ * Deduplicates any legacy duplicate report_number records in local SQLite.
+ */
+export async function deduplicateReportNumbers(db: SanctuaryDb, orgId: string): Promise<void> {
+  try {
+    if (typeof db.getAll !== 'function') return
+    const reports = await db.getAll<{ id: string; report_number: string; created_at: string }>(
+      `SELECT id, report_number, created_at FROM rescue_reports WHERE org_id = ? ORDER BY created_at ASC`,
+      [orgId],
     )
-  } else {
-    // e.g. cancelled
-    await db.execute(
-      `UPDATE rescue_reports
-       SET status = ?, updated_at = ?${transportClause}${dispClause}
-       WHERE id = ?`,
-      [stage, now, reportId],
-    )
+    if (!reports || reports.length < 2) return
+
+    const seen = new Set<string>()
+    const prefix = reports[0]?.report_number?.split('-')[0] || 'MS'
+    let maxSeq = 100
+    for (const r of reports) {
+      const m = r.report_number?.match(new RegExp(`^${prefix}-R(\\d+)$`, 'i'))
+      if (m) {
+        const seq = parseInt(m[1], 10)
+        if (!isNaN(seq) && seq > maxSeq) maxSeq = seq
+      }
+    }
+
+    for (const r of reports) {
+      if (seen.has(r.report_number)) {
+        maxSeq += 1
+        const newCode = `${prefix}-R${maxSeq}`
+        await db.execute(`UPDATE rescue_reports SET report_number = ? WHERE id = ?`, [newCode, r.id])
+      } else {
+        seen.add(r.report_number)
+      }
+    }
+  } catch (err) {
+    console.warn('deduplicateReportNumbers error', err)
   }
 }
 
@@ -212,6 +311,7 @@ export async function getRescueReports(
   orgId: string,
   filter?: RescueReportFilter,
 ): Promise<RescueReport[]> {
+  await deduplicateReportNumbers(db, orgId)
   let filterClause = ''
   if (filter === 'new') {
     filterClause = ` AND status = 'logged'`

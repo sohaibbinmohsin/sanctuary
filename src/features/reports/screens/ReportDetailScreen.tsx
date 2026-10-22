@@ -21,12 +21,15 @@ import {
   updateReportStage,
   completeReportWithDisposition,
   getPhotosForReport,
+  updateReportLegalNotes,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
 import { createAnimal } from '@/features/animals/domain/animals'
 import { listStatuses } from '@/features/statuses/domain/statuses'
 import { ReportPipelineTracker } from '@/features/reports/components/ReportPipelineTracker'
 import { ReportFactsGrid } from '@/features/reports/components/ReportFactsGrid'
+import { LegalActionModal } from '@/features/reports/components/LegalActionModal'
+import { DismissReportModal } from '@/features/reports/components/DismissReportModal'
 import '@/features/reports/reports.css'
 
 export function ReportDetailScreen() {
@@ -40,6 +43,9 @@ export function ReportDetailScreen() {
   const [error, setError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false)
+  const [isLegalEditingOnly, setIsLegalEditingOnly] = useState(false)
+  const [isDismissModalOpen, setIsDismissModalOpen] = useState(false)
 
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -316,7 +322,10 @@ export function ReportDetailScreen() {
                     <button
                       type="button"
                       className="dropdown-item danger"
-                      onClick={() => handleStageTransition('cancelled')}
+                      onClick={() => {
+                        setIsDropdownOpen(false)
+                        setIsDismissModalOpen(true)
+                      }}
                     >
                       <XCircle size={15} weight="bold" aria-hidden />
                       <span>{isCruelty ? 'Dismiss / Close Complaint' : 'Decline / Cancel Report'}</span>
@@ -331,11 +340,14 @@ export function ReportDetailScreen() {
                 <button
                   type="button"
                   className="btn-brand-amber btn-main pressable"
-                  onClick={() =>
-                    isCruelty
-                      ? handleStageTransition('dispatched')
-                      : handleStageTransition('dispatched', 'ambulance')
-                  }
+                  onClick={() => {
+                    if (isCruelty) {
+                      setIsLegalEditingOnly(false)
+                      setIsLegalModalOpen(true)
+                    } else {
+                      handleStageTransition('dispatched', 'ambulance')
+                    }
+                  }}
                   disabled={actionLoading}
                 >
                   {isCruelty ? (
@@ -394,7 +406,10 @@ export function ReportDetailScreen() {
                     <button
                       type="button"
                       className="dropdown-item danger"
-                      onClick={() => handleStageTransition('cancelled')}
+                      onClick={() => {
+                        setIsDropdownOpen(false)
+                        setIsDismissModalOpen(true)
+                      }}
                     >
                       <XCircle size={15} weight="bold" aria-hidden />
                       <span>{isCruelty ? 'Dismiss / Close Complaint' : 'Decline / Cancel Report'}</span>
@@ -480,7 +495,10 @@ export function ReportDetailScreen() {
                     <button
                       type="button"
                       className="dropdown-item danger"
-                      onClick={() => handleStageTransition('cancelled')}
+                      onClick={() => {
+                        setIsDropdownOpen(false)
+                        setIsDismissModalOpen(true)
+                      }}
                     >
                       <XCircle size={15} weight="bold" aria-hidden />
                       <span>{isCruelty ? 'Dismiss / Close Complaint' : 'Cancel Dispatch / Untraceable'}</span>
@@ -632,10 +650,72 @@ export function ReportDetailScreen() {
         </div>
 
         {/* 4-Stage Lifecycle Stepper */}
-        <ReportPipelineTracker report={report} />
+        <ReportPipelineTracker
+          report={report}
+          onStepClick={(stepNumber) => {
+            if (isCruelty && stepNumber === 3) {
+              if (status === 'accepted') {
+                setIsLegalEditingOnly(false)
+                setIsLegalModalOpen(true)
+              } else if (status === 'dispatched' || status === 'attended') {
+                setIsLegalEditingOnly(true)
+                setIsLegalModalOpen(true)
+              }
+            }
+          }}
+        />
 
         {/* Intake Facts Grid */}
-        <ReportFactsGrid report={report} />
+        <ReportFactsGrid
+          report={report}
+          onEditLegalNotes={() => {
+            setIsLegalEditingOnly(true)
+            setIsLegalModalOpen(true)
+          }}
+        />
+
+        {/* Legal Action Modal */}
+        <LegalActionModal
+          isOpen={isLegalModalOpen}
+          onClose={() => setIsLegalModalOpen(false)}
+          initialNotes={report.legal_notes}
+          isEditingOnly={isLegalEditingOnly}
+          onSave={async (notes) => {
+            if (!db || !report) return
+            setActionLoading(true)
+            try {
+              if (isLegalEditingOnly) {
+                await updateReportLegalNotes(db, report.id, notes)
+              } else {
+                await updateReportStage(db, report.id, 'dispatched', { legalNotes: notes })
+              }
+              await loadReport()
+            } catch (err) {
+              console.error('Failed to save legal action notes', err)
+            } finally {
+              setActionLoading(false)
+            }
+          }}
+        />
+
+        {/* Dismiss / Cancel Report Modal */}
+        <DismissReportModal
+          isOpen={isDismissModalOpen}
+          onClose={() => setIsDismissModalOpen(false)}
+          isCruelty={isCruelty}
+          onConfirm={async (reason) => {
+            if (!db || !report) return
+            setActionLoading(true)
+            try {
+              await updateReportStage(db, report.id, 'cancelled', { dismissalReason: reason })
+              await loadReport()
+            } catch (err) {
+              console.error('Failed to dismiss report', err)
+            } finally {
+              setActionLoading(false)
+            }
+          }}
+        />
       </div>
     </div>
   )

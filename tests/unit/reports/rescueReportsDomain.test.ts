@@ -6,6 +6,8 @@ import {
   generateReportNumber,
   getRescueReports,
   getRescueReportById,
+  updateReportLegalNotes,
+  deduplicateReportNumbers,
   type CreateRescueReportInput,
 } from '@/features/reports/domain/rescueReports'
 
@@ -282,6 +284,63 @@ describe('rescueReports domain', () => {
       expect(report?.id).toBe('rep-1')
       expect(executedSql).toContain('SELECT * FROM rescue_reports WHERE id = ?')
       expect(executedParams).toContain('rep-1')
+    })
+  })
+
+  describe('updateReportLegalNotes', () => {
+    it('executes SQL update with trimmed legal notes and updated_at', async () => {
+      let executedSql = ''
+      let executedParams: any[] = []
+      const mockDb = {
+        execute: async (sql: string, params?: any[]) => {
+          executedSql = sql
+          executedParams = params || []
+        },
+      } as any
+
+      await updateReportLegalNotes(mockDb, 'rep-1', '  Warning notice served to tenant  ')
+      expect(executedSql).toContain('UPDATE rescue_reports SET legal_notes = ?, updated_at = ? WHERE id = ?')
+      expect(executedParams[0]).toBe('Warning notice served to tenant')
+      expect(executedParams[2]).toBe('rep-1')
+    })
+  })
+
+  describe('deduplicateReportNumbers', () => {
+    it('re-sequences duplicate legacy report numbers', async () => {
+      const executeCalls: { sql: string; params?: any[] }[] = []
+      const mockDb = {
+        getAll: async () => [
+          { id: 'r1', report_number: 'MS-R101', created_at: '2026-10-22T17:42:00Z' },
+          { id: 'r2', report_number: 'MS-R101', created_at: '2026-10-22T18:25:00Z' },
+          { id: 'r3', report_number: 'MS-R102', created_at: '2026-10-22T20:08:00Z' },
+        ],
+        execute: async (sql: string, params?: any[]) => {
+          executeCalls.push({ sql, params })
+        },
+      } as any
+
+      await deduplicateReportNumbers(mockDb, 'org-1')
+
+      // The duplicate r2 should be updated to MS-R103
+      expect(executeCalls).toHaveLength(1)
+      expect(executeCalls[0].sql).toContain('UPDATE rescue_reports SET report_number = ? WHERE id = ?')
+      expect(executeCalls[0].params).toEqual(['MS-R103', 'r2'])
+    })
+
+    it('does nothing when there are no duplicates', async () => {
+      const executeCalls: any[] = []
+      const mockDb = {
+        getAll: async () => [
+          { id: 'r1', report_number: 'MS-R101', created_at: '2026-10-22T17:42:00Z' },
+          { id: 'r2', report_number: 'MS-R102', created_at: '2026-10-22T18:25:00Z' },
+        ],
+        execute: async (sql: string, params?: any[]) => {
+          executeCalls.push({ sql, params })
+        },
+      } as any
+
+      await deduplicateReportNumbers(mockDb, 'org-1')
+      expect(executeCalls).toHaveLength(0)
     })
   })
 })

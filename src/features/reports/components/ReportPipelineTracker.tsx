@@ -3,6 +3,7 @@ import { Check } from '@phosphor-icons/react'
 
 export type ReportPipelineTrackerProps = {
   report: RescueReport
+  onStepClick?: (stepNumber: number) => void
 }
 
 type StepStatus = 'completed' | 'current' | 'upcoming'
@@ -24,7 +25,7 @@ function formatPipelineTime(isoString?: string | null): string {
   return `Today ${hours}:${minutes}`
 }
 
-export function ReportPipelineTracker({ report }: ReportPipelineTrackerProps) {
+export function ReportPipelineTracker({ report, onStepClick }: ReportPipelineTrackerProps) {
   const currentStatus = report.status ?? 'logged'
 
   const isCruelty = report.category === 'cruelty'
@@ -165,9 +166,11 @@ export function ReportPipelineTracker({ report }: ReportPipelineTrackerProps) {
         {steps.map((step, index) => (
           <div key={step.number} className="stepper-step-wrapper">
             <div
-              className={`stepper-step ${step.status}`}
+              className={`stepper-step ${step.status} ${onStepClick ? 'clickable' : ''}`}
               role="listitem"
               aria-current={step.status === 'current' ? 'step' : undefined}
+              onClick={() => onStepClick?.(step.number)}
+              style={onStepClick ? { cursor: 'pointer' } : undefined}
             >
               <div className="stepper-circle">
                 <span className="stepper-num">{step.number}</span>

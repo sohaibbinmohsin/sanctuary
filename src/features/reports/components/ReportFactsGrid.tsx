@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Camera, FirstAid, MapPin, Phone, LockKey, User, Scales } from '@phosphor-icons/react'
+import { Camera, FirstAid, MapPin, Phone, LockKey, User, Scales, PencilSimple, XCircle } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   type RescueReport,
@@ -12,9 +12,10 @@ import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 
 export type ReportFactsGridProps = {
   report: RescueReport
+  onEditLegalNotes?: () => void
 }
 
-export function ReportFactsGrid({ report }: ReportFactsGridProps) {
+export function ReportFactsGrid({ report, onEditLegalNotes }: ReportFactsGridProps) {
   const db = useDb()
   const [photos, setPhotos] = useState<ReportPhoto[]>([])
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
@@ -147,6 +148,84 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
           </div>
         </div>
       </div>
+
+      {/* Legal Action & Notice Card */}
+      {report.legal_notes && (
+        <div className="detail-card" style={{ borderColor: 'var(--color-primary-light, #dbeafe)' }}>
+          <div
+            className="detail-card__header"
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          >
+            <div className="detail-card__heading" style={{ color: 'var(--color-primary-dark, #1e40af)' }}>
+              <Scales weight="bold" size={18} aria-hidden />
+              <span>Legal Action &amp; Notice</span>
+            </div>
+            {onEditLegalNotes && (
+              <button
+                type="button"
+                className="btn-text pressable"
+                onClick={onEditLegalNotes}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-primary, #2563eb)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  padding: '4px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                }}
+              >
+                <PencilSimple size={13} weight="bold" />
+                <span>Edit</span>
+              </button>
+            )}
+          </div>
+          <div className="facts-kv-list" style={{ padding: '0.5rem 0 0.25rem 0' }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '0.9375rem',
+                lineHeight: '1.5',
+                whiteSpace: 'pre-wrap',
+                color: 'var(--color-text-main)',
+              }}
+            >
+              {report.legal_notes}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Dismissal / Cancellation Reason Card */}
+      {report.dismissal_reason && (
+        <div className="detail-card" style={{ borderColor: 'var(--color-danger-border, #fca5a5)' }}>
+          <div className="detail-card__header">
+            <div className="detail-card__heading" style={{ color: 'var(--color-danger, #b91c1c)' }}>
+              <XCircle weight="bold" size={18} aria-hidden />
+              <span>
+                {report.category === 'cruelty' ? 'Dismissal Reason' : 'Cancellation Reason'}
+              </span>
+            </div>
+          </div>
+          <div className="facts-kv-list" style={{ padding: '0.5rem 0 0.25rem 0' }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '0.9375rem',
+                lineHeight: '1.5',
+                whiteSpace: 'pre-wrap',
+                color: 'var(--color-text-main)',
+              }}
+            >
+              {report.dismissal_reason}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 3. Location & Landmark Card */}
       <div className="detail-card">

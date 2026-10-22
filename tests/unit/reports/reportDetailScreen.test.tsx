@@ -137,8 +137,16 @@ describe('ReportDetailScreen', () => {
     const declineBtn = await screen.findByRole('button', { name: /Decline \/ Cancel Report/i })
     fireEvent.click(declineBtn)
 
+    const reasonInput = screen.getByLabelText(/Reason for cancellation/i)
+    fireEvent.change(reasonInput, { target: { value: 'Citizen called back - animal already rescued' } })
+
+    const confirmBtn = screen.getByRole('button', { name: /Decline Report/i })
+    fireEvent.click(confirmBtn)
+
     await waitFor(() => {
-      expect(updateStageSpy).toHaveBeenCalledWith(expect.anything(), 'rep-1', 'cancelled')
+      expect(updateStageSpy).toHaveBeenCalledWith(expect.anything(), 'rep-1', 'cancelled', {
+        dismissalReason: 'Citizen called back - animal already rescued',
+      })
     })
   })
 
@@ -416,8 +424,106 @@ describe('ReportDetailScreen', () => {
     const actionBtn = screen.getByRole('button', { name: /Log Notice \/ Legal Action/i })
     fireEvent.click(actionBtn)
 
+    const notesInput = screen.getByLabelText(/Legal action details/i)
+    fireEvent.change(notesInput, { target: { value: 'FIR #402/26 filed at Saddar PS' } })
+
+    const proceedBtn = screen.getByRole('button', { name: /Record & Proceed/i })
+    fireEvent.click(proceedBtn)
+
     await waitFor(() => {
-      expect(updateStageSpy).toHaveBeenCalledWith(expect.anything(), 'rep-c2', 'dispatched')
+      expect(updateStageSpy).toHaveBeenCalledWith(expect.anything(), 'rep-c2', 'dispatched', {
+        legalNotes: 'FIR #402/26 filed at Saddar PS',
+      })
     })
+  })
+
+  it('enforces mandatory legal notes and opens modal when clicking pipeline step 3', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-c3',
+      org_id: 'org-1',
+      report_number: 'PARC-R203',
+      category: 'cruelty',
+      species: 'dog',
+      chief_complaint: 'Starvation',
+      status: 'accepted',
+      location_area: 'Clifton',
+      stage_logged_at: '2026-10-13T14:10:00Z',
+      stage_accepted_at: '2026-10-13T15:00:00Z',
+      created_at: '2026-10-13T14:10:00Z',
+    } as any)
+
+    const updateStageSpy = vi.spyOn(domainModule, 'updateReportStage').mockResolvedValue(undefined)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-c3']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R203')).toBeInTheDocument()
+
+    // Click step 3 "Notice / Legal Action" in the stepper
+    const step3 = screen.getByText('Notice / Legal Action')
+    fireEvent.click(step3)
+
+    // Modal should be open
+    expect(screen.getByRole('heading', { name: /Log Notice \/ Legal Action/i })).toBeInTheDocument()
+
+    // Submitting without entering text shows error
+    const proceedBtn = screen.getByRole('button', { name: /Record & Proceed/i })
+    fireEvent.click(proceedBtn)
+
+    expect(
+      screen.getByText('Legal action details are mandatory to move to this stage.'),
+    ).toBeInTheDocument()
+    expect(updateStageSpy).not.toHaveBeenCalled()
+
+    // Fill notes and submit
+    const notesInput = screen.getByLabelText(/Legal action details/i)
+    fireEvent.change(notesInput, { target: { value: 'Written warning issued' } })
+    fireEvent.click(proceedBtn)
+
+    await waitFor(() => {
+      expect(updateStageSpy).toHaveBeenCalledWith(expect.anything(), 'rep-c3', 'dispatched', {
+        legalNotes: 'Written warning issued',
+      })
+    })
+  })
+
+  it('renders Legal Action & Notice and Dismissal Reason cards in ReportFactsGrid', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-c4',
+      org_id: 'org-1',
+      report_number: 'PARC-R204',
+      category: 'cruelty',
+      species: 'dog',
+      chief_complaint: 'Abandonment',
+      status: 'cancelled',
+      legal_notes: 'FIR 109 filed at police station',
+      dismissal_reason: 'Citizen resolved dispute on-site amicably',
+      location_area: 'Gulberg',
+      stage_logged_at: '2026-10-13T14:10:00Z',
+      created_at: '2026-10-13T14:10:00Z',
+    } as any)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-c4']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R204')).toBeInTheDocument()
+
+    // Legal notes card
+    expect(screen.getByText('Legal Action & Notice')).toBeInTheDocument()
+    expect(screen.getByText('FIR 109 filed at police station')).toBeInTheDocument()
+
+    // Dismissal reason card
+    expect(screen.getByText('Dismissal Reason')).toBeInTheDocument()
+    expect(screen.getByText('Citizen resolved dispute on-site amicably')).toBeInTheDocument()
   })
 })
