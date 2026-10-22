@@ -18,6 +18,19 @@ export type RescueReportDisposition =
   | 'spot_released'
   | 'transferred_partner'
   | 'admitted_shelter'
+  | 'deceased_doa'
+
+export type IntakeSource = 'citizen' | 'rescue_1122' | 'field_patrol' | 'partner_transfer'
+
+export const AVIAN_PRESETS = [
+  'Black Kite',
+  'Eagle',
+  'Pigeon / Dove',
+  'Crow',
+  'Owl',
+  'Hawk',
+  'Other Bird',
+] as const
 
 export type RescueReportFilter = 'all' | 'new' | 'in_progress' | 'completed'
 
@@ -39,6 +52,8 @@ export type CreateRescueReportInput = {
   reporterName?: string | null
   reporterPhone?: string | null
   reporterCnic?: string | null
+  intakeSource?: IntakeSource | null
+  animalCount?: number | null
 }
 
 /**
@@ -112,7 +127,9 @@ export async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
       cols.has('latitude') &&
       cols.has('longitude') &&
       cols.has('city') &&
-      cols.has('life_stage')
+      cols.has('life_stage') &&
+      cols.has('intake_source') &&
+      cols.has('animal_count')
     ) {
       return
     }
@@ -128,11 +145,65 @@ export async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN longitude REAL`).catch(() => {})
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN city TEXT`).catch(() => {})
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN life_stage TEXT`).catch(() => {})
+        await db.execute(`ALTER TABLE rescue_reports ADD COLUMN intake_source TEXT`).catch(() => {})
+        await db.execute(`ALTER TABLE rescue_reports ADD COLUMN animal_count INTEGER`).catch(() => {})
       }
     }
   } catch (err) {
     console.warn('ensureReportColumns error', err)
   }
+}
+
+export type FrequentCaller = {
+  name: string
+  phone: string
+  cnic?: string | null
+  area?: string | null
+  count: number
+}
+
+export async function searchFrequentCallers(
+  db: SanctuaryDb,
+  orgId: string,
+  query: string,
+  limit = 5,
+): Promise<FrequentCaller[]> {
+  const trimmed = query.trim()
+  if (!trimmed || trimmed.length < 2) return []
+  const digits = trimmed.replace(/\D/g, '')
+
+  try {
+    if (typeof db.getAll === 'function') {
+      let sql = `
+        SELECT 
+          reporter_name as name, 
+          reporter_phone as phone, 
+          reporter_cnic as cnic, 
+          location_area as area, 
+          COUNT(*) as count
+        FROM rescue_reports
+        WHERE org_id = ? AND reporter_name IS NOT NULL AND reporter_name != ''
+      `
+      const params: any[] = [orgId]
+
+      if (digits.length >= 3) {
+        sql += ` AND (reporter_phone LIKE ? OR reporter_name LIKE ?)`
+        params.push(`%${digits}%`, `%${trimmed}%`)
+      } else {
+        sql += ` AND reporter_name LIKE ?`
+        params.push(`%${trimmed}%`)
+      }
+
+      sql += ` GROUP BY reporter_phone, reporter_name ORDER BY count DESC LIMIT ?`
+      params.push(limit)
+
+      const rows = await db.getAll<FrequentCaller>(sql, params)
+      return Array.isArray(rows) ? rows : []
+    }
+  } catch (err) {
+    console.warn('searchFrequentCallers error', err)
+  }
+  return []
 }
 
 /**
@@ -170,6 +241,8 @@ export async function createRescueReport(
     animal_id: null,
     legal_notes: null,
     dismissal_reason: null,
+    intake_source: input.intakeSource || 'citizen',
+    animal_count: input.animalCount && input.animalCount > 0 ? input.animalCount : 1,
     stage_logged_at: now,
     stage_accepted_at: null,
     stage_dispatched_at: null,
@@ -200,6 +273,8 @@ export async function createRescueReport(
     animal_id: report.animal_id,
     legal_notes: report.legal_notes,
     dismissal_reason: report.dismissal_reason,
+    intake_source: report.intake_source,
+    animal_count: report.animal_count,
     stage_logged_at: report.stage_logged_at,
     stage_accepted_at: report.stage_accepted_at,
     stage_dispatched_at: report.stage_dispatched_at,
@@ -451,6 +526,8 @@ export type UpdateRescueReportInput = {
   reporterPhone?: string | null
   reporterCnic?: string | null
   legalNotes?: string | null
+  intakeSource?: IntakeSource | null
+  animalCount?: number | null
 }
 
 /**
@@ -514,6 +591,16 @@ export async function updateRescueReport(
     params.push(input.legalNotes ?? null)
   }
 
+  if (cols.size === 0 || cols.has('intake_source')) {
+    setClauses.push('intake_source = COALESCE(?, intake_source)')
+    params.push(input.intakeSource ?? null)
+  }
+
+  if (cols.size === 0 || cols.has('animal_count')) {
+    setClauses.push('animal_count = COALESCE(?, animal_count)')
+    params.push(input.animalCount ?? null)
+  }
+
   setClauses.push('updated_at = ?')
   params.push(now)
   params.push(reportId)
@@ -554,6 +641,8 @@ export type RescueCategoryBreakdown = {
 export type RescueSpeciesCount = {
   species: string
   count: number
+  adultCount: number
+  childCount: number
 }
 
 export type RescueHotspot = {
@@ -640,8 +729,21 @@ export async function getRescueSpeciesBreakdown(
   db: SanctuaryDb,
   orgId: string,
 ): Promise<RescueSpeciesCount[]> {
-  const rows = await db.getAll<{ species: string; count: number }>(
-    `SELECT species, COUNT(*) as count
+  const existingCols = await getExistingColumns(db, 'rescue_reports').catch(() => new Set<string>())
+  const hasCount = existingCols.has('animal_count')
+  const countExpr = hasCount ? 'COALESCE(animal_count, 1)' : '1'
+
+  const rows = await db.getAll<{
+    species: string
+    count: number
+    child_count: number
+    adult_count: number
+  }>(
+    `SELECT
+       species,
+       SUM(${countExpr}) as count,
+       SUM(CASE WHEN life_stage = 'child' THEN ${countExpr} ELSE 0 END) as child_count,
+       SUM(CASE WHEN life_stage != 'child' OR life_stage IS NULL THEN ${countExpr} ELSE 0 END) as adult_count
      FROM rescue_reports
      WHERE org_id = ?
      GROUP BY species
@@ -652,6 +754,8 @@ export async function getRescueSpeciesBreakdown(
   return rows.map((r) => ({
     species: r.species?.trim() || 'Unknown',
     count: Number(r.count) || 0,
+    adultCount: Number(r.adult_count) || 0,
+    childCount: Number(r.child_count) || 0,
   }))
 }
 

@@ -53,7 +53,14 @@ export function AnimalsSpeciesCard() {
           {speciesList.map((item) => (
             <li key={item.species} className="status-bars__row">
               <div className="status-bars__meta">
-                <span>{toSentenceCase(item.species)}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
+                  <span>{toSentenceCase(item.species)}</span>
+                  {item.childCount > 0 ? (
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-ink-muted)', fontWeight: 400 }}>
+                      ({item.childCount} {item.childCount === 1 ? 'child' : 'children'})
+                    </span>
+                  ) : null}
+                </span>
                 <strong>{item.count}</strong>
               </div>
               <div className="status-bars__track" aria-hidden>

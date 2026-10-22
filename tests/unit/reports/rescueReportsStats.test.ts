@@ -61,15 +61,15 @@ describe('rescueReports stats functions', () => {
   it('computes species breakdown ordered by count', async () => {
     const mockDb = {
       getAll: async () => [
-        { species: 'Dog', count: 12 },
-        { species: 'Cat', count: 7 },
-        { species: 'Donkey', count: 3 },
+        { species: 'Dog', count: 12, child_count: 3, adult_count: 9 },
+        { species: 'Cat', count: 7, child_count: 2, adult_count: 5 },
+        { species: 'Donkey', count: 3, child_count: 0, adult_count: 3 },
       ],
     } as any
 
     const species = await getRescueSpeciesBreakdown(mockDb, 'org-1')
     expect(species).toHaveLength(3)
-    expect(species[0]).toEqual({ species: 'Dog', count: 12 })
+    expect(species[0]).toEqual({ species: 'Dog', count: 12, childCount: 3, adultCount: 9 })
   })
 
   it('computes hotspots ordered by incident count', async () => {

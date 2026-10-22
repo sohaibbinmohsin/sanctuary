@@ -68,7 +68,7 @@ export function RescueCategoryCard() {
                   className="status-bars__fill"
                   style={{
                     width: `${(data.emergency / maxVal) * 100}%`,
-                    background: 'var(--color-brand)',
+                    background: 'var(--color-forest)',
                   }}
                 />
               </div>

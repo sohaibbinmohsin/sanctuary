@@ -21,13 +21,13 @@ describe('animals stats domain functions', () => {
   it('counts animals by species ordered descending', async () => {
     const mockDb = {
       getAll: async () => [
-        { species: 'Dog', count: 10 },
-        { species: 'Cat', count: 7 },
+        { species: 'Dog', count: 10, child_count: 2, adult_count: 8 },
+        { species: 'Cat', count: 7, child_count: 1, adult_count: 6 },
       ],
     } as any
 
     const res = await countAnimalsBySpecies(mockDb, 'org-1')
     expect(res).toHaveLength(2)
-    expect(res[0]).toEqual({ species: 'Dog', count: 10 })
+    expect(res[0]).toEqual({ species: 'Dog', count: 10, childCount: 2, adultCount: 8 })
   })
 })
