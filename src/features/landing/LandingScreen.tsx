@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Siren,
@@ -9,11 +9,9 @@ import {
   ShieldCheck,
   ArrowSquareOut,
 } from '@phosphor-icons/react'
-import { ReportCaseModal } from '@/features/landing/components/ReportCaseModal'
 import './landing.css'
 
 export function LandingScreen() {
-  const [reportOpen, setReportOpen] = useState(false)
 
   useEffect(() => {
     const reduce =
@@ -83,14 +81,10 @@ export function LandingScreen() {
               A shared digital backbone for rescuers, shelters, veterinarians, and animal guardians.
             </p>
             <div className="hero__actions">
-              <button
-                type="button"
-                className="btn btn--emergency"
-                onClick={() => setReportOpen(true)}
-              >
+              <Link to="/report" className="btn btn--emergency">
                 <Siren size={20} weight="bold" aria-hidden="true" />
                 <span>Report a case</span>
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -634,11 +628,6 @@ export function LandingScreen() {
           </div>
         </div>
       </footer>
-
-      <ReportCaseModal
-        isOpen={reportOpen}
-        onClose={() => setReportOpen(false)}
-      />
     </div>
   )
 }

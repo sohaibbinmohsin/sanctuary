@@ -5,6 +5,7 @@ import { AppShell } from '@/app/router'
 import { LoginScreen } from '@/features/auth/LoginScreen'
 import { LandingScreen } from '@/features/landing/LandingScreen'
 import { PublicShelterScreen } from '@/features/public/screens/PublicShelterScreen'
+import { PublicReportScreen } from '@/features/reports/screens/PublicReportScreen'
 import { isPlaygroundPath } from '@/features/playground/mode'
 import { isReservedPublicSlug } from '@/shared/lib/public/slug'
 import { supabase, supabaseConfigured } from '@/shared/lib/supabase'
@@ -15,6 +16,7 @@ const playground = isPlaygroundPath(window.location.pathname)
 
 const APP_ROOTS = new Set([
   '',
+  'report',
   'reports',
   'animals',
   'ledger',
@@ -91,6 +93,7 @@ export default function App() {
           {signedIn ? (
             <Routes>
               <Route path="/login" element={<Navigate to="/" replace />} />
+              <Route path="/report" element={<PublicReportScreen />} />
               <Route path="/*" element={<PublicSlugOrApp />} />
             </Routes>
           ) : (
@@ -100,6 +103,7 @@ export default function App() {
                 path="/login"
                 element={<LoginScreen onSuccess={() => setSignedIn(true)} />}
               />
+              <Route path="/report" element={<PublicReportScreen />} />
               <Route path="/:slug" element={<PublicShelterScreen />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
