@@ -678,13 +678,20 @@ export async function getRescueOperationsSummary(
   db: SanctuaryDb,
   orgId: string,
 ): Promise<RescueOperationsSummary> {
-  const rows = await db.getAll<{ status: string; count: number }>(
-    `SELECT status, COUNT(*) as count
-     FROM rescue_reports
-     WHERE org_id = ?
-     GROUP BY status`,
-    [orgId],
-  ).catch(() => [])
+  let rows: { status: string; count: number }[] = []
+  if (typeof db?.getAll === 'function') {
+    try {
+      rows = await db.getAll<{ status: string; count: number }>(
+        `SELECT status, COUNT(*) as count
+         FROM rescue_reports
+         WHERE org_id = ?
+         GROUP BY status`,
+        [orgId],
+      )
+    } catch {
+      rows = []
+    }
+  }
 
   let total = 0
   let awaitingTriage = 0

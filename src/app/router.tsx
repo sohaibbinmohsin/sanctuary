@@ -14,6 +14,9 @@ import {
   getAnimalsScrollPosition,
   getLastClickedAnimalId,
   clearAnimalsScrollPosition,
+  getReportsScrollPosition,
+  getLastClickedReportId,
+  clearReportsScrollPosition,
   setAppScrollTop,
 } from '@/shared/lib/scroll'
 import { PlaygroundBanner } from '@/features/playground/PlaygroundBanner'
@@ -137,9 +140,19 @@ function ScrollToTopOnRoute() {
     ) {
       return
     }
+    // If returning to /reports and there is a saved scroll position or report waiting to be restored, don't reset to 0
+    if (
+      pathname === '/reports' &&
+      (getReportsScrollPosition() !== null || getLastClickedReportId() !== null)
+    ) {
+      return
+    }
     // Clear any orphaned list scroll if navigating to completely different modules
     if (pathname !== '/animals' && !pathname.startsWith('/animals/')) {
       clearAnimalsScrollPosition()
+    }
+    if (pathname !== '/reports' && !pathname.startsWith('/reports/')) {
+      clearReportsScrollPosition()
     }
     setAppScrollTop(0)
   }, [pathname])
@@ -320,7 +333,7 @@ function AppShellContent() {
             </div>
             <button
               type="button"
-              className="sidebar-toggle-btn"
+              className={`sidebar-toggle-btn${mobileDrawerOpen ? ' sidebar-toggle-btn--close' : ''}`}
               onClick={() => {
                 if (mobileDrawerOpen) {
                   setMobileDrawerOpen(false)
@@ -343,20 +356,39 @@ function AppShellContent() {
                     : 'Collapse sidebar'
               }
             >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <rect width="18" height="18" x="3" y="3" rx="3" />
-                <path d="M9 3v18" />
-              </svg>
+              {mobileDrawerOpen ? (
+                /* X icon – same 20px as the mobile-drawer-trigger */
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              ) : (
+                /* Sidebar collapse icon on desktop */
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect width="18" height="18" x="3" y="3" rx="3" />
+                  <path d="M9 3v18" />
+                </svg>
+              )}
             </button>
           </div>
         </div>

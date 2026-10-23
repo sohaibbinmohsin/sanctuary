@@ -1152,14 +1152,14 @@ a.primary {
 
 .mobile-drawer-trigger {
   position: fixed;
-  top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
+  top: calc(var(--space-4) + env(safe-area-inset-top, 0px));
   left: var(--space-4);
   z-index: 90;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: var(--touch-min, 44px);
+  height: var(--touch-min, 44px);
   padding: 0;
   border-radius: var(--radius-md);
   background: var(--color-surface, #f7faf8);
@@ -1176,8 +1176,8 @@ a.primary {
 
 .mobile-drawer-trigger__dot {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 7px;
+  right: 7px;
   width: 8px;
   height: 8px;
   border-radius: 999px;
@@ -1187,12 +1187,20 @@ a.primary {
 
 
 @media (max-width: 1023px) {
-  .app-shell--primary .page-header {
-    padding-left: 52px;
+  .app-content {
+    padding-top: calc(var(--space-4) + env(safe-area-inset-top, 0px));
   }
 
-  .page-header__sub,
-  .section-label + .field__hint {
+  .app-shell--primary .page-header {
+    padding-left: calc(var(--touch-min, 44px) + var(--space-3, 12px));
+  }
+
+  .page-header__main {
+    align-items: center;
+    min-height: var(--touch-min, 44px);
+  }
+
+  .page-header__sub {
     display: none !important;
   }
 
@@ -1201,7 +1209,52 @@ a.primary {
   }
 }
 
-/* App Sidebar (Base: Full-Screen Drawer on mobile, Rail on Desktop) */
+/* App Sidebar mobile drawer — enlarged sizes for mobile readability */
+@media (max-width: 1023px) {
+  /* Bigger logo */
+  .app-sidebar .app-sidebar__logo {
+    width: 48px;
+    height: 48px;
+  }
+
+  /* SanctuaryLogo SVG */
+  .app-sidebar .sidebar-logo-img svg {
+    width: 48px;
+    height: 48px;
+  }
+
+  /* Bigger brand name */
+  .app-sidebar .app-sidebar__brand {
+    font-size: var(--text-lg);
+  }
+
+  /* Bigger nav link rows */
+  .app-sidebar .app-sidebar__nav a {
+    font-size: var(--text-base);
+    padding: 0.9rem 1rem;
+    min-height: 3.25rem;
+    gap: var(--space-4);
+  }
+
+  /* Bigger nav icons */
+  .app-sidebar .app-sidebar__nav a svg {
+    width: 1.65rem;
+    height: 1.65rem;
+  }
+
+  /* Bigger close (X) toggle button — match the mobile-drawer-trigger size */
+  .sidebar-toggle-btn {
+    width: var(--touch-min, 44px);
+    height: var(--touch-min, 44px);
+  }
+
+  /* Subtle accent on X button in mobile */
+  .sidebar-toggle-btn--close {
+    color: var(--color-ink);
+  }
+}
+
+
 .app-sidebar {
   display: flex;
   flex-direction: column;
@@ -1483,22 +1536,27 @@ a.primary {
 
 .page-header__main {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  min-height: var(--touch-min, 44px);
 }
 
 .page-header__copy {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.page-header h1 {
+.page-header h1,
+.screen .page-header h1 {
   font-family: var(--font-display);
   font-size: var(--text-xl);
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0;
-  line-height: var(--leading-tight);
+  line-height: 1;
 }
 
 .page-header__sub {
@@ -1545,7 +1603,7 @@ a.primary {
   margin-top: var(--space-2);
 }
 
-.screen h1 {
+.screen :where(h1:not(.page-header h1)) {
   font-family: var(--font-display);
   font-size: var(--text-xl);
   font-weight: 700;
@@ -5510,11 +5568,17 @@ a.primary {
 
   .app-content {
     padding: var(--space-6);
+    padding-top: calc(var(--space-6) + env(safe-area-inset-top, 0px));
     padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-6));
   }
 
   .app-shell--no-bottom-nav .app-content {
     padding-bottom: calc(var(--space-6) + var(--safe-bottom));
+  }
+
+  .mobile-drawer-trigger {
+    top: calc(var(--space-6) + env(safe-area-inset-top, 0px));
+    left: var(--space-6);
   }
 
   .animal-grid {
@@ -6111,6 +6175,11 @@ a.primary {
 
   .morale-toast {
     bottom: var(--space-8);
+  }
+
+  .page-header__main {
+    align-items: flex-start;
+    min-height: 0;
   }
 
   .page-header h1 {

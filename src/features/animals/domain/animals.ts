@@ -6,11 +6,30 @@ import type { AnimalRecord } from '@/features/sync/powersync/schema'
 import { removeChecklistItemForAnimal } from '@/features/checklist/domain/checklist'
 import { addTreatment } from '@/features/treatments/domain/treatments'
 import {
-  listAssignmentsForAnimal,
   replaceAnimalStatuses,
+  setSingleStatusAssignment,
 } from '@/features/statuses/domain/assignments'
 import { listStatuses } from '@/features/statuses/domain/statuses'
 import { queuePhoto } from '@/features/photos/domain/photos'
+
+export function pickDefaultIntakeStatusId(
+  statuses: readonly {
+    id: string
+    label?: string | null
+    counts_as_in_care?: number | null
+    archived?: number | null
+  }[],
+): string | null {
+  const active = statuses.filter((s) => !s.archived)
+  const pool = active.length > 0 ? active : statuses
+  const intake = pool.find(
+    (s) => s.label && s.label.trim().toLowerCase() === 'intake',
+  )
+  if (intake) return intake.id
+  const firstInCare = pool.find((s) => s.counts_as_in_care === 1)
+  if (firstInCare) return firstInCare.id
+  return pool[0]?.id ?? null
+}
 
 export type AnimalLifeStage = 'adult' | 'child'
 export type { AnimalRecord }
@@ -165,8 +184,7 @@ export async function createQuickAnimalStub(
   let statusId = input.statusId
   if (!statusId) {
     const statuses = await listStatuses(db, input.orgId)
-    const inCare = statuses.find((s) => s.counts_as_in_care === 1 && !s.archived)
-    statusId = inCare ? inCare.id : statuses[0]?.id
+    statusId = pickDefaultIntakeStatusId(statuses) ?? undefined
   }
 
   if (!statusId) {
@@ -199,6 +217,105 @@ export async function createQuickAnimalStub(
   }
 }
 
+async function reconcileAnimalsWithTimelineStatuses(
+  db: SanctuaryDb,
+  orgId: string,
+  animals: AnimalWithStatus[],
+): Promise<AnimalWithStatus[]> {
+  if (animals.length === 0 || !orgId) return animals
+  try {
+    const placeholders = animals.map(() => '?').join(', ')
+    const animalIds = animals.map((a) => a.id)
+
+    const [statusTreatments, arrivalRows, statuses] = await Promise.all([
+      db.getAll<{
+        animal_id: string
+        notes: string | null
+        treated_at: string | null
+        created_at: string | null
+      }>(
+        `SELECT animal_id, notes, treated_at, created_at
+         FROM treatments
+         WHERE animal_id IN (${placeholders}) AND treatment_type = 'status'
+         ORDER BY treated_at DESC, created_at DESC`,
+        animalIds,
+      ),
+      db.getAll<{ animal_id: string }>(
+        `SELECT DISTINCT animal_id
+         FROM treatments
+         WHERE animal_id IN (${placeholders}) AND treatment_type IN ('arrived', 'intake')`,
+        animalIds,
+      ),
+      db.getAll<{ id: string; label: string }>(
+        `SELECT id, label FROM animal_statuses WHERE org_id = ? AND archived = 0`,
+        [orgId],
+      ),
+    ])
+
+    if (!statuses || statuses.length === 0) return animals
+
+    const statusByLowerLabel = new Map<string, { id: string; label: string }>()
+    for (const s of statuses) {
+      if (s.label) {
+        statusByLowerLabel.set(s.label.trim().toLowerCase(), s)
+      }
+    }
+
+    const latestStatusNoteByAnimal = new Map<string, string>()
+    for (const t of statusTreatments ?? []) {
+      if (!latestStatusNoteByAnimal.has(t.animal_id) && t.notes?.trim()) {
+        latestStatusNoteByAnimal.set(t.animal_id, t.notes.trim())
+      }
+    }
+
+    const hasArrivalSet = new Set((arrivalRows ?? []).map((r) => r.animal_id))
+    const intakeStatus = statusByLowerLabel.get('intake')
+
+    return animals.map((animal) => {
+      const latestNote = latestStatusNoteByAnimal.get(animal.id)
+      if (latestNote) {
+        const candidateLabel = latestNote.includes(' - ')
+          ? latestNote.split(' - ')[0]!.trim()
+          : latestNote.trim()
+        const matched = statusByLowerLabel.get(candidateLabel.toLowerCase())
+        if (matched && animal.status_id !== matched.id) {
+          void setSingleStatusAssignment(db, {
+            orgId,
+            animalId: animal.id,
+            statusId: matched.id,
+          }).catch(() => {})
+          return {
+            ...animal,
+            status_id: matched.id,
+            status_label: matched.label,
+            status_labels: [matched.label],
+          }
+        }
+      } else if (
+        hasArrivalSet.has(animal.id) &&
+        intakeStatus &&
+        animal.status_label?.trim().toLowerCase() === 'quarantine' &&
+        animal.status_id !== intakeStatus.id
+      ) {
+        void setSingleStatusAssignment(db, {
+          orgId,
+          animalId: animal.id,
+          statusId: intakeStatus.id,
+        }).catch(() => {})
+        return {
+          ...animal,
+          status_id: intakeStatus.id,
+          status_label: intakeStatus.label,
+          status_labels: [intakeStatus.label],
+        }
+      }
+      return animal
+    })
+  } catch {
+    return animals
+  }
+}
+
 export async function searchAnimals(
   db: SanctuaryDb,
   orgId: string,
@@ -209,21 +326,13 @@ export async function searchAnimals(
 
   const statusIds = [...new Set(filters.statusIds ?? [])]
   if (statusIds.length > 0) {
-    const placeholders = statusIds.map(() => '?').join(', ')
-    const matchAll =
-      filters.statusMode === 'all'
-        ? ` GROUP BY asa.animal_id
-            HAVING COUNT(DISTINCT asa.status_id) = ?`
-        : ''
-    clauses.push(
-      `a.id IN (
-        SELECT asa.animal_id
-        FROM animal_status_assignments asa
-        WHERE asa.status_id IN (${placeholders})${matchAll}
-      )`,
-    )
-    params.push(...statusIds)
-    if (filters.statusMode === 'all') params.push(statusIds.length)
+    if (filters.statusMode === 'all' && statusIds.length > 1) {
+      clauses.push('1 = 0')
+    } else {
+      const placeholders = statusIds.map(() => '?').join(', ')
+      clauses.push(`a.status_id IN (${placeholders})`)
+      params.push(...statusIds)
+    }
   }
   if (filters.species?.trim()) {
     clauses.push('LOWER(a.species) = LOWER(?)')
@@ -254,26 +363,12 @@ export async function searchAnimals(
   )
   if (rows.length === 0) return []
 
-  const placeholders = rows.map(() => '?').join(', ')
-  const labels = await db.getAll<{ animal_id: string; label: string }>(
-    `SELECT asa.animal_id, s.label
-     FROM animal_status_assignments asa
-     JOIN animal_statuses s ON s.id = asa.status_id
-     WHERE asa.animal_id IN (${placeholders})
-     ORDER BY s.sort_order ASC, s.label ASC, s.id ASC`,
-    rows.map((row) => row.id),
-  )
-  const labelsByAnimal = new Map<string, string[]>()
-  for (const assignment of labels) {
-    const animalLabels = labelsByAnimal.get(assignment.animal_id) ?? []
-    animalLabels.push(assignment.label)
-    labelsByAnimal.set(assignment.animal_id, animalLabels)
-  }
-
-  return rows.map((row) => ({
+  const enriched = rows.map((row) => ({
     ...row,
-    status_labels: labelsByAnimal.get(row.id) ?? [],
+    status_labels: row.status_label ? [row.status_label] : [],
   }))
+
+  return reconcileAnimalsWithTimelineStatuses(db, orgId, enriched)
 }
 
 export async function getAnimal(
@@ -289,11 +384,17 @@ export async function getAnimal(
   )
   if (!animal) return null
 
-  const assignments = await listAssignmentsForAnimal(db, id)
-  return {
+  const enriched: AnimalWithStatus = {
     ...animal,
-    status_labels: assignments.map((assignment) => assignment.label),
+    status_labels: animal.status_label ? [animal.status_label] : [],
   }
+  if (!animal.org_id) return enriched
+  const [reconciled] = await reconcileAnimalsWithTimelineStatuses(
+    db,
+    animal.org_id,
+    [enriched],
+  )
+  return reconciled ?? enriched
 }
 
 export async function updateAnimalStatus(
@@ -437,19 +538,8 @@ export async function countInCare(
   const row = await db.getOptional<{ n: number }>(
     `SELECT COUNT(*) as n
      FROM animals a
-     WHERE a.org_id = ? AND a.archived = 0
-       AND EXISTS (
-         SELECT 1
-         FROM animal_status_assignments asa
-         JOIN animal_statuses s ON s.id = asa.status_id
-         WHERE asa.animal_id = a.id AND s.counts_as_in_care = 1
-       )
-       AND NOT EXISTS (
-         SELECT 1
-         FROM animal_status_assignments asa
-         JOIN animal_statuses s ON s.id = asa.status_id
-         WHERE asa.animal_id = a.id AND s.counts_as_in_care = 0
-       )`,
+     JOIN animal_statuses s ON s.id = a.status_id
+     WHERE a.org_id = ? AND a.archived = 0 AND s.counts_as_in_care = 1`,
     [orgId],
   )
   return row?.n ?? 0
@@ -473,12 +563,11 @@ export async function countAnimalsByStatus(
     sort_order: number | null
     n: number
   }>(
-    `SELECT asa.status_id, s.label, s.sort_order, COUNT(*) as n
+    `SELECT a.status_id, s.label, s.sort_order, COUNT(*) as n
      FROM animals a
-     JOIN animal_status_assignments asa ON asa.animal_id = a.id
-     JOIN animal_statuses s ON s.id = asa.status_id
+     JOIN animal_statuses s ON s.id = a.status_id
      WHERE a.org_id = ? AND a.archived = 0
-     GROUP BY asa.status_id, s.label, s.sort_order
+     GROUP BY a.status_id, s.label, s.sort_order
      ORDER BY COALESCE(s.sort_order, 999), s.label ASC`,
     [orgId],
   )

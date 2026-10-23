@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { saveReportsScrollPosition } from '@/shared/lib/scroll'
 import type { RescueReport } from '@/features/reports/domain/rescueReports'
 
 export type ReportTimelineCardProps = {
@@ -20,7 +21,12 @@ function formatCardTime(isoString?: string | null): { timeStr: string; relStr: s
 
   const now = Date.now()
   const diffMs = now - d.getTime()
-  const diffMinutes = Math.max(0, Math.floor(diffMs / (60 * 1000)))
+
+  if (diffMs < 0) {
+    return { timeStr, relStr: '' }
+  }
+
+  const diffMinutes = Math.floor(diffMs / (60 * 1000))
   const diffHours = Math.floor(diffMinutes / 60)
   const diffDays = Math.floor(diffHours / 24)
 
@@ -31,8 +37,14 @@ function formatCardTime(isoString?: string | null): { timeStr: string; relStr: s
     relStr = `${diffMinutes}m ago`
   } else if (diffHours < 24) {
     relStr = `${diffHours}h ago`
-  } else {
+  } else if (diffDays < 30) {
     relStr = `${diffDays}d ago`
+  } else if (diffDays < 365) {
+    const months = Math.floor(diffDays / 30)
+    relStr = `${months}mo ago`
+  } else {
+    const years = Math.floor(diffDays / 365)
+    relStr = `${years}y ago`
   }
 
   return { timeStr, relStr }
@@ -109,7 +121,7 @@ export function ReportTimelineCard({ report }: ReportTimelineCardProps) {
   const speciesDisplay = report.species ? report.species.toUpperCase() : 'OTHER'
 
   return (
-    <div className="timeline-item-row">
+    <div className="timeline-item-row" id={`report-card-${report.id}`}>
       <div className="timeline-item-time">
         <span className="timeline-time-val">{timeStr}</span>
         <span className="timeline-time-rel">{relStr}</span>
@@ -118,10 +130,14 @@ export function ReportTimelineCard({ report }: ReportTimelineCardProps) {
         className="report-card-clickable"
         role="button"
         tabIndex={0}
-        onClick={() => navigate(`/reports/${report.id}`)}
+        onClick={() => {
+          saveReportsScrollPosition(report.id)
+          navigate(`/reports/${report.id}`)
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
+            saveReportsScrollPosition(report.id)
             navigate(`/reports/${report.id}`)
           }
         }}

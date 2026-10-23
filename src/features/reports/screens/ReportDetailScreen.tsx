@@ -102,10 +102,11 @@ export function ReportDetailScreen() {
         const released = statuses.find((s) => s.label.toLowerCase() === 'released')
         targetStatusId = released?.id ?? statuses[0]?.id ?? null
       } else {
-        const inCare = statuses.find(
-          (s) => s.label.toLowerCase() === 'intake' || s.counts_as_in_care === 1,
-        )
-        targetStatusId = inCare?.id ?? statuses[0]?.id ?? null
+        const intake =
+          statuses.find((s) => !s.archived && s.label.trim().toLowerCase() === 'intake') ??
+          statuses.find((s) => !s.archived && s.counts_as_in_care === 1) ??
+          statuses[0]
+        targetStatusId = intake?.id ?? null
       }
     } catch (err) {
       console.warn('Could not load statuses for report animal intake', err)
@@ -296,9 +297,26 @@ export function ReportDetailScreen() {
 
   if (loading) {
     return (
-      <div className="reports-screen">
+      <div className="reports-screen" aria-busy="true">
         <div className="reports-detail-wrap">
-          <p className="loading-state">Loading rescue report…</p>
+          <div className="case-detail-topbar">
+            <Link to="/reports" className="back-link">
+              <ArrowLeft size={18} weight="bold" aria-hidden />
+              <span>Reports</span>
+            </Link>
+            <div className="skeleton" style={{ width: '9rem', height: '2.75rem' }} />
+          </div>
+          <div className="case-detail-header-unboxed">
+            <div className="skeleton" style={{ width: '10rem', height: '2.25rem' }} />
+            <div className="skeleton" style={{ width: '8rem', height: '1.75rem', borderRadius: '999px' }} />
+          </div>
+          <div className="skeleton" style={{ width: '100%', height: '5rem', marginBottom: '1.25rem' }} />
+          <div className="report-facts-grid">
+            <div className="skeleton" style={{ height: '11rem' }} />
+            <div className="skeleton" style={{ height: '11rem' }} />
+            <div className="skeleton" style={{ height: '9rem' }} />
+            <div className="skeleton" style={{ height: '9rem' }} />
+          </div>
         </div>
       </div>
     )
@@ -686,32 +704,19 @@ export function ReportDetailScreen() {
                     <span className="btn-text-mobile">Profile &rarr;</span>
                   </Link>
                 ) : (
-                  <button
-                    type="button"
-                    className="btn-brand-amber btn-main pressable"
-                    onClick={async () => {
-                      setActionLoading(true)
-                      try {
-                        const animalId = await createAnimalFromReport('admitted_shelter')
-                        await completeReportWithDisposition(
-                          db,
-                          report.id,
-                          'admitted_shelter',
-                          animalId,
-                        )
-                        await loadReport()
-                      } catch (err) {
-                        console.error('Failed to create animal profile', err)
-                      } finally {
-                        setActionLoading(false)
-                      }
+                  <div
+                    className="btn-brand-amber btn-main"
+                    style={{
+                      cursor: 'default',
+                      opacity: 0.9,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
                     }}
-                    disabled={actionLoading}
                   >
-                    <HouseSimple size={16} weight="bold" aria-hidden />
-                    <span className="btn-text-full">Open Profile &rarr;</span>
-                    <span className="btn-text-mobile">Profile &rarr;</span>
-                  </button>
+                    <CheckCircle size={16} weight="bold" aria-hidden />
+                    <span>Case Attended</span>
+                  </div>
                 )}
                 <button
                   type="button"
@@ -725,6 +730,33 @@ export function ReportDetailScreen() {
                 </button>
                 {isDropdownOpen && (
                   <div className="dropdown-menu is-open">
+                    {!report.animal_id && (
+                      <button
+                        type="button"
+                        className="dropdown-item"
+                        onClick={async () => {
+                          setIsDropdownOpen(false)
+                          setActionLoading(true)
+                          try {
+                            const animalId = await createAnimalFromReport('admitted_shelter')
+                            await completeReportWithDisposition(
+                              db,
+                              report.id,
+                              'admitted_shelter',
+                              animalId,
+                            )
+                            await loadReport()
+                          } catch (err) {
+                            console.error('Failed to create animal profile', err)
+                          } finally {
+                            setActionLoading(false)
+                          }
+                        }}
+                      >
+                        <HouseSimple size={15} weight="bold" aria-hidden />
+                        <span>Admit to shelter</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="dropdown-item"

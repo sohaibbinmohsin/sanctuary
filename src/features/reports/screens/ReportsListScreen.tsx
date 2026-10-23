@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, useDeferredValue } from 'react'
+import { useEffect, useState, useMemo, useCallback, useDeferredValue, useRef } from 'react'
 import { Plus, MagnifyingGlass, X, MegaphoneSimple } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
@@ -7,11 +7,21 @@ import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import {
   getRescueReports,
+  getRescueOperationsSummary,
   type RescueReport,
   type RescueReportFilter,
+  type RescueOperationsSummary,
 } from '@/features/reports/domain/rescueReports'
 import { ReportTimelineCard } from '@/features/reports/components/ReportTimelineCard'
 import { localDateString } from '@/shared/lib/checklist/missedStreak'
+import {
+  getReportsScrollPosition,
+  getLastClickedReportId,
+  clearReportsScrollPosition,
+  saveReportsScrollPosition,
+  getAppScrollTop,
+  setAppScrollTop,
+} from '@/shared/lib/scroll'
 import '@/features/reports/reports.css'
 
 type FilterKey = 'all' | 'new' | 'in_progress' | 'completed'
@@ -37,22 +47,70 @@ function getDayHeaderLabel(dateStr: string, todayStr: string, yesterdayStr: stri
   })
 }
 
+const PAGE_BATCH_SIZE = 60
+
 export function ReportsListScreen() {
   const db = useDb()
   const { member } = useCurrentMember()
   const [reports, setReports] = useState<RescueReport[]>([])
+  const [summary, setSummary] = useState<RescueOperationsSummary | null>(null)
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const deferredQuery = useDeferredValue(searchQuery)
+  const [displayLimit, setDisplayLimit] = useState(PAGE_BATCH_SIZE)
   const [loading, setLoading] = useState(true)
+  const scrollRestoredRef = useRef(false)
+  const defaultSelectedRef = useRef(false)
+  const sentinelRef = useRef<HTMLDivElement>(null)
 
   const orgId = member?.orgId ?? ''
+
+  // Track scroll position while browsing reports
+  useEffect(() => {
+    const handleScroll = () => {
+      const top = getAppScrollTop()
+      if (top > 0) {
+        saveReportsScrollPosition()
+      }
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    const shellBody = document.querySelector('.app-shell__body')
+    shellBody?.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      shellBody?.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
 
   const fetchReports = useCallback(async () => {
     if (!db || !orgId) return
     setLoading(true)
     try {
-      const data = await getRescueReports(db, orgId, activeFilter as RescueReportFilter)
+      let targetFilter = activeFilter
+
+      // Option 2 (Smart Operational Default):
+      // On initial load, inspect counts: prioritize New reports, then In Progress, else All
+      if (!defaultSelectedRef.current) {
+        defaultSelectedRef.current = true
+        const sum = await getRescueOperationsSummary(db, orgId)
+        setSummary(sum)
+        if (sum.awaitingTriage > 0) {
+          targetFilter = 'new'
+        } else if (sum.inField > 0) {
+          targetFilter = 'in_progress'
+        } else {
+          targetFilter = 'all'
+        }
+
+        if (targetFilter !== activeFilter) {
+          setActiveFilter(targetFilter)
+          return
+        }
+      } else {
+        void getRescueOperationsSummary(db, orgId).then(setSummary).catch(() => {})
+      }
+
+      const data = await getRescueReports(db, orgId, targetFilter as RescueReportFilter)
       setReports(data)
     } catch (err) {
       console.error('Failed to load rescue reports', err)
@@ -88,6 +146,95 @@ export function ReportsListScreen() {
     })
   }, [reports, deferredQuery])
 
+  // Reset display limit when query or filter changes
+  useEffect(() => {
+    setDisplayLimit(PAGE_BATCH_SIZE)
+  }, [deferredQuery, activeFilter])
+
+  // Restore scroll position when returning to the reports list
+  useEffect(() => {
+    if (loading || filteredReports.length === 0 || scrollRestoredRef.current) return
+
+    const targetId = getLastClickedReportId()
+    const savedTop = getReportsScrollPosition()
+
+    if (!targetId && (!savedTop || savedTop <= 0)) return
+
+    // If target report is outside current batch limit, expand limit so the DOM element exists
+    if (targetId) {
+      const targetIndex = filteredReports.findIndex((r) => r.id === targetId)
+      if (targetIndex >= 0 && targetIndex >= displayLimit) {
+        setDisplayLimit(Math.ceil((targetIndex + 10) / PAGE_BATCH_SIZE) * PAGE_BATCH_SIZE)
+      }
+    }
+
+    scrollRestoredRef.current = true
+
+    let attempts = 0
+    const maxAttempts = 12
+
+    const tryRestore = () => {
+      attempts += 1
+      let done = false
+
+      if (targetId) {
+        const el = document.getElementById(`report-card-${targetId}`)
+        if (el) {
+          if (typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior })
+          }
+          if (savedTop && savedTop > 0 && getAppScrollTop() === 0) {
+            setAppScrollTop(savedTop)
+          }
+          done = true
+        }
+      }
+
+      if (!done && savedTop && savedTop > 0) {
+        setAppScrollTop(savedTop)
+        if (Math.abs(getAppScrollTop() - savedTop) < 30) {
+          done = true
+        }
+      }
+
+      if (done || attempts >= maxAttempts) {
+        clearReportsScrollPosition()
+      } else {
+        setTimeout(tryRestore, 40)
+      }
+    }
+
+    requestAnimationFrame(() => {
+      tryRestore()
+    })
+  }, [loading, filteredReports, displayLimit])
+
+  // Sliced reports for high-performance DOM rendering
+  const visibleReports = useMemo(() => {
+    return filteredReports.slice(0, displayLimit)
+  }, [filteredReports, displayLimit])
+
+  // Automatically increment batch limit as user approaches bottom
+  useEffect(() => {
+    if (visibleReports.length >= filteredReports.length) return
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    if (typeof IntersectionObserver === 'undefined') return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setDisplayLimit((prev) => Math.min(filteredReports.length, prev + PAGE_BATCH_SIZE))
+        }
+      },
+      { rootMargin: '400px' },
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [visibleReports.length, filteredReports.length])
+
   // Compute date strings for grouping
   const { todayStr, yesterdayStr } = useMemo(() => {
     const now = new Date()
@@ -98,12 +245,12 @@ export function ReportsListScreen() {
     return { todayStr: today, yesterdayStr: yesterday }
   }, [])
 
-  // Group reports chronologically by day
+  // Group visible reports chronologically by day
   const groupedReports = useMemo(() => {
     const groups: { dateStr: string; label: string; reports: RescueReport[] }[] = []
     const groupMap = new Map<string, RescueReport[]>()
 
-    for (const report of filteredReports) {
+    for (const report of visibleReports) {
       const d = report.created_at ? new Date(report.created_at) : null
       const dayKey = d && !Number.isNaN(d.getTime()) ? localDateString(d) : 'Unknown'
       if (!groupMap.has(dayKey)) {
@@ -121,7 +268,7 @@ export function ReportsListScreen() {
     }
 
     return groups
-  }, [filteredReports, todayStr, yesterdayStr])
+  }, [visibleReports, todayStr, yesterdayStr])
 
   const hasSearchOrFilter = Boolean(searchQuery.trim() || activeFilter !== 'all')
 
@@ -139,7 +286,7 @@ export function ReportsListScreen() {
         title="Reports"
         subtitle={subtitle}
         actions={
-          reports.length > 0 || hasSearchOrFilter ? (
+          filteredReports.length > 0 ? (
             <Button to="/reports/new" variant="accent">
               <Plus size={18} weight="bold" />
               <span>Log report</span>
@@ -172,20 +319,43 @@ export function ReportsListScreen() {
       </div>
 
       <div className="reports-status-filter" role="group" aria-label="Report status filter" style={{ marginBottom: '1.25rem' }}>
-        {FILTER_CONFIG.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            className={`chip${activeFilter === key ? ' chip--active' : ''}`}
-            aria-pressed={activeFilter === key}
-            onClick={() => setActiveFilter(key)}
-          >
-            {label}
-          </button>
-        ))}
+        {FILTER_CONFIG.map(({ key, label }) => {
+          const count =
+            key === 'new'
+              ? (summary?.awaitingTriage ?? 0)
+              : key === 'in_progress'
+                ? (summary?.inField ?? 0)
+                : 0
+
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`chip${activeFilter === key ? ' chip--active' : ''}`}
+              aria-pressed={activeFilter === key}
+              onClick={() => {
+                defaultSelectedRef.current = true
+                setActiveFilter(key)
+              }}
+            >
+              <span>{label}</span>
+              {count > 0 && <span className="chip-counter">{count}</span>}
+            </button>
+          )
+        })}
       </div>
 
-      {!loading && filteredReports.length === 0 ? (
+      {loading && reports.length === 0 ? (
+        <div className="timeline-reports-feed" id="reports-timeline-container" aria-busy="true">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="skeleton"
+              style={{ height: '4.5rem', marginBottom: '0.65rem' }}
+            />
+          ))}
+        </div>
+      ) : !loading && filteredReports.length === 0 ? (
         <EmptyState
           icon={<MegaphoneSimple size={28} weight="duotone" />}
           title={hasSearchOrFilter ? 'No matches' : 'No reports yet'}
@@ -194,8 +364,8 @@ export function ReportsListScreen() {
               ? 'Try a different search or clear your filter.'
               : 'Triage incoming citizen reports & dispatch field teams.'
           }
-          actionLabel={hasSearchOrFilter ? undefined : 'Log report'}
-          actionTo={hasSearchOrFilter ? undefined : '/reports/new'}
+          actionLabel="Log report"
+          actionTo="/reports/new"
         />
       ) : (
         <div className="timeline-reports-feed" id="reports-timeline-container">
@@ -209,8 +379,35 @@ export function ReportsListScreen() {
               </div>
             </div>
           ))}
+
+          {visibleReports.length < filteredReports.length && (
+            <div
+              ref={sentinelRef}
+              className="timeline-load-more"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '1.25rem 0 2rem',
+                gap: '0.5rem',
+              }}
+            >
+              <button
+                type="button"
+                className="chip"
+                onClick={() =>
+                  setDisplayLimit((prev) => Math.min(filteredReports.length, prev + PAGE_BATCH_SIZE))
+                }
+                style={{ cursor: 'pointer', padding: '0.45rem 1rem' }}
+              >
+                Load more ({filteredReports.length - visibleReports.length} remaining)
+              </button>
+            </div>
+          )}
         </div>
       )}
     </section>
   )
 }
+

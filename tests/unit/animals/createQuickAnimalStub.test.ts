@@ -21,7 +21,6 @@ function createMockDb(): SanctuaryDb {
       { id: 'st-2', org_id: 'org-1', label: 'Adopted', counts_as_in_care: 0, sort_order: 2, archived: 0 },
     ],
     treatments: [],
-    animal_status_assignments: [],
     photos: [],
     local_photo_cache: [],
   }
@@ -39,9 +38,6 @@ function createMockDb(): SanctuaryDb {
           result = result.filter((s) => ids.includes(s.id))
         }
         return result as T[]
-      }
-      if (normalized.includes('FROM animal_status_assignments')) {
-        return tables.animal_status_assignments.filter((a) => a.animal_id === params[0]) as T[]
       }
       return []
     },
@@ -73,8 +69,6 @@ function createMockDb(): SanctuaryDb {
         })
       } else if (query.includes('INSERT INTO photos')) {
         tables.photos.push({ id: params[0], org_id: params[1], animal_id: params[2] })
-      } else if (query.includes('INSERT INTO animal_status_assignments')) {
-        tables.animal_status_assignments.push({ id: params[0], org_id: params[1], animal_id: params[2], status_id: params[3] })
       }
     },
     async writeTransaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {

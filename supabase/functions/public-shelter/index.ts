@@ -146,7 +146,6 @@ Deno.serve(async (req) => {
 
     const [
       { data: animalsRaw, error: animalsError },
-      { data: assignmentsRaw, error: assignmentsError },
       { data: ledgerRaw, error: ledgerError },
     ] = await Promise.all([
       admin
@@ -154,21 +153,13 @@ Deno.serve(async (req) => {
         .select(
           `
               id, shelter_code, name, species, sex, markings, archived, intake_date,
+              status:animal_statuses ( label, sort_order, counts_as_in_care ),
               photos ( id, r2_key, verified ),
               treatments ( id, treated_at, treatment_type, notes, hide_from_public )
             `,
         )
         .eq('org_id', org.id)
         .eq('archived', false),
-      admin
-        .from('animal_status_assignments')
-        .select(
-          `
-              animal_id,
-              status:animal_statuses!inner ( label, sort_order, counts_as_in_care )
-            `,
-        )
-        .eq('org_id', org.id),
       admin
         .from('ledger_entries')
         .select('id, direction, amount_cents, currency, entry_date, notes, animal_id, is_anonymous, hide_from_public, category:ledger_categories!ledger_entries_category_id_fkey ( label )')
@@ -177,7 +168,6 @@ Deno.serve(async (req) => {
     ])
 
     if (animalsError) throw animalsError
-    if (assignmentsError) throw assignmentsError
     if (ledgerError) throw ledgerError
 
     const r2PublicBase = Deno.env.get('R2_PUBLIC_BASE_URL') ?? ''
@@ -191,6 +181,11 @@ Deno.serve(async (req) => {
       markings: string | null
       archived: boolean
       intake_date: string | null
+      status: {
+        label: string
+        sort_order: number
+        counts_as_in_care: boolean
+      } | null
       photos: { id: string; r2_key: string | null; verified: boolean }[] | null
       treatments:
         | {
@@ -203,38 +198,9 @@ Deno.serve(async (req) => {
         | null
     }
 
-    type AssignmentRow = {
-      animal_id: string
-      status: {
-        label: string
-        sort_order: number
-        counts_as_in_care: boolean
-      }
-    }
-
-    const assignmentsByAnimal = new Map<string, AssignmentRow['status'][]>
-    for (const assignment of (assignmentsRaw ?? []) as unknown as AssignmentRow[]) {
-      const existing = assignmentsByAnimal.get(assignment.animal_id) ?? []
-      existing.push(assignment.status)
-      assignmentsByAnimal.set(assignment.animal_id, existing)
-    }
-    for (const statuses of assignmentsByAnimal.values()) {
-      statuses.sort(
-        (a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label),
-      )
-    }
-
     const animals = ((animalsRaw ?? []) as unknown as AnimalRow[])
-      .filter((row) => {
-        const statuses = assignmentsByAnimal.get(row.id) ?? []
-        return (
-          !row.archived &&
-          statuses.some((status) => status.counts_as_in_care) &&
-          !statuses.some((status) => !status.counts_as_in_care)
-        )
-      })
+      .filter((row) => !row.archived && Boolean(row.status?.counts_as_in_care))
       .map((row) => {
-        const statuses = assignmentsByAnimal.get(row.id) ?? []
         const care = (row.treatments ?? [])
           .filter((treatment) => treatment.hide_from_public !== true)
           .map((treatment) => ({
@@ -268,7 +234,7 @@ Deno.serve(async (req) => {
           species: row.species,
           sex: row.sex,
           markings: row.markings,
-          statusLabel: statuses.map((status) => status.label).join(', '),
+          statusLabel: row.status?.label ?? '',
           photos: (row.photos ?? [])
             .map((photo) => ({
               id: photo.id,

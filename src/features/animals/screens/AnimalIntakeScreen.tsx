@@ -43,6 +43,16 @@ export function splitSpecies(species: string | null | undefined): {
   return { preset: 'Other', other: value }
 }
 
+function pickDefaultIntakeStatusId(rows: readonly AnimalStatus[]): string | null {
+  const active = rows.filter((s) => !s.archived)
+  const pool = active.length > 0 ? active : rows
+  const intake = pool.find((s) => s.label?.trim().toLowerCase() === 'intake')
+  if (intake) return intake.id
+  const firstInCare = pool.find((s) => s.counts_as_in_care === 1)
+  if (firstInCare) return firstInCare.id
+  return pool[0]?.id ?? null
+}
+
 export function AnimalIntakeScreen() {
   const { id: animalId } = useParams<{ id: string }>()
   const isEdit = Boolean(animalId)
@@ -126,9 +136,9 @@ export function AnimalIntakeScreen() {
     if (!db || !member || isEdit) return
     void listStatuses(db, member.orgId).then((rows) => {
       setStatuses(rows)
-      const firstInCare = rows.find((row) => row.counts_as_in_care === 1)
-      if (firstInCare) {
-        setStatusId((current) => current ?? firstInCare.id)
+      const defaultStatusId = pickDefaultIntakeStatusId(rows)
+      if (defaultStatusId) {
+        setStatusId((current) => current ?? defaultStatusId)
       }
     })
   }, [db, member, isEdit])
@@ -217,19 +227,10 @@ export function AnimalIntakeScreen() {
         navigate(`/animals/${animalId}`, { replace: true })
         return
       }
-      let effectiveStatusId = statusId
-      if (!effectiveStatusId) {
-        const firstInCare = statuses.find(
-          (row) => row.counts_as_in_care === 1 || row.label.toLowerCase() === 'intake',
-        ) ?? statuses[0]
-        effectiveStatusId = firstInCare?.id ?? null
-      }
+      let effectiveStatusId = statusId ?? pickDefaultIntakeStatusId(statuses)
       if (!effectiveStatusId) {
         const rows = await listStatuses(db, member.orgId)
-        const firstInCare = rows.find(
-          (row) => row.counts_as_in_care === 1 || row.label.toLowerCase() === 'intake',
-        ) ?? rows[0]
-        effectiveStatusId = firstInCare?.id ?? null
+        effectiveStatusId = pickDefaultIntakeStatusId(rows)
       }
       if (!effectiveStatusId) {
         throw new Error('Could not find intake status.')

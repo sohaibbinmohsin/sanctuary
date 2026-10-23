@@ -70,3 +70,49 @@ export function clearAnimalsScrollPosition(): void {
     /* ignore */
   }
 }
+
+const REPORTS_SCROLL_KEY = 'sanctuary:scroll:/reports'
+const LAST_REPORT_ID_KEY = 'sanctuary:scroll:last_report_id'
+
+export function saveReportsScrollPosition(reportId?: string): void {
+  try {
+    const top = getAppScrollTop()
+    if (top > 0) {
+      sessionStorage.setItem(REPORTS_SCROLL_KEY, String(top))
+    }
+    if (reportId) {
+      sessionStorage.setItem(LAST_REPORT_ID_KEY, reportId)
+    }
+  } catch {
+    /* ignore session storage restrictions */
+  }
+}
+
+export function getReportsScrollPosition(): number | null {
+  try {
+    const saved = sessionStorage.getItem(REPORTS_SCROLL_KEY)
+    if (!saved) return null
+    const top = Number(saved)
+    return Number.isFinite(top) ? top : null
+  } catch {
+    return null
+  }
+}
+
+export function getLastClickedReportId(): string | null {
+  try {
+    return sessionStorage.getItem(LAST_REPORT_ID_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function clearReportsScrollPosition(): void {
+  try {
+    sessionStorage.removeItem(REPORTS_SCROLL_KEY)
+    sessionStorage.removeItem(LAST_REPORT_ID_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+

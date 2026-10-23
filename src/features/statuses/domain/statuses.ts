@@ -39,6 +39,23 @@ export function isRequiredStatus(label: string): boolean {
   return REQUIRED_STATUS_LABELS.includes(lower)
 }
 
+export function pickDefaultIntakeStatusId(
+  statuses: readonly Pick<
+    AnimalStatus,
+    'id' | 'label' | 'counts_as_in_care' | 'archived'
+  >[],
+): string | null {
+  const active = statuses.filter((s) => !s.archived)
+  const pool = active.length > 0 ? active : statuses
+  const intake = pool.find(
+    (s) => s.label && s.label.trim().toLowerCase() === 'intake',
+  )
+  if (intake) return intake.id
+  const firstInCare = pool.find((s) => s.counts_as_in_care === 1)
+  if (firstInCare) return firstInCare.id
+  return pool[0]?.id ?? null
+}
+
 export async function ensureRequiredStatuses(
   db: SanctuaryDb,
   orgId: string,
