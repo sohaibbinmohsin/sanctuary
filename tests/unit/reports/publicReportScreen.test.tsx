@@ -138,6 +138,7 @@ describe('PublicReportScreen', () => {
     expect(keys.length).toBeGreaterThan(0)
     expect(cached[keys[0]!].chief_complaint).toBe('Hit by motorcycle')
     expect(cached[keys[0]!].location_area).toBe('DHA Phase 5')
+    expect(cached[keys[0]!].photos).toBeDefined()
   })
 
   it('traps automated bot submissions with honeypot and redirects to dummy track', async () => {

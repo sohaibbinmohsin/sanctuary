@@ -5,6 +5,7 @@ import { useDb } from '@/shared/hooks/useDb'
 import {
   generateReportNumber,
   createRescueReport,
+  addReportPhoto,
 } from '@/features/reports/domain/rescueReports'
 import {
   useReportDraft,
@@ -116,12 +117,32 @@ export function PublicReportScreen() {
             intakeSource: 'citizen',
             animalCount: draft.animalCount,
           })
+          if (savedReport && photos.length > 0) {
+            for (const item of photos) {
+              if (item.blob) {
+                try {
+                  await addReportPhoto(db, {
+                    orgId: 'sanctuary-public',
+                    reportId: savedReport.id,
+                    blob: item.blob,
+                  })
+                } catch (photoErr) {
+                  console.warn('Could not attach photo to report:', photoErr)
+                }
+              }
+            }
+          }
         } catch (dbErr) {
           console.warn('Could not persist report to local database:', dbErr)
         }
       }
 
       const now = new Date().toISOString()
+      const photoPayload = photos.map((p) => ({
+        id: p.id,
+        url: p.url,
+      }))
+
       const fallbackReport = {
         id: crypto.randomUUID(),
         org_id: 'sanctuary-public',
@@ -141,12 +162,16 @@ export function PublicReportScreen() {
         reporter_cnic: draft.reporterCnic || null,
         intake_source: 'citizen',
         animal_count: draft.animalCount,
+        photos: photoPayload,
         stage_logged_at: now,
         created_at: now,
         updated_at: now,
       }
 
-      const reportToCache = savedReport || fallbackReport
+      const reportToCache = {
+        ...(savedReport || fallbackReport),
+        photos: photoPayload,
+      }
 
       try {
         const raw = localStorage.getItem('sanctuary_public_reports_v1')

@@ -11,6 +11,7 @@ import {
   ShareNetwork,
 } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
+import { getLocalPhoto } from '@/features/photos/domain/photos'
 import { maskPhoneNumber, maskCnic } from '@/features/reports/domain/privacyMask'
 import { useReportTrackSeo } from '@/features/reports/domain/reportSeo'
 import '@/features/reports/publicReport.css'
@@ -141,10 +142,24 @@ export function PublicReportTrackScreen() {
           }
 
           if (fetchedReport?.id && typeof db.getAll === 'function') {
-            fetchedPhotos = await db.getAll(
+            const rawDbPhotos = await db.getAll<any>(
               'SELECT * FROM report_photos WHERE report_id = ? ORDER BY created_at ASC',
               [fetchedReport.id]
             )
+            if (Array.isArray(rawDbPhotos) && rawDbPhotos.length > 0) {
+              const resolved = []
+              for (const p of rawDbPhotos) {
+                try {
+                  const blob = await getLocalPhoto(p.id)
+                  if (blob) {
+                    resolved.push({ ...p, url: URL.createObjectURL(blob) })
+                    continue
+                  }
+                } catch {}
+                resolved.push(p)
+              }
+              fetchedPhotos = resolved
+            }
           }
         } catch {
           // Fall back to local storage

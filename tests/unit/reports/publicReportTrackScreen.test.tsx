@@ -157,6 +157,32 @@ describe('PublicReportTrackScreen', () => {
     })
   })
 
+  it('renders attached case photos when present', async () => {
+    localStorage.setItem(
+      'sanctuary_public_reports_v1',
+      JSON.stringify({
+        'SANCTUARY-R777': {
+          ...mockReport,
+          report_number: 'SANCTUARY-R777',
+          photos: [
+            { id: 'p1', url: 'https://images.example.com/rescue-dog.jpg' },
+          ],
+        },
+      })
+    )
+    render(
+      <MemoryRouter initialEntries={['/report/track/SANCTUARY-R777']}>
+        <Routes>
+          <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    expect(await screen.findByText(/SANCTUARY-R777/i)).toBeInTheDocument()
+    expect(screen.getByText('Case Photos')).toBeInTheDocument()
+    const img = screen.getByAltText('Case photo 1')
+    expect(img).toHaveAttribute('src', 'https://images.example.com/rescue-dog.jpg')
+  })
+
   it('contains strictly zero em-dashes', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/report/track/SANCTUARY-0142']}>
