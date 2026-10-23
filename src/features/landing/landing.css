@@ -1,4 +1,4 @@
-/* Public marketing landing — scoped under .landing */
+/* Public marketing landing: scoped under .landing */
 
 .landing {
   min-height: 100dvh;
@@ -51,7 +51,7 @@
         margin-inline: auto;
       }
 
-      /* ——— Hero ——— */
+      /* Hero */
       .landing .hero {
         position: relative;
         min-height: 100dvh;
@@ -231,7 +231,153 @@
         outline-offset: 2px;
       }
 
-      /* ——— Intro (phone + thesis, right after hero) ——— */
+      .landing .hero__actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-3);
+        margin-top: var(--space-2);
+      }
+
+      .landing .btn--emergency {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+        background: var(--color-danger);
+        color: var(--color-white);
+        font-family: var(--font-sans);
+        font-weight: 600;
+        box-shadow: 0 12px 32px rgba(180, 35, 24, 0.32);
+        width: fit-content;
+      }
+
+      .landing .btn--emergency:hover, .landing .btn--emergency:focus-visible {
+        filter: brightness(0.92);
+        outline: 2px solid var(--white);
+        outline-offset: 2px;
+      }
+
+      .landing .btn--secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.12);
+        color: var(--white);
+        border: 1px solid rgba(255, 255, 255, 0.32);
+        backdrop-filter: blur(8px);
+        width: fit-content;
+      }
+
+      .landing .btn--secondary:hover, .landing .btn--secondary:focus-visible {
+        background: rgba(255, 255, 255, 0.22);
+        border-color: rgba(255, 255, 255, 0.6);
+        outline: none;
+      }
+
+      /* Stakeholders */
+      .landing .stakeholders {
+        background: var(--surface);
+        padding: 4.5rem 0 5rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .landing .stakeholders__intro {
+        margin-bottom: 2.5rem;
+        max-width: 44rem;
+      }
+
+      .landing .stakeholders__intro .section-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--forest);
+        background: var(--forest-soft);
+        padding: 0.25rem 0.65rem;
+        border-radius: 4px;
+        margin-bottom: 0.85rem;
+      }
+
+      .landing .stakeholders__intro h2 {
+        margin: 0 0 0.75rem;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: clamp(1.85rem, 3.2vw, 2.65rem);
+        letter-spacing: -0.025em;
+        line-height: 1.15;
+        color: var(--ink);
+      }
+
+      .landing .stakeholders__intro p {
+        margin: 0;
+        color: var(--ink-muted);
+        font-size: 1.05rem;
+        line-height: 1.6;
+      }
+
+      .landing .stakeholders__grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+      }
+
+      .landing .stakeholder-card {
+        padding: var(--space-6);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        box-shadow: 0 1px 3px rgba(26, 46, 34, 0.04);
+        transition: transform 180ms var(--ease), box-shadow 180ms var(--ease);
+      }
+
+      .landing .stakeholder-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+      }
+
+      .landing .stakeholder-card__icon-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        border-radius: var(--radius);
+        background: var(--forest-soft);
+        color: var(--forest);
+        margin-bottom: 0.25rem;
+      }
+
+      .landing .stakeholder-card h3 {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: -0.015em;
+        color: var(--ink);
+      }
+
+      .landing .stakeholder-card p {
+        margin: 0;
+        color: var(--ink-muted);
+        font-size: 0.975rem;
+        line-height: 1.55;
+      }
+
+      @media (min-width: 640px) {
+        .landing .stakeholders__grid {
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+      }
+
+      /* Intro (phone + thesis, right after hero) */
       .landing .intro {
         background:
           radial-gradient(ellipse 70% 60% at 18% 40%, rgba(47, 93, 58, 0.1), transparent 55%),
@@ -257,7 +403,7 @@
         position: relative;
         width: min(100%, 12.75rem);
         margin: 0 auto;
-        /* Flat on small screens — 3D tilt re-rasterizes and softens UI text */
+        /* Flat on small screens: 3D tilt re-rasterizes and softens UI text */
         transform: rotate(-2.5deg);
         transform-style: flat;
         border-radius: 1.85rem;
@@ -341,7 +487,7 @@
         z-index: 1;
       }
 
-      /* ——— Features bento ——— */
+      /* Features bento */
       .landing .features {
         background: var(--white);
         padding: 4.5rem 0 5rem;
@@ -436,7 +582,7 @@
         max-width: 38ch;
       }
 
-      /* ——— Offline split ——— */
+      /* Offline split */
       .landing .offline {
         background: var(--mist);
         border-bottom: 1px solid var(--border);
@@ -489,7 +635,7 @@
         max-width: 42ch;
       }
 
-      /* ——— Partners Directory ——— */
+      /* Partners Directory */
       .landing .partners {
         padding: 3.5rem 0 3.75rem;
         background: var(--surface);
@@ -703,7 +849,7 @@
         }
       }
 
-      /* ——— Mohsin ——— */
+      /* Mohsin */
       .landing .mohsin {
         background: var(--mist);
         border-top: 1px solid var(--border);
@@ -780,7 +926,7 @@
         margin-bottom: 1.1rem;
       }
 
-      /* ——— Footer ——— */
+      /* Footer */
       .landing .footer {
         background: var(--ink);
         color: rgba(247, 250, 248, 0.88);
@@ -858,7 +1004,7 @@
         outline: none;
       }
 
-      /* ——— Motion ——— */
+      /* Motion */
       @keyframes landing-fade-up {
         from {
           opacity: 0;
@@ -892,7 +1038,7 @@
         transform: none;
       }
 
-      /* Opacity-only — a parent transform blurs the phone screenshot */
+      /* Opacity-only: a parent transform blurs the phone screenshot */
       .landing .reveal--fade {
         transform: none;
       }
@@ -915,7 +1061,7 @@
         }
       }
 
-      /* ——— Desktop ——— */
+      /* Desktop */
       @media (min-width: 768px) {
         .landing {
           --gutter: 2rem;

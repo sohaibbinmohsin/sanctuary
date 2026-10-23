@@ -1,13 +1,27 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowSquareOut } from '@phosphor-icons/react'
+import {
+  Siren,
+  MegaphoneSimple,
+  Ambulance,
+  HouseLine,
+  FirstAid,
+  ShieldCheck,
+  ArrowSquareOut,
+} from '@phosphor-icons/react'
+import { ReportCaseModal } from '@/features/landing/components/ReportCaseModal'
 import './landing.css'
 
 export function LandingScreen() {
+  const [reportOpen, setReportOpen] = useState(false)
+
   useEffect(() => {
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reduce =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        : false
     const nodes = Array.from(document.querySelectorAll('.landing .reveal'))
-    if (reduce || !('IntersectionObserver' in window)) {
+    if (reduce || typeof window === 'undefined' || !('IntersectionObserver' in window)) {
       nodes.forEach((el) => el.classList.add('is-visible'))
       return
     }
@@ -52,7 +66,7 @@ export function LandingScreen() {
               <div className="topbar__brand-text">
                 <div className="brand">Sanctuary</div>
                 <span className="topbar__subheading">
-                  Animal welfare platform
+                  Animal welfare network
                 </span>
               </div>
             </div>
@@ -64,20 +78,85 @@ export function LandingScreen() {
 
         <div className="hero__content">
           <div className="wrap">
-            <h1>Shelter records, offline and on the go.</h1>
+            <h1>Connecting everyone who protects animals.</h1>
             <p className="lede">
-              Run daily care and money for animal rescues, even without signal.
+              A shared digital backbone for rescuers, shelters, veterinarians, and animal guardians. Report animals in distress, manage daily care, and coordinate rescues, even without internet signal.
             </p>
-            <a
-              className="btn btn--primary"
-              href="/playground"
-              onClick={(e) => {
-                e.preventDefault()
-                window.location.assign('/playground')
-              }}
-            >
-              Try playground
-            </a>
+            <div className="hero__actions">
+              <button
+                type="button"
+                className="btn btn--emergency"
+                onClick={() => setReportOpen(true)}
+              >
+                <Siren size={20} weight="bold" aria-hidden="true" />
+                <span>Report a case</span>
+              </button>
+              <Link className="btn btn--secondary" to="/login">
+                Sign in
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="stakeholders" id="network" aria-labelledby="stakeholders-heading">
+        <div className="wrap">
+          <div className="stakeholders__intro reveal">
+            <span className="section-eyebrow">The Network</span>
+            <h2 id="stakeholders-heading">Built for everyone protecting animals</h2>
+            <p>A shared operational layer connecting every role across animal welfare.</p>
+          </div>
+
+          <div className="stakeholders__grid reveal">
+            <article className="stakeholder-card">
+              <div className="stakeholder-card__icon-badge" aria-hidden="true">
+                <MegaphoneSimple size={24} weight="duotone" />
+              </div>
+              <h3>Citizens and Advocates</h3>
+              <p>
+                Spot an animal in distress and submit a rescue report in seconds with photos and location. No lost chat threads or forgotten cases.
+              </p>
+            </article>
+
+            <article className="stakeholder-card">
+              <div className="stakeholder-card__icon-badge" aria-hidden="true">
+                <Ambulance size={24} weight="duotone" />
+              </div>
+              <h3>Field Rescue Teams</h3>
+              <p>
+                Receive dispatched reports, capture GPS coordinates and field photos on the spot, and work seamlessly without cellular signal.
+              </p>
+            </article>
+
+            <article className="stakeholder-card">
+              <div className="stakeholder-card__icon-badge" aria-hidden="true">
+                <HouseLine size={24} weight="duotone" />
+              </div>
+              <h3>Shelters and Sanctuaries</h3>
+              <p>
+                Manage animal profiles, track daily headcounts, run feeding and medical checklists, and maintain transparent expense records.
+              </p>
+            </article>
+
+            <article className="stakeholder-card">
+              <div className="stakeholder-card__icon-badge" aria-hidden="true">
+                <FirstAid size={24} weight="duotone" />
+              </div>
+              <h3>Veterinarians and Clinics</h3>
+              <p>
+                Record treatments, vaccinations, and recovery milestones with a permanent health history that stays with the animal.
+              </p>
+            </article>
+
+            <article className="stakeholder-card">
+              <div className="stakeholder-card__icon-badge" aria-hidden="true">
+                <ShieldCheck size={24} weight="duotone" />
+              </div>
+              <h3>Pet Guardians and Owners</h3>
+              <p>
+                Keep digital vaccination and medical records in one secure place, with rapid community alerts if a pet ever goes missing.
+              </p>
+            </article>
           </div>
         </div>
       </section>
@@ -111,8 +190,9 @@ export function LandingScreen() {
       <section className="features" id="features" aria-labelledby="features-heading">
         <div className="wrap">
           <div className="features__intro reveal">
-            <h2 id="features-heading">What it does today</h2>
-            <p>Built for daily shelter work: searchable, configurable, and exportable.</p>
+            <span className="section-eyebrow">Platform Strengths</span>
+            <h2 id="features-heading">Built to work where you work</h2>
+            <p>A grounded digital backbone designed for real-world field conditions.</p>
           </div>
 
           <div className="bento reveal">
@@ -124,52 +204,48 @@ export function LandingScreen() {
             </article>
 
             <article className="tile tile--soft tile--animal">
-              <span className="tile__label">ID</span>
-              <h3>Animal records</h3>
+              <span className="tile__label">FIELD AGILITY</span>
+              <h3>Works offline anywhere</h3>
               <p>
-                Intake with auto shelter IDs, photos, species and markings, notes including Urdu,
-                and searchable photo grids for hundreds of animals.
+                Local-first database that functions in basements, rural sanctuaries, and remote roads, syncing automatically when back online.
               </p>
             </article>
 
             <article className="tile tile--status">
-              <span className="tile__label">STATUS</span>
-              <h3>Care status</h3>
+              <span className="tile__label">CARE CHAIN</span>
+              <h3>Connected care chain</h3>
               <p>
-                Configurable stages from intake and quarantine to treatment and life in sanctuary.
+                Seamless handoffs from street report to clinic treatment, shelter rehabilitation, and adoption.
               </p>
             </article>
 
             <article className="tile tile--surface tile--care">
-              <span className="tile__label">CARE</span>
-              <h3>Treatments</h3>
-              <p>Care history on each animal so the next person sees what already happened.</p>
+              <span className="tile__label">RECORDS</span>
+              <h3>Animal health records</h3>
+              <p>Permanent care history on each animal so responders, clinics, and caretakers see what already happened.</p>
             </article>
 
             <article className="tile tile--soft tile--money">
-              <span className="tile__label">MONEY</span>
-              <h3>Ledger</h3>
+              <span className="tile__label">ACCOUNTABILITY</span>
+              <h3>Auditable ledger</h3>
               <p>
-                Donations and expenses, optionally tied to an animal, with money in and out at a
-                glance.
+                Transparent tracking of medicine costs, food supplies, and medical bills for trusted donor accountability.
               </p>
             </article>
 
             <article className="tile tile--view">
-              <span className="tile__label">VIEW</span>
-              <h3>Dashboard</h3>
+              <span className="tile__label">OVERVIEW</span>
+              <h3>Live network view</h3>
               <p>
-                Headcount by status and a financial snapshot you can share or download for donors
-                and boards.
+                Headcount by status and operational snapshot you can share or download for boards and supporters.
               </p>
             </article>
 
             <article className="tile tile--surface tile--zip">
-              <span className="tile__label">ZIP</span>
-              <h3>Data ownership</h3>
+              <span className="tile__label">SOVEREIGNTY</span>
+              <h3>Your data stays yours</h3>
               <p>
-                Export animals, treatments, ledger, and photos as a ZIP anytime. Your records stay
-                yours.
+                Export animals, treatments, ledger, and photos as a ZIP anytime. Free software with no vendor lock-in.
               </p>
             </article>
           </div>
@@ -190,7 +266,7 @@ export function LandingScreen() {
             <h2 id="offline-heading">Reliable when connectivity is not.</h2>
             <p>
               Work continues in the yard, the clinic, and on the road. Sync when you are back
-              online. A phone-first PWA for shelters that cannot wait on signal.
+              online. A phone-first PWA for rescues that cannot wait on signal.
             </p>
           </div>
         </div>
@@ -199,6 +275,7 @@ export function LandingScreen() {
       <section className="partners" id="partners" aria-labelledby="partners-heading">
         <div className="wrap">
           <div className="partners__intro reveal">
+            <span className="section-eyebrow">The Coalition</span>
             <h2 id="partners-heading">Rescues and shelters we build for.</h2>
             <p>
               Sanctuary is designed directly alongside frontline rescue networks, shelter
@@ -509,13 +586,13 @@ export function LandingScreen() {
               </h2>
               <div className="mohsin__body">
                 <p>
-                  The Mohsin Project partners with community initiatives and independent changemakers to
-                  design, engineer, and deploy digital solutions at no cost, so bad tech never
-                  blocks the work that matters.
+                  The Mohsin Project builds public digital utilities for changemakers at zero cost.
+                  Sanctuary is our animal welfare network: uniting frontline rescuers, shelters, and
+                  communities on open, modern infrastructure so bad tech never blocks the work that
+                  matters.
                 </p>
                 <p>
-                  Sanctuary is one of those tools: offline-first shelter management for rescues that
-                  work where signal fails.
+                  Free software with zero vendor lock-in, designed directly with field caretakers.
                 </p>
               </div>
             </div>
@@ -543,7 +620,7 @@ export function LandingScreen() {
             <p className="footer__brand">Sanctuary</p>
           </div>
           <p className="footer__tag">
-            Shelter records, offline and on the go. Built for rescues that work in the field.
+            The animal welfare network connecting rescuers, shelters, clinics, and animal guardians.
           </p>
           <div className="footer__bottom">
             <span>
@@ -560,6 +637,11 @@ export function LandingScreen() {
           </div>
         </div>
       </footer>
+
+      <ReportCaseModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+      />
     </div>
   )
 }
