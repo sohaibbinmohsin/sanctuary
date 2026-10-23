@@ -6,6 +6,7 @@ import { LoginScreen } from '@/features/auth/LoginScreen'
 import { LandingScreen } from '@/features/landing/LandingScreen'
 import { PublicShelterScreen } from '@/features/public/screens/PublicShelterScreen'
 import { PublicReportScreen } from '@/features/reports/screens/PublicReportScreen'
+import { PublicReportTrackScreen } from '@/features/reports/screens/PublicReportTrackScreen'
 import { isPlaygroundPath } from '@/features/playground/mode'
 import { isReservedPublicSlug } from '@/shared/lib/public/slug'
 import { supabase, supabaseConfigured } from '@/shared/lib/supabase'
@@ -94,6 +95,7 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<Navigate to="/" replace />} />
               <Route path="/report" element={<PublicReportScreen />} />
+              <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
               <Route path="/*" element={<PublicSlugOrApp />} />
             </Routes>
           ) : (
@@ -104,6 +106,7 @@ export default function App() {
                 element={<LoginScreen onSuccess={() => setSignedIn(true)} />}
               />
               <Route path="/report" element={<PublicReportScreen />} />
+              <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
               <Route path="/:slug" element={<PublicShelterScreen />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
