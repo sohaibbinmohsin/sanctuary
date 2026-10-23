@@ -57,6 +57,8 @@ import {
   SettingsCardHead,
   SettingsCatalog,
 } from '@/features/settings/components/SettingsCardHead'
+import { OrganizationModulesCard } from '@/features/settings/components/OrganizationModulesCard'
+import { updateOrganizationModules } from '@/features/settings/domain/settings'
 import { HelpAndAccount } from '@/features/settings/components/HelpAndAccount'
 
 export function SettingsScreen() {
@@ -499,7 +501,7 @@ export function SettingsScreen() {
   ).slice(0, 3)
 
   return (
-    <section className="screen">
+    <section className="screen settings-screen">
       <PageHeader
         title="Settings"
         subtitle={
@@ -605,13 +607,21 @@ export function SettingsScreen() {
               >
                 {partnerDisplayName || 'No partner name yet'}
               </p>
-              <p className="muted settings-identity__hint">
-                {logoUrl ? 'Custom logo active.' : 'No logo yet.'}
-              </p>
             </div>
           </div>
         )}
       </div>
+
+      {member?.role === 'admin' ? (
+        <OrganizationModulesCard
+          enabledModules={member.enabledModules}
+          canManage={true}
+          onSave={async (modules) => {
+            if (!db || !member) return
+            await updateOrganizationModules(db, member.orgId, modules)
+          }}
+        />
+      ) : null}
 
       <div className="settings-grid">
         <div className="panel stack">
@@ -749,9 +759,10 @@ export function SettingsScreen() {
           )}
         </div>
 
-        <div className="panel stack">
-          <SettingsCardHead
-            title="Ledger & currency"
+        {(!member || member.hasModule('ledger')) && (
+          <div className="panel stack">
+            <SettingsCardHead
+              title="Ledger & currency"
             description={
               editingCategories
                 ? 'Main shelter currency and category labels for money in or out.'
@@ -911,6 +922,7 @@ export function SettingsScreen() {
             />
           )}
         </div>
+        )}
       </div>
 
       <div style={{ marginTop: '1.25rem' }}>

@@ -17,7 +17,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DotsSixVertical } from '@phosphor-icons/react'
-import type { AnimalStatus } from '@/features/statuses/domain/statuses'
+import { isRequiredStatus, type AnimalStatus } from '@/features/statuses/domain/statuses'
 import { Button } from '@/shared/ui/Button'
 import { SelectField } from '@/shared/ui/SelectField'
 
@@ -58,6 +58,8 @@ function SortableStatusRow({
     transition,
   }
 
+  const isRequired = isRequiredStatus(status.label)
+
   return (
     <div
       ref={setNodeRef}
@@ -80,6 +82,7 @@ function SortableStatusRow({
       </button>
       <input
         value={status.label ?? ''}
+        disabled={isRequired}
         onChange={(e) => onLabelChange(status.id, e.target.value)}
         onBlur={(e) => onRename(status.id, e.target.value)}
         aria-label="Status name"
@@ -89,6 +92,7 @@ function SortableStatusRow({
         <SelectField
           label="In care"
           hideLabel
+          disabled={isRequired}
           value={status.counts_as_in_care ? '1' : '0'}
           options={[
             { value: '1', label: 'In care' },
@@ -97,9 +101,15 @@ function SortableStatusRow({
           onChange={(value) => onInCareChange(status.id, value === '1')}
         />
       </div>
-      <Button type="button" variant="danger-ghost" onClick={() => onHide(status)}>
-        Hide
-      </Button>
+      {!isRequired ? (
+        <Button
+          type="button"
+          variant="danger-ghost"
+          onClick={() => onHide(status)}
+        >
+          Hide
+        </Button>
+      ) : null}
     </div>
   )
 }

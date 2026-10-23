@@ -18,9 +18,11 @@ export const DEFAULT_ONBOARDING_STATUSES: readonly StatusDraft[] = [
   { label: 'Intake', countsAsInCare: true },
   { label: 'Quarantine', countsAsInCare: true },
   { label: 'Treatment', countsAsInCare: true },
+  { label: 'Critical', countsAsInCare: true },
   { label: 'In sanctuary', countsAsInCare: true },
   { label: 'Adopted', countsAsInCare: false },
   { label: 'Transferred', countsAsInCare: false },
+  { label: 'Released', countsAsInCare: false },
   { label: 'Deceased', countsAsInCare: false },
 ]
 

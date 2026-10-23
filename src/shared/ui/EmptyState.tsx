@@ -8,6 +8,7 @@ type EmptyStateProps = {
   actionLabel?: string
   actionTo?: string
   onAction?: () => void
+  actionDisabled?: boolean
 }
 
 export function EmptyState({
@@ -17,19 +18,31 @@ export function EmptyState({
   actionLabel,
   actionTo,
   onAction,
+  actionDisabled = false,
 }: EmptyStateProps) {
   return (
     <div className="empty-state">
       {icon ? <div className="empty-state__icon">{icon}</div> : null}
       <h2>{title}</h2>
       <p>{body}</p>
-      {actionLabel && actionTo ? (
-        <Button to={actionTo} variant="accent">
-          {actionLabel}
-        </Button>
+      {actionLabel && (actionTo || (actionDisabled && !onAction)) ? (
+        actionDisabled || !actionTo ? (
+          <Button type="button" variant="accent" disabled>
+            {actionLabel}
+          </Button>
+        ) : (
+          <Button to={actionTo} variant="accent">
+            {actionLabel}
+          </Button>
+        )
       ) : null}
       {actionLabel && onAction ? (
-        <Button type="button" variant="accent" onClick={onAction}>
+        <Button
+          type="button"
+          variant="accent"
+          onClick={onAction}
+          disabled={actionDisabled}
+        >
           {actionLabel}
         </Button>
       ) : null}

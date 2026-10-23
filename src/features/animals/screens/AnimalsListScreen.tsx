@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Funnel,
   List,
@@ -11,6 +11,7 @@ import { useQuery } from '@powersync/react'
 import { useSearchParams } from 'react-router-dom'
 import { useDb } from '@/shared/hooks/useDb'
 import { useSyncStatus } from '@/shared/hooks/useSyncStatus'
+import { AddAnimalSplitButton } from '@/features/animals/components/AddAnimalSplitButton'
 import { emptyAnimalListState } from '@/shared/lib/animals/emptyAnimalListState'
 import { AnimalCard } from '@/features/animals/components/AnimalCard'
 import {
@@ -20,13 +21,22 @@ import {
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
   getLocalPhoto,
-  listPhotosForAnimal,
   localPhotoUrl,
 } from '@/features/photos/domain/photos'
+import {
+  getAnimalsScrollPosition,
+  getLastClickedAnimalId,
+  clearAnimalsScrollPosition,
+  saveAnimalsScrollPosition,
+  getAppScrollTop,
+  setAppScrollTop,
+} from '@/shared/lib/scroll'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { useIncrementalList } from '@/shared/hooks/useIncrementalList'
+import { LoadMoreSentinel } from '@/shared/ui/LoadMoreSentinel'
 import {
   parseAnimalFilterParams,
   serializeAnimalFilterParams,
@@ -62,6 +72,7 @@ export function AnimalsListScreen() {
   >({})
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<AnimalsView>(() => readStoredView())
+  const scrollRestoredRef = useRef(false)
   const { data: animalCountRows } = useQuery<{ n: number }>(
     member?.orgId
       ? `SELECT COUNT(*) as n FROM animals WHERE org_id = ? AND archived = 0`
@@ -69,6 +80,94 @@ export function AnimalsListScreen() {
     member?.orgId ? [member.orgId] : [],
   )
   const localAnimalCount = Number(animalCountRows?.[0]?.n ?? 0)
+
+  // Track scroll position while browsing animals
+  useEffect(() => {
+    const handleScroll = () => {
+      const top = getAppScrollTop()
+      if (top > 0) {
+        saveAnimalsScrollPosition()
+      }
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    const shellBody = document.querySelector('.app-shell__body')
+    shellBody?.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      shellBody?.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  const targetAnimalId = useMemo(() => getLastClickedAnimalId(), [])
+
+  const {
+    visibleItems: visibleAnimals,
+    hasMore,
+    remainingCount,
+    loadMore,
+    sentinelRef,
+  } = useIncrementalList(animals, {
+    batchSize: 50,
+    targetId: targetAnimalId,
+    getId: (a) => a.id,
+    resetDeps: [
+      deferredQuery,
+      filters.statusIds,
+      filters.statusMode,
+      filters.species,
+      filters.sex,
+    ],
+  })
+
+  // Restore scroll position when returning to the animals list
+  useEffect(() => {
+    if (loading || visibleAnimals.length === 0 || scrollRestoredRef.current) return
+
+    const targetId = getLastClickedAnimalId()
+    const savedTop = getAnimalsScrollPosition()
+
+    if (!targetId && (!savedTop || savedTop <= 0)) return
+
+    scrollRestoredRef.current = true
+
+    let attempts = 0
+    const maxAttempts = 12
+
+    const tryRestore = () => {
+      attempts += 1
+      let done = false
+
+      if (targetId) {
+        const el = document.getElementById(`animal-card-${targetId}`)
+        if (el) {
+          if (typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ block: 'center', behavior: 'instant' })
+          } else {
+            setAppScrollTop(el.offsetTop || savedTop || 0)
+          }
+          done = true
+        }
+      }
+
+      if (!done && savedTop && savedTop > 0) {
+        setAppScrollTop(savedTop)
+        const current = getAppScrollTop()
+        if (Math.abs(current - savedTop) < 50) {
+          done = true
+        }
+      }
+
+      if (!done && attempts < maxAttempts) {
+        setTimeout(tryRestore, 50)
+      } else {
+        setTimeout(() => {
+          clearAnimalsScrollPosition()
+        }, 500)
+      }
+    }
+
+    requestAnimationFrame(tryRestore)
+  }, [loading, visibleAnimals.length])
 
   useEffect(() => {
     if (!db || !member) return
@@ -86,25 +185,43 @@ export function AnimalsListScreen() {
         if (cancelled) return
         setAnimals(rows)
 
+        const photoRows = await db.getAll<{
+          id: string
+          animal_id: string | null
+          r2_key: string | null
+          verified: number | boolean | null
+        }>(
+          `SELECT id, animal_id, r2_key, verified FROM photos WHERE org_id = ? ORDER BY created_at DESC`,
+          [member.orgId],
+        )
+
         const urls: Record<string, string> = {}
         const verified: Record<string, boolean> = {}
-        for (const animal of rows.slice(0, 60)) {
-          const photos = await listPhotosForAnimal(db, animal.id)
-          verified[animal.id] = photos.some((p) => Boolean(p.verified))
-          const first = photos[0]
-          if (!first) continue
-          const remote = publicPhotoUrl(first.r2_key)
-          if (remote) {
-            urls[animal.id] = remote
-            continue
-          }
-          const local = await getLocalPhoto(first.id)
-          if (local) {
-            urls[animal.id] = URL.createObjectURL(local)
-          } else {
-            urls[animal.id] = localPhotoUrl(first.id)
+        const needLocal: { animalId: string; photoId: string }[] = []
+
+        for (const p of photoRows) {
+          if (!p.animal_id) continue
+          if (p.verified) verified[p.animal_id] = true
+          if (!urls[p.animal_id]) {
+            const remote = publicPhotoUrl(p.r2_key)
+            if (remote) {
+              urls[p.animal_id] = remote
+            } else {
+              needLocal.push({ animalId: p.animal_id, photoId: p.id })
+            }
           }
         }
+
+        for (const item of needLocal) {
+          if (urls[item.animalId]) continue
+          const local = await getLocalPhoto(item.photoId)
+          if (local) {
+            urls[item.animalId] = URL.createObjectURL(local)
+          } else {
+            urls[item.animalId] = localPhotoUrl(item.photoId)
+          }
+        }
+
         if (!cancelled) {
           setPhotoUrls(urls)
           setVerifiedAnimalIds(verified)
@@ -199,9 +316,7 @@ export function AnimalsListScreen() {
         subtitle={subtitle}
         actions={
           animals.length > 0 || hasFilters ? (
-            <Button to="/animals/new" variant="accent">
-              Add animal
-            </Button>
+            <AddAnimalSplitButton />
           ) : undefined
         }
       />
@@ -292,18 +407,32 @@ export function AnimalsListScreen() {
           actionTo={hasFilters ? undefined : '/animals/new'}
         />
       ) : (
-        <div className={listClassName}>
-          {animals.map((animal) => (
-            <div key={animal.id} className="animal-card-selectable">
-              <AnimalCard
-                animal={animal}
-                photoUrl={photoUrls[animal.id]}
-                hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
-                variant={view}
-              />
-            </div>
-          ))}
-        </div>
+        <>
+          <div className={listClassName}>
+            {visibleAnimals.map((animal) => (
+              <div
+                key={animal.id}
+                id={`animal-card-${animal.id}`}
+                className="animal-card-selectable"
+                onClick={() => saveAnimalsScrollPosition(animal.id)}
+              >
+                <AnimalCard
+                  animal={animal}
+                  photoUrl={photoUrls[animal.id]}
+                  hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
+                  variant={view}
+                />
+              </div>
+            ))}
+          </div>
+
+          <LoadMoreSentinel
+            sentinelRef={sentinelRef}
+            hasMore={hasMore}
+            remainingCount={remainingCount}
+            onLoadMore={loadMore}
+          />
+        </>
       )}
     </section>
   )

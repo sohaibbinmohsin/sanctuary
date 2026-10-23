@@ -18,7 +18,7 @@ export function isPlaygroundPath(pathname: string): boolean {
  * returning visitors (verified photo demos, new animals, etc.).
  * Stored in localStorage; mismatch triggers wipe + re-seed.
  */
-export const PLAYGROUND_SEED_VERSION = 2
+export const PLAYGROUND_SEED_VERSION = 3
 
 /** Stable IDs so re-seed / reset stay consistent. */
 export const PLAYGROUND_ORG_ID = 'a1111111-1111-4111-8111-111111111111'

@@ -17,6 +17,75 @@ export type CreateStatusInput = {
   countsAsInCare?: boolean
 }
 
+export const DEFAULT_STATUS_DEFS = [
+  { label: 'Intake', countsAsInCare: 1 },
+  { label: 'Quarantine', countsAsInCare: 1 },
+  { label: 'Treatment', countsAsInCare: 1 },
+  { label: 'Critical', countsAsInCare: 1 },
+  { label: 'In sanctuary', countsAsInCare: 1 },
+  { label: 'Adopted', countsAsInCare: 0 },
+  { label: 'Transferred', countsAsInCare: 0 },
+  { label: 'Released', countsAsInCare: 0 },
+  { label: 'Deceased', countsAsInCare: 0 },
+] as const
+
+export const REQUIRED_STATUS_LABELS = DEFAULT_STATUS_DEFS.map((s) =>
+  s.label.toLowerCase(),
+)
+
+export function isRequiredStatus(label: string): boolean {
+  if (!label) return false
+  const lower = label.trim().toLowerCase()
+  return REQUIRED_STATUS_LABELS.includes(lower)
+}
+
+export function pickDefaultIntakeStatusId(
+  statuses: readonly Pick<
+    AnimalStatus,
+    'id' | 'label' | 'counts_as_in_care' | 'archived'
+  >[],
+): string | null {
+  const active = statuses.filter((s) => !s.archived)
+  const pool = active.length > 0 ? active : statuses
+  const intake = pool.find(
+    (s) => s.label && s.label.trim().toLowerCase() === 'intake',
+  )
+  if (intake) return intake.id
+  const firstInCare = pool.find((s) => s.counts_as_in_care === 1)
+  if (firstInCare) return firstInCare.id
+  return pool[0]?.id ?? null
+}
+
+export async function ensureRequiredStatuses(
+  db: SanctuaryDb,
+  orgId: string,
+): Promise<void> {
+  const existing = await db.getAll<AnimalStatus>(
+    `SELECT * FROM animal_statuses WHERE org_id = ?`,
+    [orgId],
+  )
+  const now = new Date().toISOString()
+  let maxOrder = existing.reduce((m, s) => Math.max(m, s.sort_order || 0), 0)
+
+  for (const def of DEFAULT_STATUS_DEFS) {
+    const match = existing.find(
+      (s) => s.label && s.label.trim().toLowerCase() === def.label.toLowerCase(),
+    )
+    if (!match) {
+      maxOrder += 1
+      await db.execute(
+        `INSERT INTO animal_statuses (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
+         VALUES (?, ?, ?, ?, ?, 0, ?)`,
+        [crypto.randomUUID(), orgId, def.label, maxOrder, def.countsAsInCare, now],
+      )
+    } else if (match.archived) {
+      await db.execute(`UPDATE animal_statuses SET archived = 0 WHERE id = ?`, [
+        match.id,
+      ])
+    }
+  }
+}
+
 export async function ensureDefaultStatuses(
   db: SanctuaryDb,
   orgId: string,
@@ -84,11 +153,21 @@ export async function ensureDefaultStatuses(
 
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
-  await db.execute(
-    `INSERT OR REPLACE INTO animal_statuses (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
-     VALUES (?, ?, 'Intake', 1, 1, 0, ?)`,
-    [id, orgId, now],
-  )
+  if (typeof db.execute === 'function') {
+    await db.execute(
+      `INSERT OR REPLACE INTO animal_statuses (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
+       VALUES (?, ?, 'Intake', 1, 1, 0, ?)`,
+      [id, orgId, now],
+    )
+  } else if (typeof db.writeTransaction === 'function') {
+    await db.writeTransaction(async (tx) => {
+      await tx.execute(
+        `INSERT OR REPLACE INTO animal_statuses (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
+         VALUES (?, ?, 'Intake', 1, 1, 0, ?)`,
+        [id, orgId, now],
+      )
+    })
+  }
 
   void supabase
     .from('animal_statuses')
@@ -175,6 +254,13 @@ export async function renameStatus(
   id: string,
   label: string,
 ): Promise<void> {
+  const existing = await db.getOptional<AnimalStatus>(
+    `SELECT * FROM animal_statuses WHERE id = ?`,
+    [id],
+  )
+  if (existing && isRequiredStatus(existing.label)) {
+    throw new Error(`The status "${existing.label}" is a default status and cannot be renamed.`)
+  }
   await db.execute(`UPDATE animal_statuses SET label = ? WHERE id = ?`, [
     label.trim(),
     id,
@@ -186,6 +272,13 @@ export async function setStatusInCare(
   id: string,
   countsAsInCare: boolean,
 ): Promise<void> {
+  const existing = await db.getOptional<AnimalStatus>(
+    `SELECT * FROM animal_statuses WHERE id = ?`,
+    [id],
+  )
+  if (existing && isRequiredStatus(existing.label)) {
+    throw new Error(`The status "${existing.label}" is a default status and cannot be changed.`)
+  }
   await db.execute(
     `UPDATE animal_statuses SET counts_as_in_care = ? WHERE id = ?`,
     [countsAsInCare ? 1 : 0, id],
@@ -210,5 +303,12 @@ export async function archiveStatus(
   db: SanctuaryDb,
   id: string,
 ): Promise<void> {
+  const existing = await db.getOptional<AnimalStatus>(
+    `SELECT * FROM animal_statuses WHERE id = ?`,
+    [id],
+  )
+  if (existing && isRequiredStatus(existing.label)) {
+    throw new Error(`The status "${existing.label}" is a default status and cannot be removed.`)
+  }
   await db.execute(`UPDATE animal_statuses SET archived = 1 WHERE id = ?`, [id])
 }

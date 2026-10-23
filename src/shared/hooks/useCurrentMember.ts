@@ -9,6 +9,7 @@ import {
 } from '@/features/playground/mode'
 
 import type { CurrencyCode } from '@/features/ledger/domain/ledger'
+import { parseEnabledModules, type AppModuleId } from '@/shared/domain/modules'
 
 export type CurrentMember = {
   id: string
@@ -22,6 +23,8 @@ export type CurrentMember = {
   publicSlug: string | null
   setupCompleted: boolean
   currency: CurrencyCode
+  enabledModules: Set<AppModuleId>
+  hasModule: (module: AppModuleId) => boolean
 }
 
 export type MemberRow = {
@@ -36,9 +39,11 @@ export type MemberRow = {
   org_public_slug: string | null
   org_setup_completed: number | null
   org_currency?: string | null
+  org_enabled_modules?: string | null
 }
 
 export function mapMemberRow(row: MemberRow): CurrentMember {
+  const enabledModules = parseEnabledModules(row.org_enabled_modules)
   return {
     id: row.id,
     orgId: row.org_id,
@@ -51,6 +56,8 @@ export function mapMemberRow(row: MemberRow): CurrentMember {
     publicSlug: row.org_public_slug ?? null,
     setupCompleted: row.org_setup_completed === 1,
     currency: (row.org_currency === 'USD' ? 'USD' : 'PKR') as CurrencyCode,
+    enabledModules,
+    hasModule: (module: AppModuleId) => enabledModules.has(module),
   }
 }
 
@@ -91,7 +98,8 @@ export function useCurrentMember(): {
               o.initials as org_initials, o.logo_r2_key as org_logo_r2_key,
               o.public_enabled as org_public_enabled, o.public_slug as org_public_slug,
               o.setup_completed as org_setup_completed,
-              o.currency as org_currency
+              o.currency as org_currency,
+              o.enabled_modules as org_enabled_modules
        FROM org_members m
        JOIN organizations o ON o.id = m.org_id
        WHERE m.user_id = ?
@@ -133,6 +141,7 @@ export function useCurrentMember(): {
       row?.org_public_slug,
       row?.org_setup_completed,
       row?.org_currency,
+      row?.org_enabled_modules,
     ],
   )
   const loading =

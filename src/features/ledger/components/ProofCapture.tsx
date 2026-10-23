@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery } from '@powersync/react'
-import { Camera, ImageSquare, Trash, X } from '@phosphor-icons/react'
+import { Camera, ImageSquare, Plus, Trash, X } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
 import type { LedgerAttachmentRecord } from '@/features/sync/powersync/schema'
@@ -14,6 +15,7 @@ import {
 import { Button } from '@/shared/ui/Button'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import { isPlaygroundMode } from '@/features/playground/mode'
+import { InAppCamera } from '@/features/animals/components/InAppCamera'
 
 const EMPTY_FILES: File[] = []
 const EMPTY_ATTACHMENTS: LedgerAttachmentRecord[] = []
@@ -34,6 +36,8 @@ type ProofCaptureProps = {
   label?: string
 }
 
+type MenuPos = { top: number; left: number }
+
 export function ProofCapture({
   orgId,
   entryId,
@@ -45,8 +49,12 @@ export function ProofCapture({
   const db = useDb()
   const confirm = useConfirm()
   const canTakePhoto = useCanTakePhoto()
-  const cameraRef = useRef<HTMLInputElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<MenuPos | null>(null)
+  const [showCamera, setShowCamera] = useState(false)
   const [pendingUpload, setPendingUpload] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -87,6 +95,10 @@ export function ProofCapture({
   }, [pendingFiles])
 
   useEffect(() => {
+    if (rows.length === 0) {
+      setSavedItems((current) => (current.length === 0 ? current : []))
+      return
+    }
     let cancelled = false
     const objectUrls: string[] = []
     void (async () => {
@@ -119,9 +131,63 @@ export function ProofCapture({
     }
   }, [db, orgId, entryId])
 
-  async function onFiles(files: FileList | null, input: HTMLInputElement | null) {
-    if (!files?.length) return
-    const images = Array.from(files).filter((f) => f.type.startsWith('image/'))
+  useLayoutEffect(() => {
+    if (!menuOpen || !buttonRef.current) {
+      setMenuPos(null)
+      return
+    }
+    const rect = buttonRef.current.getBoundingClientRect()
+    setMenuPos({
+      top: rect.bottom + 6,
+      left: rect.left,
+    })
+  }, [menuOpen])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    function onPointerDown(event: MouseEvent | TouchEvent) {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (buttonRef.current?.contains(target)) return
+      if (menuRef.current?.contains(target)) return
+      setMenuOpen(false)
+    }
+    function onScroll() {
+      setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('touchstart', onPointerDown)
+    window.addEventListener('scroll', onScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('touchstart', onPointerDown)
+      window.removeEventListener('scroll', onScroll, true)
+    }
+  }, [menuOpen])
+
+  function onPlusClick() {
+    if (busy || showCamera) return
+    if (canTakePhoto) {
+      setMenuOpen((open) => !open)
+      return
+    }
+    galleryRef.current?.click()
+  }
+
+  function onCameraCapture(blob: Blob) {
+    setShowCamera(false)
+    const file = new File([blob], `proof-${Date.now()}.jpg`, { type: 'image/jpeg' })
+    void onFiles([file], null)
+  }
+
+  async function onFiles(
+    files: FileList | null | File[],
+    input?: HTMLInputElement | null,
+  ) {
+    if (!files) return
+    const fileList = Array.isArray(files) ? files : Array.from(files)
+    if (fileList.length === 0) return
+    const images = fileList.filter((f) => f.type.startsWith('image/'))
     if (images.length === 0) {
       setError('Choose a photo or receipt image.')
       if (input) input.value = ''
@@ -182,6 +248,7 @@ export function ProofCapture({
   }
 
   const viewerItem = savedItems.find((i) => i.url === viewerUrl)
+  const totalCount = savedItems.length + pendingFiles.length
 
   return (
     <div className="stack">
@@ -191,16 +258,7 @@ export function ProofCapture({
           <span className="field__hint"> · optional · receipt or photo</span>
         </span>
       </div>
-      {canTakePhoto ? (
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          hidden
-          onChange={(e) => void onFiles(e.target.files, cameraRef.current)}
-        />
-      ) : null}
+
       <input
         ref={galleryRef}
         type="file"
@@ -209,71 +267,122 @@ export function ProofCapture({
         hidden
         onChange={(e) => void onFiles(e.target.files, galleryRef.current)}
       />
-      <div className="row">
-        {canTakePhoto ? (
-          <Button
+
+      <div className="photo-strip" role="list" aria-label="Proof">
+        <div className="photo-strip__add-wrap" role="listitem">
+          <button
+            ref={buttonRef}
             type="button"
-            variant="secondary"
-            disabled={busy}
-            onClick={() => cameraRef.current?.click()}
+            className="photo-strip__thumb photo-strip__add"
+            disabled={busy || showCamera}
+            aria-label={
+              showCamera
+                ? 'Camera in use'
+                : totalCount > 0
+                  ? `Add proof, ${totalCount} attached`
+                  : 'Add proof'
+            }
+            aria-expanded={canTakePhoto ? menuOpen : undefined}
+            aria-haspopup={canTakePhoto ? 'menu' : undefined}
+            title="Add proof"
+            onClick={onPlusClick}
           >
-            <Camera size={18} weight="bold" aria-hidden />
-            {busy ? 'Saving…' : 'Take photo'}
-          </Button>
-        ) : null}
-        <Button
-          type="button"
-          variant={canTakePhoto ? 'ghost' : 'secondary'}
-          disabled={busy}
-          onClick={() => galleryRef.current?.click()}
-        >
-          <ImageSquare size={18} weight="bold" aria-hidden />
-          {busy ? 'Saving…' : canTakePhoto ? 'From gallery' : 'Add photo'}
-        </Button>
-        {pendingUpload > 0 ? (
-          <span className="muted">{pendingUpload} waiting to upload</span>
-        ) : null}
+            <Plus size={22} weight="bold" aria-hidden />
+            {totalCount > 0 ? (
+              <span className="photo-strip__badge" title={`${totalCount} attached`}>
+                {totalCount}
+              </span>
+            ) : null}
+          </button>
+        </div>
+
+        {savedItems.map(({ attachment, url }) => (
+          <div className="photo-strip__thumb-wrap" role="listitem" key={attachment.id}>
+            <button
+              type="button"
+              className="photo-strip__thumb"
+              style={{ backgroundImage: `url(${url})` }}
+              aria-label="View proof"
+              onClick={() => setViewerUrl(url)}
+            />
+            {attachment.upload_state === 'pending' ||
+            attachment.upload_state === 'failed' ||
+            attachment.upload_state === 'uploading' ? (
+              <span className="photo-strip__badge muted">
+                {attachment.upload_state === 'failed' ? 'Retry' : '…'}
+              </span>
+            ) : null}
+          </div>
+        ))}
+
+        {previewUrls.map((url, index) => (
+          <div className="photo-strip__thumb-wrap" role="listitem" key={`pending-${index}`}>
+            <button
+              type="button"
+              className="photo-strip__thumb"
+              style={{ backgroundImage: `url(${url})` }}
+              aria-label={`Proof ${index + 1}`}
+              onClick={() => setViewerUrl(url)}
+            />
+            <button
+              type="button"
+              className="photo-strip__thumb-remove"
+              aria-label={`Remove proof ${index + 1}`}
+              onClick={() => removePending(index)}
+              title="Remove proof"
+            >
+              <X size={12} weight="bold" aria-hidden />
+            </button>
+          </div>
+        ))}
       </div>
 
-      {savedItems.length > 0 || previewUrls.length > 0 ? (
-        <div className="proof-strip" aria-label="Selected proof">
-          {savedItems.map(({ attachment, url }) => (
-            <div className="proof-strip__item" key={attachment.id}>
+      {pendingUpload > 0 ? (
+        <span className="muted" style={{ fontSize: 'var(--text-xs)' }}>
+          {pendingUpload} waiting to upload
+        </span>
+      ) : null}
+
+      {menuOpen && menuPos
+        ? createPortal(
+            <div
+              ref={menuRef}
+              className="photo-strip__menu"
+              role="menu"
+              style={{ top: menuPos.top, left: menuPos.left }}
+            >
               <button
                 type="button"
-                className="proof-strip__thumb"
-                style={{ backgroundImage: `url(${url})` }}
-                aria-label="View proof"
-                onClick={() => setViewerUrl(url)}
-              />
-              {attachment.upload_state === 'pending' ||
-              attachment.upload_state === 'failed' ||
-              attachment.upload_state === 'uploading' ? (
-                <span className="proof-strip__badge muted">
-                  {attachment.upload_state === 'failed' ? 'Retry' : '…'}
-                </span>
-              ) : null}
-            </div>
-          ))}
-          {previewUrls.map((url, index) => (
-            <div className="proof-strip__item" key={`pending-${index}`}>
-              <button
-                type="button"
-                className="proof-strip__thumb"
-                style={{ backgroundImage: `url(${url})` }}
-                aria-label={`Proof ${index + 1}`}
-              />
-              <button
-                type="button"
-                className="proof-strip__remove"
-                aria-label={`Remove proof ${index + 1}`}
-                onClick={() => removePending(index)}
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  setShowCamera(true)
+                }}
               >
-                <X size={14} weight="bold" aria-hidden />
+                <Camera size={16} weight="bold" aria-hidden />
+                Take photo
               </button>
-            </div>
-          ))}
-        </div>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  galleryRef.current?.click()
+                }}
+              >
+                <ImageSquare size={16} weight="bold" aria-hidden />
+                From gallery
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {showCamera ? (
+        <InAppCamera
+          onCapture={onCameraCapture}
+          onCancel={() => setShowCamera(false)}
+        />
       ) : null}
 
       {error ? <p className="form-error">{error}</p> : null}

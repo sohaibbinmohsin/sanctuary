@@ -24,7 +24,6 @@ import { addAnimalsToChecklist } from '@/features/checklist/domain/checklist'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
   getLocalPhoto,
-  listPhotosForAnimal,
   localPhotoUrl,
 } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
@@ -32,6 +31,8 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { MoraleToast } from '@/shared/ui/MoraleToast'
+import { useIncrementalList } from '@/shared/hooks/useIncrementalList'
+import { LoadMoreSentinel } from '@/shared/ui/LoadMoreSentinel'
 import {
   parseAnimalFilterParams,
   serializeAnimalFilterParams,
@@ -73,9 +74,6 @@ export function AddToChecklistScreen() {
   const [animals, setAnimals] = useState<AnimalWithStatus[]>([])
   const deferredQuery = useDeferredValue(filters.query)
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
-  const [verifiedAnimalIds, setVerifiedAnimalIds] = useState<
-    Record<string, boolean>
-  >({})
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<AnimalsView>(() => readStoredView())
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
@@ -105,28 +103,40 @@ export function AddToChecklistScreen() {
         if (cancelled) return
         setAnimals(rows)
 
+        const photoRows = await db.getAll<{
+          id: string
+          animal_id: string | null
+          r2_key: string | null
+        }>(
+          `SELECT id, animal_id, r2_key FROM photos WHERE org_id = ? ORDER BY created_at DESC`,
+          [member.orgId],
+        )
+
         const urls: Record<string, string> = {}
-        const verified: Record<string, boolean> = {}
-        for (const animal of rows.slice(0, 60)) {
-          const photos = await listPhotosForAnimal(db, animal.id)
-          verified[animal.id] = photos.some((p) => Boolean(p.verified))
-          const first = photos[0]
-          if (!first) continue
-          const remote = publicPhotoUrl(first.r2_key)
+        const needLocal: { animalId: string; photoId: string }[] = []
+
+        for (const p of photoRows) {
+          if (!p.animal_id || urls[p.animal_id]) continue
+          const remote = publicPhotoUrl(p.r2_key)
           if (remote) {
-            urls[animal.id] = remote
-            continue
-          }
-          const local = await getLocalPhoto(first.id)
-          if (local) {
-            urls[animal.id] = URL.createObjectURL(local)
+            urls[p.animal_id] = remote
           } else {
-            urls[animal.id] = localPhotoUrl(first.id)
+            needLocal.push({ animalId: p.animal_id, photoId: p.id })
           }
         }
+
+        for (const item of needLocal) {
+          if (urls[item.animalId]) continue
+          const local = await getLocalPhoto(item.photoId)
+          if (local) {
+            urls[item.animalId] = URL.createObjectURL(local)
+          } else {
+            urls[item.animalId] = localPhotoUrl(item.photoId)
+          }
+        }
+
         if (!cancelled) {
           setPhotoUrls(urls)
-          setVerifiedAnimalIds(verified)
         }
       } catch (err) {
         console.warn('Animal search failed', err)
@@ -167,6 +177,24 @@ export function AddToChecklistScreen() {
   const allVisibleSelected =
     animals.length > 0 && animals.every((animal) => selectedIds.has(animal.id))
   const listClassName = isListView ? 'animal-list' : 'animal-grid'
+
+  const {
+    visibleItems: visibleAnimals,
+    hasMore,
+    remainingCount,
+    loadMore,
+    sentinelRef,
+  } = useIncrementalList(animals, {
+    batchSize: 50,
+    getId: (a) => a.id,
+    resetDeps: [
+      deferredQuery,
+      filters.statusIds,
+      filters.statusMode,
+      filters.species,
+      filters.sex,
+    ],
+  })
 
   function updateQuery(query: string) {
     const nextSearch = serializeAnimalFilterParams({ ...filters, query })
@@ -253,7 +281,7 @@ export function AddToChecklistScreen() {
         Cancel
       </Button>
       <Button
-        variant="accent"
+        variant="primary"
         disabled={selectedIds.size === 0 || confirming}
         onClick={() => void confirmAddToChecklist()}
       >
@@ -299,6 +327,16 @@ export function AddToChecklistScreen() {
             onChange={(event) => updateQuery(event.target.value)}
             aria-label="Search animals"
           />
+          {filters.query ? (
+            <button
+              type="button"
+              className="filter-bar__clear"
+              onClick={() => updateQuery('')}
+              aria-label="Clear search"
+            >
+              <X size={14} weight="bold" aria-hidden />
+            </button>
+          ) : null}
         </div>
         <div className="filter-button-wrap">
           <Button
@@ -379,32 +417,41 @@ export function AddToChecklistScreen() {
           }
         />
       ) : (
-        <div className={listClassName}>
-          {animals.map((animal) => {
-            const selected = selectedIds.has(animal.id)
-            return (
-              <div
-                key={animal.id}
-                className={`animal-card-selectable animal-card-selectable--enabled${isListView ? ' animal-card-selectable--list' : ''}${selected ? ' animal-card-selectable--selected' : ''}`}
-                aria-selected={selected}
-                onClickCapture={(event) => {
-                  event.preventDefault()
-                  toggleAnimal(animal.id)
-                }}
-              >
-                <AnimalCard
-                  animal={animal}
-                  photoUrl={photoUrls[animal.id]}
-                  hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
-                  variant={view}
-                />
-                <span className="animal-card-selectable__indicator" aria-hidden>
-                  {selected ? <Check size={18} weight="bold" /> : null}
-                </span>
-              </div>
-            )
-          })}
-        </div>
+        <>
+          <div className={listClassName}>
+            {visibleAnimals.map((animal) => {
+              const selected = selectedIds.has(animal.id)
+              return (
+                <div
+                  key={animal.id}
+                  className={`animal-card-selectable animal-card-selectable--enabled${isListView ? ' animal-card-selectable--list' : ''}${selected ? ' animal-card-selectable--selected' : ''}`}
+                  aria-selected={selected}
+                  onClickCapture={(event) => {
+                    event.preventDefault()
+                    toggleAnimal(animal.id)
+                  }}
+                >
+                  <AnimalCard
+                    animal={animal}
+                    photoUrl={photoUrls[animal.id]}
+                    hasVerifiedPhoto={false}
+                    variant={view}
+                  />
+                  <span className="animal-card-selectable__indicator" aria-hidden>
+                    {selected ? <Check size={18} weight="bold" /> : null}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          <LoadMoreSentinel
+            sentinelRef={sentinelRef}
+            hasMore={hasMore}
+            remainingCount={remainingCount}
+            onLoadMore={loadMore}
+          />
+        </>
       )}
 
       <div className="animal-selection-actions animal-selection-actions--bottom">

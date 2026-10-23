@@ -149,6 +149,34 @@ export function ChecklistScreen() {
     }
   }
 
+  const [totalAnimalsCount, setTotalAnimalsCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!db || !member) return
+    let cancelled = false
+    const checkCount = async () => {
+      try {
+        const row = await db.getOptional<{ count: number }>(
+          `SELECT COUNT(*) as count FROM animals WHERE org_id = ? AND archived = 0`,
+          [member.orgId],
+        )
+        if (!cancelled) setTotalAnimalsCount(Number(row?.count ?? 0))
+      } catch {
+        if (!cancelled) setTotalAnimalsCount(0)
+      }
+    }
+    void checkCount()
+    const unsubscribe = db.registerListener?.({
+      statusChanged: () => {
+        void checkCount()
+      },
+    })
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
+  }, [db, member])
+
   const showLoading = memberLoading || (loading && rows.length === 0)
   const subtitle =
     showLoading
@@ -156,6 +184,8 @@ export function ChecklistScreen() {
       : rows.length === 0
         ? 'Daily care checklist for your shelter'
         : `${rows.length} on today’s checklist`
+
+  const hasAnimals = totalAnimalsCount === null || totalAnimalsCount > 0
 
   return (
     <section
@@ -168,9 +198,15 @@ export function ChecklistScreen() {
         subtitle={subtitle}
         actions={
           rows.length > 0 ? (
-            <Button to="/animals/add-to-checklist" variant="accent">
-              Add to checklist
-            </Button>
+            hasAnimals ? (
+              <Button to="/animals/add-to-checklist" variant="accent">
+                Add to checklist
+              </Button>
+            ) : (
+              <Button type="button" variant="accent" disabled>
+                Add to checklist
+              </Button>
+            )
           ) : undefined
         }
       />
@@ -181,17 +217,22 @@ export function ChecklistScreen() {
         <EmptyState
           icon={<CheckSquare size={28} weight="duotone" />}
           title="Checklist is empty"
-          body="Choose animals to add to today’s checklist."
+          body={
+            hasAnimals
+              ? 'Choose animals to add to today’s checklist.'
+              : 'Add animals to your shelter first before creating a checklist.'
+          }
           actionLabel="Add to checklist"
           actionTo="/animals/add-to-checklist"
+          actionDisabled={!hasAnimals}
         />
       ) : (
-        <div className="panel" style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
+        <div className="checklist-cards stack stack--tight">
           {sorted.map((row) => {
             const label = animalLabel(row)
             const disabled = busyId === row.id
             return (
-              <div className="list-item list-item--row" key={row.id}>
+              <div className="checklist-card" key={row.id}>
                 <label className="check-row" style={{ flex: 1, minWidth: 0 }}>
                   <CheckMark
                     checked={row.checkedToday}

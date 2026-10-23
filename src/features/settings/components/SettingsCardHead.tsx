@@ -23,7 +23,7 @@ export function SettingsCardHead({
       </div>
       <Button
         type="button"
-        variant="ghost"
+        variant={editing ? 'primary' : 'secondary'}
         className="settings-card-head__action"
         aria-expanded={editing}
         onClick={onToggle}

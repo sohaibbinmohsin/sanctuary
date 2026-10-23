@@ -8,13 +8,14 @@ import { PublicShelterScreen } from '@/features/public/screens/PublicShelterScre
 import { isPlaygroundPath } from '@/features/playground/mode'
 import { isReservedPublicSlug } from '@/shared/lib/public/slug'
 import { supabase, supabaseConfigured } from '@/shared/lib/supabase'
-import { PwaUpdateBanner } from '@/shared/ui/PwaUpdateBanner'
 import { SplashScreen } from '@/shared/ui/SplashScreen'
+
 
 const playground = isPlaygroundPath(window.location.pathname)
 
 const APP_ROOTS = new Set([
   '',
+  'reports',
   'animals',
   'ledger',
   'dashboard',
@@ -89,7 +90,7 @@ export default function App() {
         <BrowserRouter>
           {signedIn ? (
             <Routes>
-              <Route path="/login" element={<Navigate to="/animals" replace />} />
+              <Route path="/login" element={<Navigate to="/" replace />} />
               <Route path="/*" element={<PublicSlugOrApp />} />
             </Routes>
           ) : (
@@ -108,10 +109,6 @@ export default function App() {
     )
   }
 
-  return (
-    <>
-      <PwaUpdateBanner />
-      {tree}
-    </>
-  )
+  return tree
 }
+
