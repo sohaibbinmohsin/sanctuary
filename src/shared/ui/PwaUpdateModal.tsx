@@ -28,7 +28,7 @@ export function PwaUpdateModal() {
             : 'A new version of Sanctuary is available with improvements and fixes. Your offline records and edits are completely safe on this device.'}
         </p>
 
-        {statusMessage ? (
+        {statusMessage && statusMessage !== 'Updating…' ? (
           <div
             style={{
               padding: '0.5rem 0.75rem',
