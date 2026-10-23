@@ -25,8 +25,10 @@ import {
 } from '@/features/photos/domain/photos'
 import {
   getAnimalsScrollPosition,
+  getLastClickedAnimalId,
   clearAnimalsScrollPosition,
   saveAnimalsScrollPosition,
+  getAppScrollTop,
   setAppScrollTop,
 } from '@/shared/lib/scroll'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
@@ -77,27 +79,71 @@ export function AnimalsListScreen() {
   )
   const localAnimalCount = Number(animalCountRows?.[0]?.n ?? 0)
 
-  // Save scroll position when navigating away from the animals list
+  // Track scroll position while browsing animals
   useEffect(() => {
+    const handleScroll = () => {
+      const top = getAppScrollTop()
+      if (top > 0) {
+        saveAnimalsScrollPosition()
+      }
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    const shellBody = document.querySelector('.app-shell__body')
+    shellBody?.addEventListener('scroll', handleScroll, { passive: true })
     return () => {
-      saveAnimalsScrollPosition()
+      window.removeEventListener('scroll', handleScroll)
+      shellBody?.removeEventListener('scroll', handleScroll)
     }
   }, [])
 
   // Restore scroll position when returning to the animals list
   useEffect(() => {
     if (loading || animals.length === 0 || scrollRestoredRef.current) return
+
+    const targetId = getLastClickedAnimalId()
     const savedTop = getAnimalsScrollPosition()
-    if (savedTop !== null && savedTop > 0) {
-      scrollRestoredRef.current = true
-      requestAnimationFrame(() => {
+
+    if (!targetId && (!savedTop || savedTop <= 0)) return
+
+    scrollRestoredRef.current = true
+
+    let attempts = 0
+    const maxAttempts = 12
+
+    const tryRestore = () => {
+      attempts += 1
+      let done = false
+
+      if (targetId) {
+        const el = document.getElementById(`animal-card-${targetId}`)
+        if (el) {
+          if (typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ block: 'center', behavior: 'instant' })
+          } else {
+            setAppScrollTop(el.offsetTop || savedTop || 0)
+          }
+          done = true
+        }
+      }
+
+      if (!done && savedTop && savedTop > 0) {
         setAppScrollTop(savedTop)
+        const current = getAppScrollTop()
+        if (Math.abs(current - savedTop) < 50) {
+          done = true
+        }
+      }
+
+      if (!done && attempts < maxAttempts) {
+        setTimeout(tryRestore, 50)
+      } else {
         setTimeout(() => {
-          setAppScrollTop(savedTop)
           clearAnimalsScrollPosition()
-        }, 50)
-      })
+        }, 500)
+      }
     }
+
+    requestAnimationFrame(tryRestore)
   }, [loading, animals.length])
 
   useEffect(() => {
@@ -342,8 +388,9 @@ export function AnimalsListScreen() {
           {animals.map((animal) => (
             <div
               key={animal.id}
+              id={`animal-card-${animal.id}`}
               className="animal-card-selectable"
-              onClick={() => saveAnimalsScrollPosition()}
+              onClick={() => saveAnimalsScrollPosition(animal.id)}
             >
               <AnimalCard
                 animal={animal}
