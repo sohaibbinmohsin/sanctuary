@@ -167,9 +167,8 @@ export function PwaUpdateProvider({
       while (syncStatusRef.current?.uploading && Date.now() - start < 3000) {
         await new Promise((r) => setTimeout(r, 200))
       }
+      setStatusMessage(null)
     }
-
-    setStatusMessage('Updating…')
     try {
       if (swNeedRefresh) {
         void updateServiceWorker(false)

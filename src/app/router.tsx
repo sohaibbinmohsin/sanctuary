@@ -12,6 +12,7 @@ import {
 import type { AppModuleId } from '@/shared/domain/modules'
 import {
   getAnimalsScrollPosition,
+  getLastClickedAnimalId,
   clearAnimalsScrollPosition,
   setAppScrollTop,
 } from '@/shared/lib/scroll'
@@ -129,8 +130,11 @@ function ScrollToTopOnRoute() {
   const { pathname } = useLocation()
 
   useEffect(() => {
-    // If returning to /animals and there is a saved scroll position waiting to be restored, don't reset to 0
-    if (pathname === '/animals' && getAnimalsScrollPosition() !== null) {
+    // If returning to /animals and there is a saved scroll position or animal waiting to be restored, don't reset to 0
+    if (
+      pathname === '/animals' &&
+      (getAnimalsScrollPosition() !== null || getLastClickedAnimalId() !== null)
+    ) {
       return
     }
     // Clear any orphaned list scroll if navigating to completely different modules

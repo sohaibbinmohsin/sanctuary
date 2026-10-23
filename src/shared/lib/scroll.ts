@@ -27,11 +27,17 @@ export function setAppScrollTop(top: number): void {
 }
 
 const ANIMALS_SCROLL_KEY = 'sanctuary:scroll:/animals'
+const LAST_ANIMAL_ID_KEY = 'sanctuary:scroll:last_animal_id'
 
-export function saveAnimalsScrollPosition(): void {
+export function saveAnimalsScrollPosition(animalId?: string): void {
   try {
     const top = getAppScrollTop()
-    sessionStorage.setItem(ANIMALS_SCROLL_KEY, String(top))
+    if (top > 0) {
+      sessionStorage.setItem(ANIMALS_SCROLL_KEY, String(top))
+    }
+    if (animalId) {
+      sessionStorage.setItem(LAST_ANIMAL_ID_KEY, animalId)
+    }
   } catch {
     /* ignore session storage restrictions */
   }
@@ -48,9 +54,18 @@ export function getAnimalsScrollPosition(): number | null {
   }
 }
 
+export function getLastClickedAnimalId(): string | null {
+  try {
+    return sessionStorage.getItem(LAST_ANIMAL_ID_KEY)
+  } catch {
+    return null
+  }
+}
+
 export function clearAnimalsScrollPosition(): void {
   try {
     sessionStorage.removeItem(ANIMALS_SCROLL_KEY)
+    sessionStorage.removeItem(LAST_ANIMAL_ID_KEY)
   } catch {
     /* ignore */
   }
