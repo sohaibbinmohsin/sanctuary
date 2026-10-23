@@ -13,7 +13,7 @@ describe('LandingScreen animal welfare network', () => {
     expect(screen.getByText('Animal welfare network')).toBeInTheDocument()
   })
 
-  it('renders primary emergency Report a case CTA and secondary Sign in', () => {
+  it('renders primary Report a case CTA and a single topbar Sign in link', () => {
     render(
       <MemoryRouter>
         <LandingScreen />
@@ -21,7 +21,8 @@ describe('LandingScreen animal welfare network', () => {
     )
     const reportBtn = screen.getByRole('button', { name: /Report a case/i })
     expect(reportBtn).toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: /Sign in/i }).length).toBeGreaterThanOrEqual(1)
+    const signInLinks = screen.getAllByRole('link', { name: /Sign in/i })
+    expect(signInLinks).toHaveLength(1)
   })
 
   it('opens ReportCaseModal when Report a case is clicked', () => {

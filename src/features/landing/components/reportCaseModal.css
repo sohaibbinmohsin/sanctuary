@@ -47,8 +47,8 @@
   width: 2.5rem;
   height: 2.5rem;
   border-radius: var(--radius-md);
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
+  background: var(--color-forest-soft);
+  color: var(--color-forest);
   flex-shrink: 0;
 }
 

@@ -73,8 +73,6 @@
         height: 100%;
         object-fit: cover;
         object-position: 62% 40%;
-        transform: scale(1.02);
-        animation: landing-rise 1.1s var(--ease) both;
       }
 
       .landing .hero__scrim {
@@ -95,7 +93,6 @@
         max-height: 80px;
         display: flex;
         align-items: center;
-        animation: landing-fade-up 0.65s var(--ease) 0.06s both;
       }
 
       .landing .topbar .wrap {
@@ -160,7 +157,6 @@
         z-index: 1;
         padding-bottom: max(2.75rem, env(safe-area-inset-bottom));
         padding-top: 1.25rem;
-        animation: landing-fade-up 0.75s var(--ease) 0.16s both;
       }
 
       .landing .hero__content .wrap {
@@ -183,7 +179,7 @@
         font-size: clamp(1.05rem, 1.4vw, 1.2rem);
         line-height: 1.45;
         color: rgba(247, 250, 248, 0.9);
-        max-width: 32ch;
+        max-width: 38ch;
       }
 
       .landing .btn {
@@ -244,35 +240,18 @@
         align-items: center;
         justify-content: center;
         gap: var(--space-2);
-        background: var(--color-danger);
-        color: var(--color-white);
+        background: var(--forest);
+        color: var(--white);
         font-family: var(--font-sans);
         font-weight: 600;
-        box-shadow: 0 12px 32px rgba(180, 35, 24, 0.32);
+        box-shadow: 0 12px 32px rgba(26, 46, 34, 0.28);
         width: fit-content;
       }
 
       .landing .btn--emergency:hover, .landing .btn--emergency:focus-visible {
-        filter: brightness(0.92);
+        background: var(--forest-hover);
         outline: 2px solid var(--white);
         outline-offset: 2px;
-      }
-
-      .landing .btn--secondary {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(255, 255, 255, 0.12);
-        color: var(--white);
-        border: 1px solid rgba(255, 255, 255, 0.32);
-        backdrop-filter: blur(8px);
-        width: fit-content;
-      }
-
-      .landing .btn--secondary:hover, .landing .btn--secondary:focus-visible {
-        background: rgba(255, 255, 255, 0.22);
-        border-color: rgba(255, 255, 255, 0.6);
-        outline: none;
       }
 
       /* Stakeholders */
@@ -1004,33 +983,11 @@
         outline: none;
       }
 
-      /* Motion */
-      @keyframes landing-fade-up {
-        from {
-          opacity: 0;
-          transform: translateY(12px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      @keyframes landing-rise {
-        from {
-          opacity: 0.65;
-          transform: scale(1.05);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1.02);
-        }
-      }
-
+      /* Motion (scroll-triggered section reveals only; no hero animation) */
       .landing .reveal {
         opacity: 0;
-        transform: translateY(14px);
-        transition: opacity 0.55s var(--ease), transform 0.55s var(--ease);
+        transform: translateY(18px);
+        transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
       }
 
       .landing .reveal.is-visible {
@@ -1038,12 +995,147 @@
         transform: none;
       }
 
-      /* Opacity-only: a parent transform blurs the phone screenshot */
+      /* Opacity-only parent so child phone transform stays crisp */
       .landing .reveal--fade {
         transform: none;
       }
 
       .landing .reveal--fade.is-visible {
+        transform: none;
+      }
+
+      /* 1. Stakeholders network: staggered card cascade */
+      .landing .stakeholders__grid.reveal {
+        opacity: 1;
+        transform: none;
+      }
+
+      .landing .stakeholders__grid.reveal .stakeholder-card {
+        opacity: 0;
+        transform: translateY(24px) scale(0.97);
+        transition:
+          opacity 0.55s var(--ease),
+          transform 0.55s var(--ease),
+          box-shadow 180ms var(--ease);
+      }
+
+      .landing .stakeholders__grid.reveal.is-visible .stakeholder-card {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+
+      .landing .stakeholders__grid.reveal.is-visible .stakeholder-card:hover {
+        transform: translateY(-2px) scale(1);
+      }
+
+      .landing .stakeholders__grid.reveal.is-visible .stakeholder-card:nth-child(1) { transition-delay: 0ms; }
+      .landing .stakeholders__grid.reveal.is-visible .stakeholder-card:nth-child(2) { transition-delay: 80ms; }
+      .landing .stakeholders__grid.reveal.is-visible .stakeholder-card:nth-child(3) { transition-delay: 160ms; }
+      .landing .stakeholders__grid.reveal.is-visible .stakeholder-card:nth-child(4) { transition-delay: 240ms; }
+      .landing .stakeholders__grid.reveal.is-visible .stakeholder-card:nth-child(5) { transition-delay: 320ms; }
+
+      /* 2. Intro section: sequential numbered steps + phone settling into tilt */
+      .landing .intro__copy.reveal .intro__points li {
+        opacity: 0;
+        transform: translateY(14px);
+        transition: opacity 0.5s var(--ease), transform 0.5s var(--ease);
+      }
+
+      .landing .intro__copy.reveal.is-visible .intro__points li {
+        opacity: 1;
+        transform: none;
+      }
+
+      .landing .intro__copy.reveal.is-visible .intro__points li:nth-child(1) { transition-delay: 90ms; }
+      .landing .intro__copy.reveal.is-visible .intro__points li:nth-child(2) { transition-delay: 210ms; }
+      .landing .intro__copy.reveal.is-visible .intro__points li:nth-child(3) { transition-delay: 330ms; }
+
+      .landing .intro__device.reveal .intro__phone {
+        opacity: 0;
+        transform: translateY(26px) rotate(0deg);
+        transition: opacity 0.65s var(--ease) 0.1s, transform 0.65s var(--ease) 0.1s;
+      }
+
+      .landing .intro__device.reveal.is-visible .intro__phone {
+        opacity: 1;
+        transform: rotate(-2.5deg);
+      }
+
+      /* 3. Platform Strengths bento: staggered tile wave */
+      .landing .bento.reveal {
+        opacity: 1;
+        transform: none;
+      }
+
+      .landing .bento.reveal .tile {
+        opacity: 0;
+        transform: translateY(22px) scale(0.98);
+        transition: opacity 0.55s var(--ease), transform 0.55s var(--ease);
+      }
+
+      .landing .bento.reveal.is-visible .tile {
+        opacity: 1;
+        transform: none;
+      }
+
+      .landing .bento.reveal.is-visible .tile:nth-child(1) { transition-delay: 0ms; }
+      .landing .bento.reveal.is-visible .tile:nth-child(2) { transition-delay: 60ms; }
+      .landing .bento.reveal.is-visible .tile:nth-child(3) { transition-delay: 120ms; }
+      .landing .bento.reveal.is-visible .tile:nth-child(4) { transition-delay: 180ms; }
+      .landing .bento.reveal.is-visible .tile:nth-child(5) { transition-delay: 240ms; }
+      .landing .bento.reveal.is-visible .tile:nth-child(6) { transition-delay: 300ms; }
+      .landing .bento.reveal.is-visible .tile:nth-child(7) { transition-delay: 360ms; }
+
+      /* 4. Offline split: opposing horizontal slide-in */
+      .landing .offline__visual.reveal {
+        transform: translateX(-28px);
+      }
+
+      .landing .offline__visual.reveal.is-visible {
+        transform: none;
+      }
+
+      .landing .offline__copy.reveal {
+        transform: translateX(28px);
+        transition-delay: 100ms;
+      }
+
+      .landing .offline__copy.reveal.is-visible {
+        transform: none;
+      }
+
+      /* 5. Coalition Dossier: sequential dispatch row cascade */
+      .landing .dossier.reveal .dossier__row {
+        opacity: 0;
+        transform: translateX(-16px);
+        transition:
+          opacity 0.45s var(--ease),
+          transform 0.45s var(--ease),
+          background 0.2s var(--ease);
+      }
+
+      .landing .dossier.reveal.is-visible .dossier__row {
+        opacity: 1;
+        transform: none;
+      }
+
+      .landing .dossier.reveal.is-visible .dossier__row:nth-child(1) { transition-delay: 60ms; }
+      .landing .dossier.reveal.is-visible .dossier__row:nth-child(2) { transition-delay: 115ms; }
+      .landing .dossier.reveal.is-visible .dossier__row:nth-child(3) { transition-delay: 170ms; }
+      .landing .dossier.reveal.is-visible .dossier__row:nth-child(4) { transition-delay: 225ms; }
+      .landing .dossier.reveal.is-visible .dossier__row:nth-child(5) { transition-delay: 280ms; }
+      .landing .dossier.reveal.is-visible .dossier__row:nth-child(6) { transition-delay: 335ms; }
+      .landing .dossier.reveal.is-visible .dossier__row:nth-child(7) { transition-delay: 390ms; }
+
+      /* 6. Mohsin Project panel: aside badge slide-in */
+      .landing .mohsin__panel.reveal .mohsin__logo--aside {
+        opacity: 0;
+        transform: translateX(20px);
+        transition: opacity 0.6s var(--ease) 0.14s, transform 0.6s var(--ease) 0.14s;
+      }
+
+      .landing .mohsin__panel.reveal.is-visible .mohsin__logo--aside {
+        opacity: 1;
         transform: none;
       }
 
@@ -1055,7 +1147,13 @@
           transition: none !important;
         }
 
-        .landing .reveal {
+        .landing .reveal,
+        .landing .stakeholders__grid.reveal .stakeholder-card,
+        .landing .intro__copy.reveal .intro__points li,
+        .landing .intro__device.reveal .intro__phone,
+        .landing .bento.reveal .tile,
+        .landing .dossier.reveal .dossier__row,
+        .landing .mohsin__panel.reveal .mohsin__logo--aside {
           opacity: 1;
           transform: none;
         }
@@ -1065,6 +1163,10 @@
       @media (min-width: 768px) {
         .landing {
           --gutter: 2rem;
+        }
+
+        .landing .hero .lede {
+          max-width: 52ch;
         }
 
         .landing .bento {
@@ -1143,6 +1245,10 @@
           max-width: 44rem;
         }
 
+        .landing .hero .lede {
+          max-width: 58ch;
+        }
+
         .landing .intro {
           padding: 4rem 0;
         }
@@ -1162,6 +1268,10 @@
           width: 16.5rem;
           transform: rotate(-3.5deg);
           transform-style: flat;
+        }
+
+        .landing .intro__device.reveal.is-visible .intro__phone {
+          transform: rotate(-3.5deg);
         }
 
         .landing .intro__copy {
@@ -1190,6 +1300,13 @@
           height: 2px;
           background: rgba(47, 93, 58, 0.28);
           z-index: 0;
+          transform: scaleX(0);
+          transform-origin: left center;
+          transition: transform 0.65s var(--ease) 0.15s;
+        }
+
+        .landing .intro__copy.reveal.is-visible .intro__points::before {
+          transform: scaleX(1);
         }
 
         .landing .intro__points li {

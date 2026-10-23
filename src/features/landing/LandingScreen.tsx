@@ -34,7 +34,7 @@ export function LandingScreen() {
           io.unobserve(entry.target)
         }
       },
-      { rootMargin: '0px 0px -8% 0px', threshold: 0.12 },
+      { rootMargin: '0px 0px -10% 0px', threshold: 0.15 },
     )
     nodes.forEach((el) => io.observe(el))
     return () => io.disconnect()
@@ -91,9 +91,6 @@ export function LandingScreen() {
                 <Siren size={20} weight="bold" aria-hidden="true" />
                 <span>Report a case</span>
               </button>
-              <Link className="btn btn--secondary" to="/login">
-                Sign in
-              </Link>
             </div>
           </div>
         </div>
