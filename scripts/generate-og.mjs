@@ -61,53 +61,47 @@ const html = `<!doctype html>
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  margin: 0;
-  padding: 0;
   width: 1200px;
   height: 630px;
-  background: #f7faf8;
+  background: radial-gradient(circle at 10% 20%, #eef5f0 0%, #f7faf8 45%, #e8f0eb 100%);
   font-family: 'DM Sans', sans-serif;
   color: #1a2e22;
   overflow: hidden;
-  display: flex;
 }
 
 .og {
   width: 1200px;
   height: 630px;
-  background: radial-gradient(circle at 10% 20%, #eef5f0 0%, #f7faf8 45%, #e8f0eb 100%);
-  display: grid;
-  grid-template-columns: 1.05fr 1fr;
-  align-items: center;
-  padding: 0 5.2rem;
-  gap: 3.5rem;
-  position: relative;
-}
-
-.og-copy {
+  padding: 3.8rem 5.2rem 4.2rem;
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
-  justify-content: center;
+  justify-content: space-between;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid rgba(197, 208, 200, 0.45);
 }
 
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 1.1rem;
+  gap: 0.9rem;
 }
 
 .brand-logo {
-  width: 62px;
-  height: 62px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .brand-logo svg {
@@ -116,64 +110,83 @@ body {
   display: block;
 }
 
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.brand-title {
-  margin: 0;
+.brand-name {
   font-family: 'Outfit', sans-serif;
   font-weight: 700;
-  font-size: 3.25rem;
+  font-size: 2rem;
+  color: #1b4332;
   letter-spacing: -0.03em;
   line-height: 1;
-  color: #1b4332;
 }
 
-.brand-sub {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
+.network-badge {
+  background: #e3ede6;
   color: #2f5d3a;
-  letter-spacing: -0.01em;
-}
-
-.tagline {
-  margin: 0.35rem 0 0;
-  font-family: 'Outfit', sans-serif;
-  font-size: 1.75rem;
-  font-weight: 700;
-  line-height: 1.22;
-  letter-spacing: -0.02em;
-  color: #1a2e22;
-  max-width: 22ch;
-}
-
-.subtagline {
-  margin: -0.35rem 0 0;
-  font-size: 1.12rem;
-  font-weight: 500;
-  line-height: 1.45;
-  color: #4a5c50;
-  max-width: 34ch;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  margin-left: 0.3rem;
 }
 
 .credit {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  margin-top: 0.65rem;
-  font-size: 0.98rem;
+  font-size: 0.92rem;
   font-weight: 500;
   color: #4a5c50;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.45rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid rgba(197, 208, 200, 0.6);
 }
 
 .credit svg {
-  height: 16px;
+  height: 15px;
   width: auto;
-  display: inline-block;
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 3.5rem;
+  align-items: center;
+  flex: 1;
+  padding-top: 2rem;
+}
+
+.hero-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 3.1rem;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  color: #1a2e22;
+  max-width: 14ch;
+}
+
+.pillars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.4rem;
+}
+
+.pillar {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #2f5d3a;
+  background: #eef5f0;
+  border: 1px solid #d4e3d7;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+}
+
+.desk-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .desk {
@@ -277,54 +290,64 @@ body {
 </head>
 <body>
 <div class="og">
-  <div class="og-copy">
+  <div class="top-bar">
     <div class="brand-lockup">
-      <div class="brand-logo">
-        ${sanctuaryLogoSvg}
-      </div>
-      <div class="brand-text">
-        <h1 class="brand-title">Sanctuary</h1>
-        <p class="brand-sub">Animal welfare network</p>
-      </div>
+      <div class="brand-logo">${sanctuaryLogoSvg}</div>
+      <div class="brand-name">Sanctuary</div>
+      <span class="network-badge">Animal welfare network</span>
     </div>
-    <p class="tagline">Connecting everyone who protects animals.</p>
-    <p class="subtagline">A shared digital backbone for rescuers, shelters, veterinarians, and animal guardians.</p>
+
     <div class="credit">
       <span>A free software by The Mohsin Project</span>
       ${mohsinLogoSvg}
     </div>
   </div>
 
-  <div class="desk">
-    <div class="desk-head">
-      <h3>Animals</h3>
-      <span>47 in care</span>
+  <div class="main-grid">
+    <div>
+      <h1 class="hero-title">Connecting everyone who protects animals.</h1>
+      <div class="pillars">
+        <span class="pillar">Citizens</span>
+        <span class="pillar">Rescuers</span>
+        <span class="pillar">Shelters</span>
+        <span class="pillar">Clinics</span>
+        <span class="pillar">Guardians</span>
+      </div>
     </div>
-    <div class="chips">
-      <span class="chip chip-ok">In sanctuary</span>
-      <span class="chip chip-warn">Field rescue</span>
-      <span class="chip chip-care">Treatment</span>
-    </div>
-    <div class="cards">
-      <div class="card">
-        <div class="card-type">Dog</div>
-        <div class="card-name">Rani</div>
-        <div class="card-id">TSC-0142</div>
-      </div>
-      <div class="card">
-        <div class="card-type">Cat</div>
-        <div class="card-name">Milo</div>
-        <div class="card-id">TSC-0187</div>
-      </div>
-      <div class="card">
-        <div class="card-type">Horse</div>
-        <div class="card-name">Noor</div>
-        <div class="card-id">TSC-0201</div>
-      </div>
-      <div class="card">
-        <div class="card-type">Donkey</div>
-        <div class="card-name">Chotu</div>
-        <div class="card-id">TSC-0214</div>
+
+    <div class="desk-preview">
+      <div class="desk">
+        <div class="desk-head">
+          <h3>Animals</h3>
+          <span>47 in care</span>
+        </div>
+        <div class="chips">
+          <span class="chip chip-ok">In sanctuary</span>
+          <span class="chip chip-warn">Field rescue</span>
+          <span class="chip chip-care">Treatment</span>
+        </div>
+        <div class="cards">
+          <div class="card">
+            <div class="card-type">Dog</div>
+            <div class="card-name">Rani</div>
+            <div class="card-id">TSC-0142</div>
+          </div>
+          <div class="card">
+            <div class="card-type">Cat</div>
+            <div class="card-name">Milo</div>
+            <div class="card-id">TSC-0187</div>
+          </div>
+          <div class="card">
+            <div class="card-type">Horse</div>
+            <div class="card-name">Noor</div>
+            <div class="card-id">TSC-0201</div>
+          </div>
+          <div class="card">
+            <div class="card-type">Donkey</div>
+            <div class="card-name">Chotu</div>
+            <div class="card-id">TSC-0214</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
