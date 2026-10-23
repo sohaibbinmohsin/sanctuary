@@ -89,10 +89,65 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
         </div>
       </div>
 
-      {draft.intakeCountMode !== 'single' ? (
+      {draft.intakeCountMode === 'litter' ? (
+        <>
+          <div className="public-report__group">
+            <label className="public-report__label" htmlFor="animal-count">
+              Total count in litter
+            </label>
+            <div className="public-report__stepper">
+              <button
+                type="button"
+                className="public-report__step-btn"
+                onClick={() => onUpdate({ animalCount: Math.max(2, draft.animalCount - 1) })}
+                disabled={draft.animalCount <= 2}
+                aria-label="Decrease count"
+              >
+                -
+              </button>
+              <span className="public-report__step-count">{draft.animalCount}</span>
+              <button
+                type="button"
+                className="public-report__step-btn"
+                onClick={() => onUpdate({ animalCount: draft.animalCount + 1 })}
+                aria-label="Increase count"
+              >
+                +
+              </button>
+              <span className="public-report__valid-hint" style={{ marginLeft: 'var(--space-2)' }}>
+                Litter of {draft.animalCount}
+              </span>
+            </div>
+          </div>
+
+          <div className="public-report__group">
+            <label className="public-report__label">Litter composition</label>
+            <div className="public-report__chips" role="group" aria-label="Litter composition">
+              <button
+                type="button"
+                className={`public-report__chip${draft.litterComposition === 'offspring_only' ? ' public-report__chip--active' : ''}`}
+                aria-pressed={draft.litterComposition === 'offspring_only'}
+                onClick={() => onUpdate({ litterComposition: 'offspring_only' })}
+              >
+                Babies only
+              </button>
+              <button
+                type="button"
+                className={`public-report__chip${draft.litterComposition === 'mother_and_offspring' ? ' public-report__chip--active' : ''}`}
+                aria-pressed={draft.litterComposition === 'mother_and_offspring'}
+                onClick={() => onUpdate({ litterComposition: 'mother_and_offspring' })}
+              >
+                Mother + {Math.max(1, draft.animalCount - 1)} Babies
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {draft.intakeCountMode === 'multiple' ? (
         <div className="public-report__group">
           <label className="public-report__label" htmlFor="animal-count">
-            Total count
+            Total count in group
           </label>
           <div className="public-report__stepper">
             <button
@@ -112,6 +167,33 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
               aria-label="Increase count"
             >
               +
+            </button>
+            <span className="public-report__valid-hint" style={{ marginLeft: 'var(--space-2)' }}>
+              Group of {draft.animalCount}
+            </span>
+          </div>
+        </div>
+      ) : null}
+
+      {draft.intakeCountMode === 'single' ? (
+        <div className="public-report__group">
+          <label className="public-report__label">Life stage</label>
+          <div className="public-report__chips" role="group" aria-label="Life stage">
+            <button
+              type="button"
+              className={`public-report__chip${draft.lifeStage === 'adult' ? ' public-report__chip--active' : ''}`}
+              aria-pressed={draft.lifeStage === 'adult'}
+              onClick={() => onUpdate({ lifeStage: 'adult' })}
+            >
+              Adult
+            </button>
+            <button
+              type="button"
+              className={`public-report__chip${draft.lifeStage === 'child' ? ' public-report__chip--active' : ''}`}
+              aria-pressed={draft.lifeStage === 'child'}
+              onClick={() => onUpdate({ lifeStage: 'child' })}
+            >
+              Child / Baby
             </button>
           </div>
         </div>

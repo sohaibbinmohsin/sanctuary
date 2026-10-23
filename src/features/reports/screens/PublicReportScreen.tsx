@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Check, Siren } from '@phosphor-icons/react'
+import { Check } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   generateReportNumber,
@@ -217,10 +217,6 @@ export function PublicReportScreen() {
           <img src="/sanctuary-logo.svg" alt="" width={36} height={36} />
           <span>Sanctuary</span>
         </Link>
-        <div className="public-report__emergency-pill">
-          <Siren size={16} weight="bold" aria-hidden />
-          <span>Emergency Intake</span>
-        </div>
       </header>
 
       <main className="public-report__main">

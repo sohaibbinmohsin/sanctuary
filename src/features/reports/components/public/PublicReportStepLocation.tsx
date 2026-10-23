@@ -1,5 +1,5 @@
-import { useState, type FormEvent, type ChangeEvent } from 'react'
-import { ArrowLeft, ArrowRight, Crosshair, Check, Camera, Trash } from '@phosphor-icons/react'
+import { useState, useRef, type FormEvent, type ChangeEvent } from 'react'
+import { ArrowLeft, ArrowRight, Crosshair, Check, Camera, ImageSquare, Trash } from '@phosphor-icons/react'
 import { PAKISTAN_CITIES, getAreasForCity } from '@/features/reports/domain/pakistanLocations'
 import { requestCurrentPosition } from '@/features/reports/domain/coordinates'
 import type { ReportDraftState } from '@/features/reports/hooks/useReportDraft'
@@ -31,7 +31,10 @@ export function PublicReportStepLocation({
 }: PublicReportStepLocationProps) {
   const [detectingGps, setDetectingGps] = useState(false)
   const [gpsError, setGpsError] = useState<string | null>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
 
+  const sortedCities = [...PAKISTAN_CITIES].sort((a, b) => a.localeCompare(b))
   const cityAreas = getAreasForCity(draft.city)
 
   async function handleGetLocation() {
@@ -81,7 +84,7 @@ export function PublicReportStepLocation({
           value={draft.city}
           onChange={(e) => onUpdate({ city: e.target.value })}
         >
-          {PAKISTAN_CITIES.map((c) => (
+          {sortedCities.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
@@ -150,34 +153,62 @@ export function PublicReportStepLocation({
 
       <div className="public-report__field">
         <label className="public-report__label">Photos of the animal or scene (optional)</label>
-        <div className="public-report__photo-grid">
-          {photos.map((item) => (
-            <div key={item.id} className="public-report__photo-thumb">
-              <img src={item.url} alt="Staged rescue photo" />
-              <button
-                type="button"
-                className="public-report__photo-remove"
-                onClick={() => onRemovePhoto(item.id)}
-                aria-label="Remove photo"
-              >
-                <Trash size={16} weight="bold" />
-              </button>
-            </div>
-          ))}
-          {photos.length < 5 ? (
-            <label className="public-report__photo-upload">
-              <Camera size={26} weight="duotone" aria-hidden />
+        {photos.length > 0 ? (
+          <div className="public-report__photo-grid">
+            {photos.map((item) => (
+              <div key={item.id} className="public-report__photo-thumb">
+                <img src={item.url} alt="Staged rescue photo" />
+                <button
+                  type="button"
+                  className="public-report__photo-remove"
+                  onClick={() => onRemovePhoto(item.id)}
+                  aria-label="Remove photo"
+                >
+                  <Trash size={16} weight="bold" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {photos.length < 5 ? (
+          <div className="public-report__photo-actions">
+            <button
+              type="button"
+              className="public-report__photo-action-btn"
+              onClick={() => cameraInputRef.current?.click()}
+              aria-label="Take photo with camera"
+            >
+              <Camera size={18} weight="bold" aria-hidden />
+              <span>Take photo</span>
+            </button>
+            <button
+              type="button"
+              className="public-report__photo-action-btn"
+              onClick={() => galleryInputRef.current?.click()}
+              aria-label="Add photo from gallery"
+            >
+              <ImageSquare size={18} weight="bold" aria-hidden />
               <span>Add photo</span>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="public-report__file-hidden"
-                onChange={handleFileChange}
-              />
-            </label>
-          ) : null}
-        </div>
+            </button>
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="public-report__file-hidden"
+              onChange={handleFileChange}
+            />
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="public-report__file-hidden"
+              onChange={handleFileChange}
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="public-report__actions public-report__actions--split">
