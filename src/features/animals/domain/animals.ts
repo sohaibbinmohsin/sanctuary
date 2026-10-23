@@ -6,7 +6,6 @@ import type { AnimalRecord } from '@/features/sync/powersync/schema'
 import { removeChecklistItemForAnimal } from '@/features/checklist/domain/checklist'
 import { addTreatment } from '@/features/treatments/domain/treatments'
 import {
-  listAssignmentsForAnimal,
   replaceAnimalStatuses,
   setSingleStatusAssignment,
 } from '@/features/statuses/domain/assignments'
@@ -327,21 +326,13 @@ export async function searchAnimals(
 
   const statusIds = [...new Set(filters.statusIds ?? [])]
   if (statusIds.length > 0) {
-    const placeholders = statusIds.map(() => '?').join(', ')
-    const matchAll =
-      filters.statusMode === 'all'
-        ? ` GROUP BY asa.animal_id
-            HAVING COUNT(DISTINCT asa.status_id) = ?`
-        : ''
-    clauses.push(
-      `a.id IN (
-        SELECT asa.animal_id
-        FROM animal_status_assignments asa
-        WHERE asa.status_id IN (${placeholders})${matchAll}
-      )`,
-    )
-    params.push(...statusIds)
-    if (filters.statusMode === 'all') params.push(statusIds.length)
+    if (filters.statusMode === 'all' && statusIds.length > 1) {
+      clauses.push('1 = 0')
+    } else {
+      const placeholders = statusIds.map(() => '?').join(', ')
+      clauses.push(`a.status_id IN (${placeholders})`)
+      params.push(...statusIds)
+    }
   }
   if (filters.species?.trim()) {
     clauses.push('LOWER(a.species) = LOWER(?)')
@@ -372,25 +363,9 @@ export async function searchAnimals(
   )
   if (rows.length === 0) return []
 
-  const placeholders = rows.map(() => '?').join(', ')
-  const labels = await db.getAll<{ animal_id: string; label: string }>(
-    `SELECT asa.animal_id, s.label
-     FROM animal_status_assignments asa
-     JOIN animal_statuses s ON s.id = asa.status_id
-     WHERE asa.animal_id IN (${placeholders})
-     ORDER BY s.sort_order ASC, s.label ASC, s.id ASC`,
-    rows.map((row) => row.id),
-  )
-  const labelsByAnimal = new Map<string, string[]>()
-  for (const assignment of labels) {
-    const animalLabels = labelsByAnimal.get(assignment.animal_id) ?? []
-    animalLabels.push(assignment.label)
-    labelsByAnimal.set(assignment.animal_id, animalLabels)
-  }
-
   const enriched = rows.map((row) => ({
     ...row,
-    status_labels: labelsByAnimal.get(row.id) ?? [],
+    status_labels: row.status_label ? [row.status_label] : [],
   }))
 
   return reconcileAnimalsWithTimelineStatuses(db, orgId, enriched)
@@ -409,10 +384,9 @@ export async function getAnimal(
   )
   if (!animal) return null
 
-  const assignments = await listAssignmentsForAnimal(db, id)
   const enriched: AnimalWithStatus = {
     ...animal,
-    status_labels: assignments.map((assignment) => assignment.label),
+    status_labels: animal.status_label ? [animal.status_label] : [],
   }
   if (!animal.org_id) return enriched
   const [reconciled] = await reconcileAnimalsWithTimelineStatuses(
@@ -564,19 +538,8 @@ export async function countInCare(
   const row = await db.getOptional<{ n: number }>(
     `SELECT COUNT(*) as n
      FROM animals a
-     WHERE a.org_id = ? AND a.archived = 0
-       AND EXISTS (
-         SELECT 1
-         FROM animal_status_assignments asa
-         JOIN animal_statuses s ON s.id = asa.status_id
-         WHERE asa.animal_id = a.id AND s.counts_as_in_care = 1
-       )
-       AND NOT EXISTS (
-         SELECT 1
-         FROM animal_status_assignments asa
-         JOIN animal_statuses s ON s.id = asa.status_id
-         WHERE asa.animal_id = a.id AND s.counts_as_in_care = 0
-       )`,
+     JOIN animal_statuses s ON s.id = a.status_id
+     WHERE a.org_id = ? AND a.archived = 0 AND s.counts_as_in_care = 1`,
     [orgId],
   )
   return row?.n ?? 0
@@ -600,12 +563,11 @@ export async function countAnimalsByStatus(
     sort_order: number | null
     n: number
   }>(
-    `SELECT asa.status_id, s.label, s.sort_order, COUNT(*) as n
+    `SELECT a.status_id, s.label, s.sort_order, COUNT(*) as n
      FROM animals a
-     JOIN animal_status_assignments asa ON asa.animal_id = a.id
-     JOIN animal_statuses s ON s.id = asa.status_id
+     JOIN animal_statuses s ON s.id = a.status_id
      WHERE a.org_id = ? AND a.archived = 0
-     GROUP BY asa.status_id, s.label, s.sort_order
+     GROUP BY a.status_id, s.label, s.sort_order
      ORDER BY COALESCE(s.sort_order, 999), s.label ASC`,
     [orgId],
   )

@@ -34,22 +34,6 @@ const animal_statuses = new Table(
   { indexes: { by_org: ['org_id'] } },
 )
 
-const animal_status_assignments = new Table(
-  {
-    org_id: column.text,
-    animal_id: column.text,
-    status_id: column.text,
-    created_at: column.text,
-  },
-  {
-    indexes: {
-      by_org: ['org_id'],
-      by_animal: ['animal_id'],
-      by_status: ['status_id'],
-    },
-  },
-)
-
 const animals = new Table(
   {
     org_id: column.text,
@@ -243,7 +227,6 @@ export const AppSchema = new Schema({
   organizations,
   org_members,
   animal_statuses,
-  animal_status_assignments,
   animals,
   animal_relationships,
   treatments,
@@ -263,7 +246,6 @@ export type Database = (typeof AppSchema)['types']
 export type OrganizationRecord = Database['organizations']
 export type OrgMemberRecord = Database['org_members']
 export type AnimalStatusRecord = Database['animal_statuses']
-export type AnimalStatusAssignmentRecord = Database['animal_status_assignments']
 export type AnimalRecord = Omit<Database['animals'], 'life_stage'> & {
   life_stage?: 'adult' | 'child' | null
 }

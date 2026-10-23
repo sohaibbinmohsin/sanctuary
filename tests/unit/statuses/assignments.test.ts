@@ -14,42 +14,28 @@ type Status = {
   counts_as_in_care: number
 }
 
-function createDb(
-  statuses: Status[],
-  currentStatusIds: string[] = [],
-  primaryStatusId?: string,
-) {
-  const transactionExecute = vi.fn().mockResolvedValue(undefined)
+function createDb(statuses: Status[], primaryStatusId: string | null = null) {
   const execute = vi.fn().mockResolvedValue(undefined)
   const getAll = vi.fn(async (sql: string) => {
     if (sql.includes('FROM animal_statuses')) return statuses
-    if (sql.includes('FROM animal_status_assignments')) {
-      return currentStatusIds.map((status_id) => ({
-        status_id,
-        primary_status_id: primaryStatusId,
-      }))
-    }
     return []
   })
-  const writeTransaction = vi.fn(
-    async (
-      fn: (tx: { execute: typeof transactionExecute }) => Promise<void>,
-    ) => {
-      await fn({ execute: transactionExecute })
-    },
-  )
+  const getOptional = vi.fn(async (sql: string) => {
+    if (sql.includes('SELECT status_id FROM animals')) {
+      return primaryStatusId ? { status_id: primaryStatusId } : null
+    }
+    return null
+  })
 
   return {
     db: {
       getAll,
-      getOptional: vi.fn(),
+      getOptional,
       execute,
-      writeTransaction,
     },
     execute,
     getAll,
-    transactionExecute,
-    writeTransaction,
+    getOptional,
   }
 }
 
@@ -76,7 +62,6 @@ describe('resolvePrimaryStatusId', () => {
 describe('replaceAnimalStatuses', () => {
   it('rejects empty status set', async () => {
     const db = {
-      writeTransaction: vi.fn(),
       getAll: vi.fn(),
       getOptional: vi.fn(),
       execute: vi.fn(),
@@ -90,8 +75,8 @@ describe('replaceAnimalStatuses', () => {
     ).rejects.toThrow(/at least one status/i)
   })
 
-  it('writes only the first out-of-care status in provided order', async () => {
-    const { db, transactionExecute } = createDb([
+  it('writes the first out-of-care status in provided order to animals.status_id', async () => {
+    const { db, execute } = createDb([
       {
         id: 'transfer',
         label: 'Transferred',
@@ -118,17 +103,19 @@ describe('replaceAnimalStatuses', () => {
       statusIds: ['critical', 'adopted', 'transfer'],
     })
 
-    const assignmentInserts = transactionExecute.mock.calls.filter(([sql]) =>
-      String(sql).includes('INSERT INTO animal_status_assignments'),
+    const statusUpdate = execute.mock.calls.find(([sql]) =>
+      String(sql).includes('UPDATE animals SET status_id'),
     )
-    expect(assignmentInserts).toHaveLength(1)
-    expect(assignmentInserts[0]![1]).toEqual(
-      expect.arrayContaining(['animal-1', 'adopted']),
-    )
+    expect(statusUpdate).toBeDefined()
+    expect(statusUpdate![1]).toEqual([
+      'adopted',
+      expect.any(String),
+      'animal-1',
+    ])
   })
 
-  it('updates the primary mirror using resolvePrimaryStatusId', async () => {
-    const { db, transactionExecute } = createDb([
+  it('updates animals.status_id using resolvePrimaryStatusId', async () => {
+    const { db, execute } = createDb([
       { id: 'watch', label: 'Watch', sort_order: 5, counts_as_in_care: 1 },
       { id: 'urgent', label: 'Urgent', sort_order: 1, counts_as_in_care: 1 },
     ])
@@ -139,53 +126,23 @@ describe('replaceAnimalStatuses', () => {
       statusIds: ['watch', 'urgent'],
     })
 
-    const mirrorUpdate = transactionExecute.mock.calls.find(([sql]) =>
+    const statusUpdate = execute.mock.calls.find(([sql]) =>
       String(sql).includes('UPDATE animals SET status_id'),
     )
-    expect(mirrorUpdate).toBeDefined()
-    expect(mirrorUpdate![1]).toEqual([
+    expect(statusUpdate).toBeDefined()
+    expect(statusUpdate![1]).toEqual([
       'urgent',
       expect.any(String),
       'animal-1',
     ])
   })
 
-  it('repairs the primary mirror when reordered assignments are unchanged', async () => {
-    const { db, execute, transactionExecute, writeTransaction } = createDb(
+  it('does nothing when animals.status_id is already unchanged', async () => {
+    const { db, execute } = createDb(
       [
         { id: 'watch', label: 'Watch', sort_order: 5, counts_as_in_care: 1 },
         { id: 'urgent', label: 'Urgent', sort_order: 1, counts_as_in_care: 1 },
       ],
-      ['urgent', 'watch'],
-      'watch',
-    )
-
-    await replaceAnimalStatuses(db as never, {
-      orgId: 'org-1',
-      animalId: 'animal-1',
-      statusIds: ['watch', 'urgent'],
-    })
-
-    expect(writeTransaction).not.toHaveBeenCalled()
-    expect(transactionExecute).not.toHaveBeenCalled()
-    expect(execute).toHaveBeenCalledOnce()
-    expect(execute.mock.calls[0]![0]).toContain(
-      'UPDATE animals SET status_id',
-    )
-    expect(execute.mock.calls[0]![1]).toEqual([
-      'urgent',
-      expect.any(String),
-      'animal-1',
-    ])
-  })
-
-  it('does nothing when assignments and the primary mirror are unchanged', async () => {
-    const { db, execute, transactionExecute, writeTransaction } = createDb(
-      [
-        { id: 'watch', label: 'Watch', sort_order: 5, counts_as_in_care: 1 },
-        { id: 'urgent', label: 'Urgent', sort_order: 1, counts_as_in_care: 1 },
-      ],
-      ['urgent', 'watch'],
       'urgent',
     )
 
@@ -195,12 +152,10 @@ describe('replaceAnimalStatuses', () => {
       statusIds: ['watch', 'urgent'],
     })
 
-    expect(writeTransaction).not.toHaveBeenCalled()
-    expect(transactionExecute).not.toHaveBeenCalled()
     expect(execute).not.toHaveBeenCalled()
   })
 
-  it('writes care-log notes with labels sorted by sort_order', async () => {
+  it('writes care-log notes with the resolved primary status label', async () => {
     const { db, execute } = createDb([
       { id: 'stable', label: 'Stable', sort_order: 30, counts_as_in_care: 1 },
       { id: 'urgent', label: 'Urgent', sort_order: 10, counts_as_in_care: 1 },
@@ -223,48 +178,21 @@ describe('replaceAnimalStatuses', () => {
       'animal-1',
       expect.any(String),
       'status',
-      'Urgent, Watch, Stable',
+      'Urgent',
       null,
       0,
       expect.any(String),
     ])
   })
-
-  it('preserves all in-care statuses when no exit is present', async () => {
-    const { db, transactionExecute } = createDb([
-      { id: 'stable', label: 'Stable', sort_order: 30, counts_as_in_care: 1 },
-      { id: 'urgent', label: 'Urgent', sort_order: 10, counts_as_in_care: 1 },
-      { id: 'watch', label: 'Watch', sort_order: 20, counts_as_in_care: 1 },
-    ])
-
-    await replaceAnimalStatuses(db as never, {
-      orgId: 'org-1',
-      animalId: 'animal-1',
-      statusIds: ['stable', 'urgent', 'watch'],
-    })
-
-    const insertedStatusIds = transactionExecute.mock.calls
-      .filter(([sql]) =>
-        String(sql).includes('INSERT INTO animal_status_assignments'),
-      )
-      .map(([, params]) => params[3])
-    expect(insertedStatusIds).toEqual(['stable', 'urgent', 'watch'])
-  })
 })
 
 describe('listAssignmentsForAnimal', () => {
-  it('returns ordered status join rows', async () => {
+  it('returns the animal status row joined from animals.status_id', async () => {
     const rows = [
       {
         status_id: 'urgent',
         label: 'Urgent',
         sort_order: 1,
-        counts_as_in_care: 1,
-      },
-      {
-        status_id: 'watch',
-        label: 'Watch',
-        sort_order: 2,
         counts_as_in_care: 1,
       },
     ]
@@ -276,9 +204,8 @@ describe('listAssignmentsForAnimal', () => {
 
     expect(getAll).toHaveBeenCalledOnce()
     const [sql, params] = getAll.mock.calls[0]!
-    expect(sql).toMatch(/FROM animal_status_assignments asa/i)
-    expect(sql).toMatch(/JOIN animal_statuses s ON s\.id = asa\.status_id/i)
-    expect(sql).toMatch(/ORDER BY s\.sort_order ASC, s\.label ASC/i)
+    expect(sql).toMatch(/FROM animals a/i)
+    expect(sql).toMatch(/JOIN animal_statuses s ON s\.id = a\.status_id/i)
     expect(params).toEqual(['animal-1'])
   })
 })
@@ -290,7 +217,7 @@ describe('checklist auto-add on status change', () => {
       .mockResolvedValue({ added: 1, skipped: 0 })
 
     const db = {
-      writeTransaction: vi.fn(async (fn: any) => fn({ execute: vi.fn() })),
+      execute: vi.fn().mockResolvedValue(undefined),
       getOptional: vi.fn().mockResolvedValue({ label: 'Critical' }),
     }
 
@@ -308,7 +235,7 @@ describe('checklist auto-add on status change', () => {
     addChecklistSpy.mockRestore()
   })
 
-  it('automatically adds animal to checklist when replaceAnimalStatuses includes Treatment or Critical', async () => {
+  it('automatically adds animal to checklist when replaceAnimalStatuses resolves to Treatment or Critical', async () => {
     const addChecklistSpy = vi
       .spyOn(checklistModule, 'addAnimalsToChecklist')
       .mockResolvedValue({ added: 1, skipped: 0 })
@@ -330,29 +257,4 @@ describe('checklist auto-add on status change', () => {
 
     addChecklistSpy.mockRestore()
   })
-
-  it('generates a valid UUID (without asa- prefix) in setSingleStatusAssignment', async () => {
-    const txExecute = vi.fn().mockResolvedValue(undefined)
-    const db = {
-      writeTransaction: vi.fn(async (fn: any) => fn({ execute: txExecute })),
-      getOptional: vi.fn().mockResolvedValue({ label: 'In sanctuary' }),
-    }
-
-    await setSingleStatusAssignment(db as never, {
-      animalId: 'anim-92',
-      orgId: 'org-test',
-      statusId: 'status-sanctuary',
-    })
-
-    const insertCall = txExecute.mock.calls.find(([sql]) =>
-      String(sql).includes('INSERT INTO animal_status_assignments'),
-    )
-    expect(insertCall).toBeDefined()
-    const generatedId = String(insertCall![1][0])
-    expect(generatedId).not.toMatch(/^asa-/)
-    expect(generatedId).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    )
-  })
 })
-

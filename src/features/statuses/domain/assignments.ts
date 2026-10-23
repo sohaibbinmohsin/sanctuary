@@ -21,10 +21,10 @@ export async function listAssignmentsForAnimal(
   animalId: string,
 ): Promise<AssignedStatus[]> {
   return db.getAll<AssignedStatus>(
-    `SELECT asa.status_id, s.label, s.sort_order, s.counts_as_in_care
-     FROM animal_status_assignments asa
-     JOIN animal_statuses s ON s.id = asa.status_id
-     WHERE asa.animal_id = ?
+    `SELECT a.status_id, s.label, s.sort_order, s.counts_as_in_care
+     FROM animals a
+     JOIN animal_statuses s ON s.id = a.status_id
+     WHERE a.id = ?
      ORDER BY s.sort_order ASC, s.label ASC`,
     [animalId],
   )
@@ -87,69 +87,41 @@ export async function replaceAnimalStatuses(
   const selectedStatuses = selectedIds.map((id) => statusesById.get(id)!)
   const primaryStatusId = resolvePrimaryStatusId(selectedStatuses)
 
-  const currentAssignments = await db.getAll<{
-    status_id: string
-    primary_status_id: string
-  }>(
-    `SELECT asa.status_id, a.status_id AS primary_status_id
-     FROM animal_status_assignments asa
-     JOIN animals a ON a.id = asa.animal_id
-     WHERE asa.animal_id = ?`,
-    [input.animalId],
-  )
-  const currentIds = new Set(
-    currentAssignments.map((assignment) => assignment.status_id),
-  )
-  const unchanged =
-    currentIds.size === selectedIds.length &&
-    selectedIds.every((id) => currentIds.has(id))
+  const currentRow =
+    typeof db.getOptional === 'function'
+      ? await db.getOptional<{ status_id: string }>(
+          `SELECT status_id FROM animals WHERE id = ?`,
+          [input.animalId],
+        )
+      : (
+          await db.getAll<{ status_id: string }>(
+            `SELECT status_id FROM animals WHERE id = ?`,
+            [input.animalId],
+          )
+        )[0]
+  const currentStatusId = currentRow?.status_id
   const now = new Date().toISOString()
-  if (unchanged) {
-    if (currentAssignments[0]?.primary_status_id !== primaryStatusId) {
-      await db.execute(
-        `UPDATE animals SET status_id = ?, updated_at = ? WHERE id = ?`,
-        [primaryStatusId, now, input.animalId],
-      )
-    }
+
+  if (currentStatusId === primaryStatusId) {
     return
   }
 
-  await db.writeTransaction(async (tx) => {
-    await tx.execute(
-      `DELETE FROM animal_status_assignments WHERE animal_id = ?`,
-      [input.animalId],
-    )
-
-    for (const statusId of selectedIds) {
-      await tx.execute(
-        `INSERT INTO animal_status_assignments (
-          id, org_id, animal_id, status_id, created_at
-        ) VALUES (?, ?, ?, ?, ?)`,
-        [
-          crypto.randomUUID(),
-          input.orgId,
-          input.animalId,
-          statusId,
-          now,
-        ],
-      )
-    }
-
-    await tx.execute(
+  if (typeof db.execute === 'function') {
+    await db.execute(
       `UPDATE animals SET status_id = ?, updated_at = ? WHERE id = ?`,
       [primaryStatusId, now, input.animalId],
     )
-  })
+  } else if (typeof db.writeTransaction === 'function') {
+    await db.writeTransaction(async (tx) => {
+      await tx.execute(
+        `UPDATE animals SET status_id = ?, updated_at = ? WHERE id = ?`,
+        [primaryStatusId, now, input.animalId],
+      )
+    })
+  }
 
-  const notes = [...selectedStatuses]
-    .sort(
-      (a, b) =>
-        a.sort_order - b.sort_order ||
-        a.label.localeCompare(b.label) ||
-        a.id.localeCompare(b.id),
-    )
-    .map((status) => status.label)
-    .join(', ')
+  const primaryStatus = statusesById.get(primaryStatusId)
+  const notes = primaryStatus?.label ?? selectedStatuses[0]!.label
 
   if (!input.skipTreatmentLog) {
     await addTreatment(db, {
@@ -190,20 +162,19 @@ export async function setSingleStatusAssignment(
   const now = input.treatedAt
     ? new Date(input.treatedAt).toISOString()
     : new Date().toISOString()
-  await db.writeTransaction(async (tx) => {
-    await tx.execute(
-      'DELETE FROM animal_status_assignments WHERE animal_id = ?',
-      [input.animalId],
-    )
-    await tx.execute(
-      'INSERT INTO animal_status_assignments (id, org_id, animal_id, status_id, created_at) VALUES (?, ?, ?, ?, ?)',
-      [crypto.randomUUID(), input.orgId, input.animalId, input.statusId, now],
-    )
-    await tx.execute(
+  if (typeof db.execute === 'function') {
+    await db.execute(
       'UPDATE animals SET status_id = ?, updated_at = ? WHERE id = ?',
       [input.statusId, now, input.animalId],
     )
-  })
+  } else if (typeof db.writeTransaction === 'function') {
+    await db.writeTransaction(async (tx) => {
+      await tx.execute(
+        'UPDATE animals SET status_id = ?, updated_at = ? WHERE id = ?',
+        [input.statusId, now, input.animalId],
+      )
+    })
+  }
 
   try {
     const statusRow = typeof db.getOptional === 'function'
