@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Check } from '@phosphor-icons/react'
+import { Check, X } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   generateReportNumber,
@@ -38,6 +38,29 @@ export function PublicReportScreen() {
   const [photos, setPhotos] = useState<PublicPhotoItem[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const handleClose = useCallback(() => {
+    if (window.history.length > 1) {
+      navigate(-1)
+    } else {
+      navigate('/', { replace: true })
+    }
+  }, [navigate])
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        handleClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [handleClose])
 
   useEffect(() => {
     if (!profile) return
@@ -211,18 +234,41 @@ export function PublicReportScreen() {
   }
 
   return (
-    <div className="public-report">
-      <header className="public-report__header">
-        <Link to="/" className="public-report__brand" aria-label="Sanctuary Home">
-          <img src="/sanctuary-logo.svg" alt="" width={36} height={36} />
-          <span>Sanctuary</span>
-        </Link>
-      </header>
+    <div
+      className="public-report__overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          handleClose()
+        }
+      }}
+      role="presentation"
+    >
+      <div
+        className="public-report__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="public-report-dialog-title"
+      >
+        <header className="public-report__dialog-header">
+          <Link to="/" className="public-report__brand" aria-label="Sanctuary Home">
+            <img src="/sanctuary-logo.svg" alt="" width={32} height={32} />
+            <span>Sanctuary</span>
+          </Link>
+          <button
+            type="button"
+            className="public-report__close"
+            onClick={handleClose}
+            aria-label="Close report dialog"
+          >
+            <X size={20} weight="bold" />
+          </button>
+        </header>
 
-      <main className="public-report__main">
-        <div className="public-report__card">
+        <div className="public-report__dialog-body">
           <div className="public-report__intro">
-            <h1 className="public-report__title">Report an Animal in Distress</h1>
+            <h1 id="public-report-dialog-title" className="public-report__title">
+              Report an Animal in Distress
+            </h1>
             <p className="public-report__subtitle">
               Emergency intake is dispatched directly to nearby partner rescue units and field responders.
             </p>
@@ -292,7 +338,7 @@ export function PublicReportScreen() {
             )}
           </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

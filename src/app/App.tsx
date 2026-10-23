@@ -94,7 +94,15 @@ export default function App() {
           {signedIn ? (
             <Routes>
               <Route path="/login" element={<Navigate to="/" replace />} />
-              <Route path="/report" element={<PublicReportScreen />} />
+              <Route
+                path="/report"
+                element={
+                  <>
+                    <AppShell />
+                    <PublicReportScreen />
+                  </>
+                }
+              />
               <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
               <Route path="/*" element={<PublicSlugOrApp />} />
             </Routes>
@@ -105,7 +113,15 @@ export default function App() {
                 path="/login"
                 element={<LoginScreen onSuccess={() => setSignedIn(true)} />}
               />
-              <Route path="/report" element={<PublicReportScreen />} />
+              <Route
+                path="/report"
+                element={
+                  <>
+                    <LandingScreen />
+                    <PublicReportScreen />
+                  </>
+                }
+              />
               <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
               <Route path="/:slug" element={<PublicShelterScreen />} />
               <Route path="*" element={<Navigate to="/" replace />} />

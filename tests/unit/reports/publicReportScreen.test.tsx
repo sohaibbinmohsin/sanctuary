@@ -92,6 +92,9 @@ describe('PublicReportScreen', () => {
 
     const areaInput = screen.getByLabelText(/Area or Neighborhood/i)
     fireEvent.change(areaInput, { target: { value: 'Gulberg' } })
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const mockFile = new File(['fake-image'], 'rescue.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [mockFile] } })
     fireEvent.click(screen.getByRole('button', { name: /Continue to Contact/i }))
 
     const phoneInput = screen.getByLabelText(/Mobile phone/i) as HTMLInputElement
@@ -118,6 +121,9 @@ describe('PublicReportScreen', () => {
     // Step 2
     const areaInput = screen.getByLabelText(/Area or Neighborhood/i)
     fireEvent.change(areaInput, { target: { value: 'DHA Phase 5' } })
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const mockFile = new File(['fake-image'], 'rescue.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [mockFile] } })
     fireEvent.click(screen.getByRole('button', { name: /Continue to Contact/i }))
 
     // Step 3
@@ -157,6 +163,9 @@ describe('PublicReportScreen', () => {
 
     // Step 2
     fireEvent.change(screen.getByLabelText(/Area or Neighborhood/i), { target: { value: 'Spam area' } })
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const mockFile = new File(['fake-image'], 'rescue.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [mockFile] } })
     fireEvent.click(screen.getByRole('button', { name: /Continue to Contact/i }))
 
     // Step 3
@@ -176,6 +185,37 @@ describe('PublicReportScreen', () => {
     // Cached reports should NOT have been written
     const cachedRaw = localStorage.getItem('sanctuary_public_reports_v1')
     expect(cachedRaw).toBeNull()
+  })
+
+  it('closes dialog and navigates when close button is clicked', () => {
+    render(
+      <MemoryRouter initialEntries={['/report']}>
+        <Routes>
+          <Route path="/" element={<div data-testid="home-page">Home Page</div>} />
+          <Route path="/report" element={<PublicReportScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    const closeBtn = screen.getByRole('button', { name: /Close report dialog/i })
+    expect(closeBtn).toBeInTheDocument()
+    fireEvent.click(closeBtn)
+
+    expect(screen.getByTestId('home-page')).toBeInTheDocument()
+  })
+
+  it('closes dialog when Escape key is pressed', () => {
+    render(
+      <MemoryRouter initialEntries={['/report']}>
+        <Routes>
+          <Route path="/" element={<div data-testid="home-page">Home Page</div>} />
+          <Route path="/report" element={<PublicReportScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.getByTestId('home-page')).toBeInTheDocument()
   })
 
   it('contains strictly zero em-dashes', () => {

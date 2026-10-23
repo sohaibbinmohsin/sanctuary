@@ -68,7 +68,7 @@ export function PublicReportStepLocation({
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!draft.locationArea.trim()) return
+    if (!draft.locationArea.trim() || photos.length === 0) return
     onNext()
   }
 
@@ -152,7 +152,10 @@ export function PublicReportStepLocation({
       </div>
 
       <div className="public-report__field">
-        <label className="public-report__label">Photos of the animal or scene (optional)</label>
+        <label className="public-report__label">Photos of the animal or scene</label>
+        <p className="public-report__hint">
+          At least 1 photo is required so rescue teams can assess the animal and severity.
+        </p>
         {photos.length > 0 ? (
           <div className="public-report__photo-grid">
             {photos.map((item) => (
@@ -209,6 +212,16 @@ export function PublicReportStepLocation({
             />
           </div>
         ) : null}
+
+        {photos.length === 0 ? (
+          <span className="public-report__error" style={{ fontSize: 'var(--text-xs)' }}>
+            Please attach at least 1 photo to continue.
+          </span>
+        ) : (
+          <span className="public-report__valid-hint" style={{ fontSize: 'var(--text-xs)' }}>
+            <Check size={14} weight="bold" aria-hidden /> {photos.length} {photos.length === 1 ? 'photo' : 'photos'} attached
+          </span>
+        )}
       </div>
 
       <div className="public-report__actions public-report__actions--split">
@@ -219,7 +232,7 @@ export function PublicReportStepLocation({
         <button
           type="submit"
           className="public-report__btn public-report__btn--primary"
-          disabled={!draft.locationArea.trim()}
+          disabled={!draft.locationArea.trim() || photos.length === 0}
         >
           Continue to Contact
           <ArrowRight size={18} weight="bold" aria-hidden />

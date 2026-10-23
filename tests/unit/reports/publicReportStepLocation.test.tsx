@@ -51,13 +51,33 @@ describe('PublicReportStepLocation', () => {
     expect(nextBtn).toBeDisabled()
   })
 
-  it('enables continue button when area is entered', () => {
+  it('disables continue button if area is entered but no photos are attached', () => {
     const onNext = vi.fn()
     const draft = { ...INITIAL_DRAFT, locationArea: 'Gulberg III' }
     render(
       <PublicReportStepLocation
         draft={draft}
         photos={[]}
+        onUpdate={vi.fn()}
+        onAddPhotos={vi.fn()}
+        onRemovePhoto={vi.fn()}
+        onBack={vi.fn()}
+        onNext={onNext}
+      />
+    )
+    const nextBtn = screen.getByRole('button', { name: /Continue to Contact/i })
+    expect(nextBtn).toBeDisabled()
+    expect(screen.getByText(/Please attach at least 1 photo to continue/i)).toBeInTheDocument()
+  })
+
+  it('enables continue button when area is entered and at least one photo is attached', () => {
+    const onNext = vi.fn()
+    const draft = { ...INITIAL_DRAFT, locationArea: 'Gulberg III' }
+    const mockPhotos = [{ id: 'p1', url: 'blob:test-p1', blob: new Blob(['x']) }]
+    render(
+      <PublicReportStepLocation
+        draft={draft}
+        photos={mockPhotos}
         onUpdate={vi.fn()}
         onAddPhotos={vi.fn()}
         onRemovePhoto={vi.fn()}
