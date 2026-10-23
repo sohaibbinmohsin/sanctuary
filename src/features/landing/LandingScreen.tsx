@@ -196,6 +196,289 @@ export function LandingScreen() {
         </div>
       </section>
 
+      <section className="partners" id="partners" aria-labelledby="partners-heading">
+        <div className="wrap">
+          <div className="partners__intro reveal">
+            <h2 id="partners-heading">Rescues and shelters we build for.</h2>
+            <p>
+              Sanctuary is designed directly alongside frontline rescue networks, shelter
+              caretakers, and campus animal welfare societies to solve daily field operations.
+            </p>
+          </div>
+
+          <div className="dossier reveal">
+            <div className="dossier__header">
+              <div className="dossier__header-left">
+                <h3>Operational Network</h3>
+              </div>
+              <div className="dossier__count">07 Active Partners</div>
+            </div>
+
+            <div className="dossier__list">
+              <article className="dossier__row">
+                <div className="dossier__index">01</div>
+                <div className="dossier__org">
+                  <div className="dossier__logo">
+                    <img
+                      src="/partners/partner-tales-of-second-chances.png"
+                      alt="Tales of Second Chances logo"
+                      width={44}
+                      height={44}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="dossier__org-info">
+                    <h4>Tales of Second Chances</h4>
+                    <div className="dossier__org-meta">
+                      <span className="scope-tag">Shelter</span>
+                      <span>Karachi · 11+ Yrs</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="dossier__desc">
+                  Longstanding animal sanctuary caring for 300+ rescued cats and dogs with daily
+                  nutrition, clinical treatment, and safe lifetime shelter.
+                </div>
+                <div className="dossier__action">
+                  <a
+                    className="dossier__btn"
+                    href="https://www.instagram.com/madeehakhatri/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span>Follow work</span>
+                    <ArrowSquareOut size={14} weight="bold" aria-hidden />
+                  </a>
+                </div>
+              </article>
+
+              <article className="dossier__row">
+                <div className="dossier__index">02</div>
+                <div className="dossier__org">
+                  <div className="dossier__logo">
+                    <img
+                      src="/partners/partner-parc.png"
+                      alt="Police Animal Rescue Center logo"
+                      width={44}
+                      height={44}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="dossier__org-info">
+                    <h4>Police Animal Rescue Center</h4>
+                    <div className="dossier__org-meta">
+                      <span className="scope-tag">Enforcement</span>
+                      <span>Punjab Police</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="dossier__desc">
+                  Pioneering state-backed 24/7 rescue unit handling anti-cruelty enforcement, rapid
+                  veterinary dispatch, and emergency trauma triage.
+                </div>
+                <div className="dossier__action">
+                  <a
+                    className="dossier__btn"
+                    href="https://www.instagram.com/parcpoliceanimalrescuecentre/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span>Follow work</span>
+                    <ArrowSquareOut size={14} weight="bold" aria-hidden />
+                  </a>
+                </div>
+              </article>
+
+              <article className="dossier__row">
+                <div className="dossier__index">03</div>
+                <div className="dossier__org">
+                  <div className="dossier__logo">
+                    <img
+                      src="/partners/partner-whiskers-fccu.png"
+                      alt="Whiskers FCCU logo"
+                      width={44}
+                      height={44}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="dossier__org-info">
+                    <h4>Whiskers FCCU</h4>
+                    <div className="dossier__org-meta">
+                      <span className="scope-tag">Campus</span>
+                      <span>FCC University</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="dossier__desc">
+                  Grassroots collegiate rescue managing campus-wide TNR programs, injury
+                  rehabilitation, regular feeding routes, and adoption placements.
+                </div>
+                <div className="dossier__action">
+                  <a
+                    className="dossier__btn"
+                    href="https://www.instagram.com/whiskers.fccu/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span>Follow work</span>
+                    <ArrowSquareOut size={14} weight="bold" aria-hidden />
+                  </a>
+                </div>
+              </article>
+
+              <article className="dossier__row">
+                <div className="dossier__index">04</div>
+                <div className="dossier__org">
+                  <div className="dossier__logo">
+                    <img
+                      src="/partners/partner-aws-lums.png"
+                      alt="Animal Welfare Society LUMS logo"
+                      width={44}
+                      height={44}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="dossier__org-info">
+                    <h4>Animal Welfare Society LUMS</h4>
+                    <div className="dossier__org-meta">
+                      <span className="scope-tag">Campus</span>
+                      <span>LUMS Lahore</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="dossier__desc">
+                  Student-led organization maintaining health logs, medical vaccination drives,
+                  active community feeding, and adoption for campus animals.
+                </div>
+                <div className="dossier__action">
+                  <a
+                    className="dossier__btn"
+                    href="https://www.instagram.com/aws_lums/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span>Follow work</span>
+                    <ArrowSquareOut size={14} weight="bold" aria-hidden />
+                  </a>
+                </div>
+              </article>
+
+              <article className="dossier__row">
+                <div className="dossier__index">05</div>
+                <div className="dossier__org">
+                  <div className="dossier__logo">
+                    <img
+                      src="/partners/partner-gaza-animal-rescues.png"
+                      alt="Gaza Animal Rescues logo"
+                      width={44}
+                      height={44}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="dossier__org-info">
+                    <h4>Gaza Animal Rescues</h4>
+                    <div className="dossier__org-meta">
+                      <span className="scope-tag">Shelter</span>
+                      <span>Gaza · Frontline</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="dossier__desc">
+                  Direct emergency relief, feeding, and medical treatment for abandoned pets and
+                  injured animals through severe crisis conditions across Gaza.
+                </div>
+                <div className="dossier__action">
+                  <a
+                    className="dossier__btn"
+                    href="https://www.instagram.com/gazaanimalrescues/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span>Follow work</span>
+                    <ArrowSquareOut size={14} weight="bold" aria-hidden />
+                  </a>
+                </div>
+              </article>
+
+              <article className="dossier__row">
+                <div className="dossier__index">06</div>
+                <div className="dossier__org">
+                  <div className="dossier__logo">
+                    <img
+                      src="/partners/partner-chiragh-ghar.png"
+                      alt="Chiragh Ghar Animal Rehab logo"
+                      width={44}
+                      height={44}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="dossier__org-info">
+                    <h4>Chiragh Ghar Animal Rehab</h4>
+                    <div className="dossier__org-meta">
+                      <span className="scope-tag">Shelter</span>
+                      <span>Lahore</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="dossier__desc">
+                  Foundation-supported rehabilitation centre in Lahore providing care and
+                  rehabilitation for rescued animals, with access to veterinary services through
+                  partner clinics.
+                </div>
+                <div className="dossier__action">
+                  <a
+                    className="dossier__btn"
+                    href="https://www.instagram.com/chiraghgharanimalrehab/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span>Follow work</span>
+                    <ArrowSquareOut size={14} weight="bold" aria-hidden />
+                  </a>
+                </div>
+              </article>
+
+              <article className="dossier__row">
+                <div className="dossier__index">07</div>
+                <div className="dossier__org">
+                  <div className="dossier__logo">
+                    <img
+                      src="/partners/partner-nsac.png"
+                      alt="NUST Stray Animals Club logo"
+                      width={44}
+                      height={44}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="dossier__org-info">
+                    <h4>NUST Stray Animals Club (NSAC)</h4>
+                    <div className="dossier__org-meta">
+                      <span className="scope-tag">Campus</span>
+                      <span>NUST Islamabad</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="dossier__desc">
+                  Student-run NUST club promoting animal welfare through rescue, advocacy, and
+                  community engagement on and around the H-12 campus.
+                </div>
+                <div className="dossier__action">
+                  <a
+                    className="dossier__btn"
+                    href="https://www.instagram.com/strayanimalsnust/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span>Follow work</span>
+                    <ArrowSquareOut size={14} weight="bold" aria-hidden />
+                  </a>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="mohsin" id="about" aria-labelledby="mohsin-heading">
         <div className="wrap">
           <article className="mohsin__panel reveal">
@@ -226,7 +509,7 @@ export function LandingScreen() {
               </h2>
               <div className="mohsin__body">
                 <p>
-                  The Mohsin Project partners with nonprofits and independent changemakers to
+                  The Mohsin Project partners with community initiatives and independent changemakers to
                   design, engineer, and deploy digital solutions at no cost, so bad tech never
                   blocks the work that matters.
                 </p>
@@ -264,7 +547,7 @@ export function LandingScreen() {
           </p>
           <div className="footer__bottom">
             <span>
-              A nonprofit product by{' '}
+              Free software by{' '}
               <a
                 href="https://themohsinproject.org/"
                 target="_blank"

@@ -7,7 +7,6 @@ type StatusMultiSelectProps = {
   value: string[]
   onChange: (ids: string[]) => void
   onRequestExit?: (exitId: string, nextIds: string[]) => void
-  onAddStatus?: () => void
 }
 
 function nextIdsAfterToggle(
@@ -37,7 +36,6 @@ export function StatusMultiSelect({
   value,
   onChange,
   onRequestExit,
-  onAddStatus,
 }: StatusMultiSelectProps) {
   const listId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -129,33 +127,6 @@ export function StatusMultiSelect({
             </span>
           )
         })}
-
-        {availableStatuses.length === 0 ? (
-          <div
-            className="status-multi-select__empty"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              padding: '0.25rem 0',
-              flexWrap: 'wrap',
-            }}
-          >
-            <span className="muted" style={{ fontSize: 'var(--text-sm)' }}>
-              No statuses yet.
-            </span>
-            {onAddStatus ? (
-              <button
-                type="button"
-                className="status-multi-select__add"
-                onClick={onAddStatus}
-              >
-                <Plus size={14} weight="bold" aria-hidden />
-                <span>Add status</span>
-              </button>
-            ) : null}
-          </div>
-        ) : null}
 
         {canAdd ? (
           <button

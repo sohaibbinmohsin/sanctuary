@@ -17,12 +17,22 @@ export async function hydrateOrgBootstrap(db: SanctuaryDb): Promise<boolean> {
   const userId = session?.user?.id
   if (!userId) return false
 
-  const localMember = await db.getOptional<{ id: string }>(
-    `SELECT id FROM org_members WHERE user_id = ? LIMIT 1`,
+  const localMember = await db.getOptional<{ org_id: string }>(
+    `SELECT org_id FROM org_members WHERE user_id = ? LIMIT 1`,
     [userId],
   )
   if (localMember) {
-    return false
+    const statusCount = await db.getOptional<{ count: number }>(
+      `SELECT count(*) as count FROM animal_statuses WHERE org_id = ? AND archived = 0`,
+      [localMember.org_id],
+    )
+    const catCount = await db.getOptional<{ count: number }>(
+      `SELECT count(*) as count FROM ledger_categories WHERE org_id = ? AND archived = 0`,
+      [localMember.org_id],
+    )
+    if ((statusCount?.count ?? 0) > 0 && (catCount?.count ?? 0) > 0) {
+      return false
+    }
   }
 
   const { data: memberships, error: memberError } = await supabase
@@ -53,7 +63,7 @@ export async function hydrateOrgBootstrap(db: SanctuaryDb): Promise<boolean> {
     return false
   }
 
-  const { data: statuses, error: statusError } = await supabase
+  const { data: fetchedStatuses, error: statusError } = await supabase
     .from('animal_statuses')
     .select(
       'id, org_id, label, sort_order, counts_as_in_care, archived, created_at',
@@ -65,13 +75,48 @@ export async function hydrateOrgBootstrap(db: SanctuaryDb): Promise<boolean> {
     return false
   }
 
-  const { data: categories, error: catError } = await supabase
+  const statuses = fetchedStatuses ? [...fetchedStatuses] : []
+  for (const orgId of orgIds) {
+    const hasOrgStatus = statuses.some((s) => s.org_id === orgId && !s.archived)
+    if (!hasOrgStatus) {
+      const defaultStatus = {
+        id: crypto.randomUUID(),
+        org_id: orgId,
+        label: 'Intake',
+        sort_order: 1,
+        counts_as_in_care: true,
+        archived: false,
+        created_at: new Date().toISOString(),
+      }
+      statuses.push(defaultStatus)
+      void supabase.from('animal_statuses').insert(defaultStatus)
+    }
+  }
+
+  const { data: fetchedCategories, error: catError } = await supabase
     .from('ledger_categories')
     .select('id, org_id, label, direction, archived, created_at')
     .in('org_id', orgIds)
 
   if (catError) {
     console.warn('hydrate: ledger_categories', catError.message)
+  }
+
+  const categories = fetchedCategories ? [...fetchedCategories] : []
+  for (const orgId of orgIds) {
+    const hasOrgCat = categories.some((c) => c.org_id === orgId && !c.archived)
+    if (!hasOrgCat) {
+      const defaultCat = {
+        id: crypto.randomUUID(),
+        org_id: orgId,
+        label: 'Food',
+        direction: 'out',
+        archived: false,
+        created_at: new Date().toISOString(),
+      }
+      categories.push(defaultCat)
+      void supabase.from('ledger_categories').insert(defaultCat)
+    }
   }
 
   await db.writeTransaction(async (tx) => {

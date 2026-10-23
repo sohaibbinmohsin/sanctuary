@@ -56,6 +56,9 @@ export default defineConfig({
     hmr: {
       clientPort: 443,
     },
+    fs: {
+      allow: ['..', '/home/ubuntu/development'],
+    },
   },
   plugins: [
     react(),

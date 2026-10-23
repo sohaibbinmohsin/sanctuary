@@ -129,7 +129,7 @@ function html(width, height) {
       <div class="name">Sanctuary</div>
     </div>
     <div class="footer">
-      <span>Nonprofit software by The Mohsin Project</span>
+      <span>Free software by The Mohsin Project</span>
       <img src="data:image/svg+xml;base64,${mohsinData}" alt="" />
     </div>
   </div>

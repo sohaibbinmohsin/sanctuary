@@ -1,4 +1,5 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
+import { supabase } from '@/shared/lib/supabase'
 import type {
   LedgerCategoryRecord,
   LedgerEntryRecord,
@@ -77,21 +78,120 @@ export function formatPkr(cents: number): string {
   return formatCurrency(cents, 'PKR')
 }
 
+export async function ensureDefaultLedgerCategories(
+  db: SanctuaryDb,
+  orgId: string,
+): Promise<LedgerCategoryRecord[]> {
+  const existing = await db.getAll<LedgerCategoryRecord>(
+    `SELECT * FROM ledger_categories WHERE org_id = ? AND archived = 0 ORDER BY label ASC`,
+    [orgId],
+  )
+  if (existing.length > 0) return existing
+
+  try {
+    const { data } = await supabase
+      .from('ledger_categories')
+      .select('id, org_id, label, direction, archived, created_at')
+      .eq('org_id', orgId)
+      .eq('archived', false)
+      .order('label', { ascending: true })
+
+    if (data && data.length > 0) {
+      if (db.writeTransaction) {
+        await db.writeTransaction(async (tx) => {
+          for (const c of data) {
+            await tx.execute(
+              `INSERT OR REPLACE INTO ledger_categories
+                (id, org_id, label, direction, archived, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+              [
+                c.id,
+                c.org_id,
+                c.label,
+                c.direction,
+                c.archived ? 1 : 0,
+                c.created_at ?? new Date().toISOString(),
+              ],
+            )
+          }
+        })
+      } else {
+        for (const c of data) {
+          await db.execute(
+            `INSERT OR REPLACE INTO ledger_categories
+              (id, org_id, label, direction, archived, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+              c.id,
+              c.org_id,
+              c.label,
+              c.direction,
+              c.archived ? 1 : 0,
+              c.created_at ?? new Date().toISOString(),
+            ],
+          )
+        }
+      }
+      return await db.getAll<LedgerCategoryRecord>(
+        `SELECT * FROM ledger_categories WHERE org_id = ? AND archived = 0 ORDER BY label ASC`,
+        [orgId],
+      )
+    }
+  } catch (err) {
+    console.warn('ensureDefaultLedgerCategories: supabase fetch failed', err)
+  }
+
+  const id = crypto.randomUUID()
+  const now = new Date().toISOString()
+  await db.execute(
+    `INSERT OR REPLACE INTO ledger_categories (id, org_id, label, direction, archived, created_at)
+     VALUES (?, ?, 'Food', 'out', 0, ?)`,
+    [id, orgId, now],
+  )
+
+  void supabase
+    .from('ledger_categories')
+    .insert({
+      id,
+      org_id: orgId,
+      label: 'Food',
+      direction: 'out',
+      archived: false,
+    })
+    .then(({ error }) => {
+      if (error)
+        console.warn('ensureDefaultLedgerCategories insert failed:', error.message)
+    })
+
+  return await db.getAll<LedgerCategoryRecord>(
+    `SELECT * FROM ledger_categories WHERE org_id = ? AND archived = 0 ORDER BY label ASC`,
+    [orgId],
+  )
+}
+
 export async function listLedgerCategories(
   db: SanctuaryDb,
   orgId: string,
   includeArchived = false,
 ): Promise<LedgerCategoryRecord[]> {
   if (includeArchived) {
-    return db.getAll<LedgerCategoryRecord>(
+    const all = await db.getAll<LedgerCategoryRecord>(
       `SELECT * FROM ledger_categories WHERE org_id = ? ORDER BY label ASC`,
       [orgId],
     )
+    if (all.length === 0) {
+      return ensureDefaultLedgerCategories(db, orgId)
+    }
+    return all
   }
-  return db.getAll<LedgerCategoryRecord>(
+  const active = await db.getAll<LedgerCategoryRecord>(
     `SELECT * FROM ledger_categories WHERE org_id = ? AND archived = 0 ORDER BY label ASC`,
     [orgId],
   )
+  if (active.length === 0) {
+    return ensureDefaultLedgerCategories(db, orgId)
+  }
+  return active
 }
 
 export async function createLedgerCategory(

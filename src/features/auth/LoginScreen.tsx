@@ -29,10 +29,12 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
         )
       }
       await supabaseConnector.login(email.trim(), password)
-      try {
-        await connectPowerSync()
-      } catch (connectErr) {
-        console.warn('PowerSync connect after login failed:', connectErr)
+      if (import.meta.env.VITE_POWERSYNC_URL) {
+        try {
+          await connectPowerSync()
+        } catch (connectErr) {
+          console.warn('PowerSync connect after login failed:', connectErr)
+        }
       }
       onSuccess()
     } catch (err) {
