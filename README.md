@@ -8,7 +8,7 @@
 [![PowerSync](https://img.shields.io/badge/PowerSync-WASM_SQLite_Sync-4B6B94)](https://www.powersync.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres_15_%2B_RLS-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 [![Cloudflare R2](https://img.shields.io/badge/Cloudflare_R2-S3_SigV4_Blobs-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/r2/)
-[![Tests](https://img.shields.io/badge/Vitest-140_Passed-22c55e?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Tests](https://img.shields.io/badge/Vitest-345_Passed-22c55e?logo=vitest&logoColor=white)](https://vitest.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Offline_First-5A0FC8?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![License](https://img.shields.io/badge/License-Source--Available-blue)](./LICENSE)
 
@@ -236,12 +236,12 @@ sanctuary/
 │   │   ├── public-shelter/            # Public read-only DTO endpoint for donor transparency
 │   │   ├── push-subscribe/            # Web Push subscription management endpoint
 │   │   └── r2-sign/                   # S3 SigV4 pre-signing for Cloudflare R2 uploads & deletes
-│   ├── migrations/                    # 15 declarative PostgreSQL migration scripts
+│   ├── migrations/                    # 16 declarative PostgreSQL migration scripts
 │   ├── config.toml                    # Supabase CLI project configuration
 │   └── seed.sql                       # Base database seed data
 ├── tests/
 │   ├── setup/                         # Vitest environment setup & custom matchers
-│   └── unit/                          # 140 unit tests across 29 suites (domain, invariant, UI)
+│   └── unit/                          # 345 unit tests across 76 suites (domain, invariant, UI)
 ├── index.html                         # PWA HTML entry point & web font preloading
 ├── package.json                       # Dependencies, scripts, and project metadata
 ├── vite.config.ts                     # Vite 6 config, PWA manifest generation, WASM support
@@ -261,11 +261,11 @@ Sanctuary enforces comprehensive automated testing across core invariants, domai
                /  5  \    (Airplane mode, PWA installation,
               /───────\    hardware camera, real R2 upload)
              /         \
-            /    29     \   Integration & Component Tests
+            /    76     \   Integration & Component Tests
            / Test Suites \  (Onboarding flow, navigation guards,
           /───────────────\  SyncBanner state transitions)
          /                 \
-        /        140        \   Unit & Domain Invariant Tests
+        /        345        \   Unit & Domain Invariant Tests
        /   Tests (Passed)    \  (Headcount "exit-wins", CSV UTF-8 Urdu,
       /───────────────────────\  currency math, sanitizeForPostgres, IDs)
 ```

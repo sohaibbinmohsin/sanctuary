@@ -23,3 +23,6 @@ streams:
       - SELECT * FROM ledger_attachments WHERE org_id IN user_orgs
       - SELECT * FROM checklist_items WHERE org_id IN user_orgs
       - SELECT * FROM checklist_checks WHERE org_id IN user_orgs
+      - SELECT * FROM animal_relationships WHERE org_id IN user_orgs
+      - SELECT * FROM rescue_reports WHERE org_id IN user_orgs
+      - SELECT * FROM report_photos WHERE org_id IN user_orgs

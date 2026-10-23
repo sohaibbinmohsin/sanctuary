@@ -6,9 +6,9 @@ import {
 } from '@/shared/domain/modules'
 
 describe('organizationModules', () => {
-  it('defaults to all modules when raw is null, undefined, or empty', () => {
+  it('defaults to sanctuary modules (reports disabled) when raw is null, undefined, or empty', () => {
     const modules = parseEnabledModules(null)
-    expect(modules.has('reports')).toBe(true)
+    expect(modules.has('reports')).toBe(false)
     expect(modules.has('animals')).toBe(true)
     expect(modules.has('checklist')).toBe(true)
     expect(modules.has('ledger')).toBe(true)

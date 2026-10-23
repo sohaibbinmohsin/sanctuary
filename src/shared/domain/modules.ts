@@ -16,9 +16,15 @@ export const MODULE_PRESETS = {
 
 export type ModulePresetKey = keyof typeof MODULE_PRESETS | 'custom'
 
+export const DEFAULT_MODULE_IDS: readonly AppModuleId[] = [
+  'animals',
+  'checklist',
+  'ledger',
+] as const
+
 export function parseEnabledModules(raw: string | null | undefined): Set<AppModuleId> {
   if (!raw || !raw.trim()) {
-    return new Set(ALL_MODULE_IDS)
+    return new Set(DEFAULT_MODULE_IDS)
   }
   try {
     const parsed = JSON.parse(raw)
@@ -26,7 +32,7 @@ export function parseEnabledModules(raw: string | null | undefined): Set<AppModu
       const valid = parsed.filter((m): m is AppModuleId =>
         ALL_MODULE_IDS.includes(m as AppModuleId),
       )
-      return new Set(valid.length > 0 ? valid : ALL_MODULE_IDS)
+      return new Set(valid.length > 0 ? valid : DEFAULT_MODULE_IDS)
     }
   } catch {
     // fallback comma-separated
@@ -36,7 +42,7 @@ export function parseEnabledModules(raw: string | null | undefined): Set<AppModu
     )
     if (valid.length > 0) return new Set(valid)
   }
-  return new Set(ALL_MODULE_IDS)
+  return new Set(DEFAULT_MODULE_IDS)
 }
 
 export function formatEnabledModules(modules: Iterable<AppModuleId>): string {

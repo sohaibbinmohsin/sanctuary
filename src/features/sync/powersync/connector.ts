@@ -22,6 +22,7 @@ const TABLE_BOOLEAN_COLUMNS: Record<string, readonly string[]> = {
   ledger_entries: ['is_anonymous', 'hide_from_public'],
   photos: ['local_only', 'verified'],
   ledger_attachments: ['local_only'],
+  report_photos: ['local_only'],
 }
 
 export function sanitizeForPostgres(
