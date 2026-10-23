@@ -15,6 +15,8 @@ describe('CurrentMember setupCompleted parsing', () => {
       publicSlug: null,
       setupCompleted: true,
       currency: 'PKR',
+      enabledModules: new Set(['reports', 'animals', 'checklist', 'ledger']),
+      hasModule: () => true,
     }
     expect(memberTrue.setupCompleted).toBe(true)
 

@@ -12,6 +12,16 @@ if (typeof window !== 'undefined') {
   }
 }
 
+if (typeof globalThis.caches === 'undefined') {
+  globalThis.caches = {
+    open: async () => ({
+      match: async () => undefined,
+      put: async () => {},
+      delete: async () => true,
+    }),
+  } as unknown as CacheStorage
+}
+
 afterEach(() => {
   cleanup()
 })

@@ -11,6 +11,7 @@ import { useQuery } from '@powersync/react'
 import { useSearchParams } from 'react-router-dom'
 import { useDb } from '@/shared/hooks/useDb'
 import { useSyncStatus } from '@/shared/hooks/useSyncStatus'
+import { AddAnimalSplitButton } from '@/features/animals/components/AddAnimalSplitButton'
 import { emptyAnimalListState } from '@/shared/lib/animals/emptyAnimalListState'
 import { AnimalCard } from '@/features/animals/components/AnimalCard'
 import {
@@ -199,9 +200,7 @@ export function AnimalsListScreen() {
         subtitle={subtitle}
         actions={
           animals.length > 0 || hasFilters ? (
-            <Button to="/animals/new" variant="accent">
-              Add animal
-            </Button>
+            <AddAnimalSplitButton />
           ) : undefined
         }
       />

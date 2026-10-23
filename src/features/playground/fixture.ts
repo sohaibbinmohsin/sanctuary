@@ -34,7 +34,7 @@ export type PlaygroundAnimalFixture = {
 
 export type PlaygroundTreatmentFixture = {
   animalId: string
-  treatmentType: 'meds' | 'vet' | 'procedure' | 'other' | 'intake'
+  treatmentType: 'meds' | 'vet' | 'procedure' | 'other' | 'intake' | 'status'
   notes: string
   treatedAt: string
 }
@@ -119,6 +119,20 @@ export const PLAYGROUND_ANIMALS: PlaygroundAnimalFixture[] = [
     photoUrl:
       'https://pub-013d58bfca2d4cc4a607e56ffe23aa4f.r2.dev/2dd27176-42e2-4805-b8b0-a35f2e56a9c7/3214fff1-d76c-4870-9d08-76629c52d34e/ab3fd383-c485-4fa4-985e-88f52589bf11.jpg',
   },
+  {
+    id: 'd1111111-1111-4111-8111-111111111105',
+    shelterCode: 'PLAY-0005',
+    name: '',
+    species: 'Unknown',
+    sex: null,
+    markings: 'Tan and white field rescue',
+    intakeDate: '2026-10-04',
+    statusLabel: 'Intake',
+    notes: 'Quick field intake stub waiting for details.',
+    photoVerified: true,
+    photoUrl:
+      'https://pub-013d58bfca2d4cc4a607e56ffe23aa4f.r2.dev/2dd27176-42e2-4805-b8b0-a35f2e56a9c7/9dd087c4-5375-450e-8e5b-1d074b2adaf6/919a1da5-aa32-4021-bf1b-c81cbc02d171.jpg',
+  },
 ]
 
 export const PLAYGROUND_TREATMENTS: PlaygroundTreatmentFixture[] = [
@@ -145,6 +159,36 @@ export const PLAYGROUND_TREATMENTS: PlaygroundTreatmentFixture[] = [
     treatmentType: 'other',
     notes: 'Quarantine day 1 — eating well, no sneezing observed.',
     treatedAt: '2026-07-09T14:00:00.000Z',
+  },
+  {
+    animalId: 'd1111111-1111-4111-8111-111111111105',
+    treatmentType: 'status',
+    notes: 'Quarantine - Moved to quarantine wing for observation',
+    treatedAt: '2026-10-05T09:00:00.000Z',
+  },
+  {
+    animalId: 'd1111111-1111-4111-8111-111111111105',
+    treatmentType: 'meds',
+    notes: 'Amoxicillin 50mg twice daily with meals for 7 days.',
+    treatedAt: '2026-10-06T08:30:00.000Z',
+  },
+  {
+    animalId: 'd1111111-1111-4111-8111-111111111105',
+    treatmentType: 'vet',
+    notes: 'Examined ears and clear lungs, vital signs stable.',
+    treatedAt: '2026-10-05T14:15:00.000Z',
+  },
+  {
+    animalId: 'd1111111-1111-4111-8111-111111111105',
+    treatmentType: 'procedure',
+    notes: 'Microchipped and vaccinated for FVRCP.',
+    treatedAt: '2026-10-05T11:00:00.000Z',
+  },
+  {
+    animalId: 'd1111111-1111-4111-8111-111111111105',
+    treatmentType: 'other',
+    notes: 'Transitioned to high-protein wet food formula.',
+    treatedAt: '2026-10-04T16:45:00.000Z',
   },
 ]
 

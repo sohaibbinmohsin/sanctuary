@@ -3,7 +3,9 @@ import {
   listAssignmentsForAnimal,
   resolvePrimaryStatusId,
   replaceAnimalStatuses,
+  setSingleStatusAssignment,
 } from '@/features/statuses/domain/assignments'
+import * as checklistModule from '@/features/checklist/domain/checklist'
 
 type Status = {
   id: string
@@ -278,5 +280,54 @@ describe('listAssignmentsForAnimal', () => {
     expect(sql).toMatch(/JOIN animal_statuses s ON s\.id = asa\.status_id/i)
     expect(sql).toMatch(/ORDER BY s\.sort_order ASC, s\.label ASC/i)
     expect(params).toEqual(['animal-1'])
+  })
+})
+
+describe('checklist auto-add on status change', () => {
+  it('automatically adds animal to checklist when single status is Critical or Treatment', async () => {
+    const addChecklistSpy = vi
+      .spyOn(checklistModule, 'addAnimalsToChecklist')
+      .mockResolvedValue({ added: 1, skipped: 0 })
+
+    const db = {
+      writeTransaction: vi.fn(async (fn: any) => fn({ execute: vi.fn() })),
+      getOptional: vi.fn().mockResolvedValue({ label: 'Critical' }),
+    }
+
+    await setSingleStatusAssignment(db as never, {
+      animalId: 'anim-crit-1',
+      orgId: 'org-test',
+      statusId: 'status-crit',
+    })
+
+    expect(addChecklistSpy).toHaveBeenCalledWith(db, {
+      orgId: 'org-test',
+      animalIds: ['anim-crit-1'],
+    })
+
+    addChecklistSpy.mockRestore()
+  })
+
+  it('automatically adds animal to checklist when replaceAnimalStatuses includes Treatment or Critical', async () => {
+    const addChecklistSpy = vi
+      .spyOn(checklistModule, 'addAnimalsToChecklist')
+      .mockResolvedValue({ added: 1, skipped: 0 })
+
+    const { db } = createDb([
+      { id: 'treat', label: 'Treatment', sort_order: 1, counts_as_in_care: 1 },
+    ])
+
+    await replaceAnimalStatuses(db as never, {
+      orgId: 'org-test',
+      animalId: 'anim-treat-1',
+      statusIds: ['treat'],
+    })
+
+    expect(addChecklistSpy).toHaveBeenCalledWith(db, {
+      orgId: 'org-test',
+      animalIds: ['anim-treat-1'],
+    })
+
+    addChecklistSpy.mockRestore()
   })
 })

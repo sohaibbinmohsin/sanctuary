@@ -476,3 +476,37 @@ export async function sumLedgerByMonth(
     outCents: map.get(month)?.outCents ?? 0,
   }))
 }
+
+export type ExpenseCategoryBreakdown = {
+  categoryId: string
+  label: string
+  totalCents: number
+}
+
+export async function sumExpensesByCategory(
+  db: SanctuaryDb,
+  orgId: string,
+  limit = 5,
+): Promise<ExpenseCategoryBreakdown[]> {
+  const rows = await db.getAll<{
+    category_id: string
+    label: string | null
+    total: number
+  }>(
+    `SELECT e.category_id, c.label, SUM(e.amount_cents) as total
+     FROM ledger_entries e
+     JOIN ledger_categories c ON c.id = e.category_id
+     WHERE e.org_id = ? AND e.direction = 'out'
+     GROUP BY e.category_id, c.label
+     ORDER BY total DESC
+     LIMIT ?`,
+    [orgId, limit],
+  ).catch(() => [])
+
+  return rows.map((r) => ({
+    categoryId: r.category_id,
+    label: r.label?.trim() || 'General',
+    totalCents: Number(r.total) || 0,
+  }))
+}
+

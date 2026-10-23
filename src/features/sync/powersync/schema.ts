@@ -8,6 +8,7 @@ const organizations = new Table({
   public_slug: column.text,
   setup_completed: column.integer, // 0/1
   currency: column.text, // 'PKR' | 'USD'
+  enabled_modules: column.text,
   created_at: column.text,
 })
 
@@ -56,6 +57,7 @@ const animals = new Table(
     name: column.text,
     species: column.text,
     sex: column.text,
+    life_stage: column.text,
     markings: column.text,
     intake_date: column.text,
     status_id: column.text,
@@ -65,6 +67,24 @@ const animals = new Table(
     updated_at: column.text,
   },
   { indexes: { by_org: ['org_id'], by_status: ['status_id'] } },
+)
+
+const animal_relationships = new Table(
+  {
+    org_id: column.text,
+    animal_id: column.text,
+    related_animal_id: column.text,
+    relationship_type: column.text, // 'bonded' | 'mother' | 'child' | 'sibling' | 'incompatible'
+    notes: column.text,
+    created_at: column.text,
+  },
+  {
+    indexes: {
+      by_animal: ['animal_id'],
+      by_related: ['related_animal_id'],
+      by_org: ['org_id'],
+    },
+  },
 )
 
 const treatments = new Table(
@@ -166,12 +186,66 @@ const checklist_checks = new Table(
   },
 )
 
+const rescue_reports = new Table(
+  {
+    org_id: column.text,
+    report_number: column.text,
+    category: column.text,
+    species: column.text,
+    chief_complaint: column.text,
+    status: column.text,
+    location_area: column.text,
+    location_landmark: column.text,
+    city: column.text,
+    latitude: column.real,
+    longitude: column.real,
+    life_stage: column.text,
+    reporter_name: column.text,
+    reporter_phone: column.text,
+    reporter_cnic: column.text,
+    transport_type: column.text,
+    disposition_type: column.text,
+    animal_id: column.text,
+    legal_notes: column.text,
+    dismissal_reason: column.text,
+    stage_logged_at: column.text,
+    stage_accepted_at: column.text,
+    stage_dispatched_at: column.text,
+    stage_attended_at: column.text,
+    intake_source: column.text,
+    animal_count: column.integer,
+    group_breakdown: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+  },
+  {
+    indexes: {
+      by_org: ['org_id'],
+      by_status: ['status'],
+      by_animal: ['animal_id'],
+    },
+  },
+)
+
+const report_photos = new Table(
+  {
+    org_id: column.text,
+    report_id: column.text,
+    r2_key: column.text,
+    local_only: column.integer,
+    upload_state: column.text,
+    created_at: column.text,
+  },
+  { indexes: { by_report: ['report_id'] } },
+)
+
 export const AppSchema = new Schema({
   organizations,
   org_members,
   animal_statuses,
   animal_status_assignments,
   animals,
+  animal_relationships,
   treatments,
   ledger_categories,
   ledger_entries,
@@ -179,6 +253,8 @@ export const AppSchema = new Schema({
   ledger_attachments,
   checklist_items,
   checklist_checks,
+  rescue_reports,
+  report_photos,
 })
 
 export const schema = AppSchema
@@ -188,7 +264,10 @@ export type OrganizationRecord = Database['organizations']
 export type OrgMemberRecord = Database['org_members']
 export type AnimalStatusRecord = Database['animal_statuses']
 export type AnimalStatusAssignmentRecord = Database['animal_status_assignments']
-export type AnimalRecord = Database['animals']
+export type AnimalRecord = Omit<Database['animals'], 'life_stage'> & {
+  life_stage?: 'adult' | 'child' | null
+}
+export type AnimalRelationshipRecord = Database['animal_relationships']
 export type TreatmentRecord = Database['treatments']
 export type LedgerCategoryRecord = Database['ledger_categories']
 export type LedgerEntryRecord = Database['ledger_entries']
@@ -196,3 +275,5 @@ export type PhotoRecord = Database['photos']
 export type LedgerAttachmentRecord = Database['ledger_attachments']
 export type ChecklistItemRecord = Database['checklist_items']
 export type ChecklistCheckRecord = Database['checklist_checks']
+export type RescueReportRecord = Database['rescue_reports']
+export type ReportPhotoRecord = Database['report_photos']

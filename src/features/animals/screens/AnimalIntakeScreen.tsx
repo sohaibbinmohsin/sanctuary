@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Trash } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
@@ -17,17 +17,26 @@ import { Button } from '@/shared/ui/Button'
 import { TextareaField, TextField } from '@/shared/ui/Field'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
-import { StatusMultiSelect } from '@/features/animals/components/StatusMultiSelect'
-import { deletePhotosForAnimal } from '@/features/photos/domain/photos'
+import {
+  deletePhotosForAnimal,
+  processPhotoQueue,
+  queuePhoto,
+} from '@/features/photos/domain/photos'
+import {
+  IntakePhotoPicker,
+  type StagedPhoto,
+} from '@/features/animals/components/IntakePhotoPicker'
+import { consumePendingIntakePhotos } from '@/features/animals/domain/intakePhotoStore'
+import { isPlaygroundMode } from '@/features/playground/mode'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
 
-function splitSpecies(species: string | null | undefined): {
+export function splitSpecies(species: string | null | undefined): {
   preset: string
   other: string
 } {
   const value = species?.trim() ?? ''
-  if (!value) return { preset: 'Dog', other: '' }
+  if (!value || value === 'Unknown') return { preset: 'Dog', other: '' }
   if (SPECIES_PRESETS.includes(value) && value !== 'Other') {
     return { preset: value, other: '' }
   }
@@ -39,12 +48,18 @@ export function AnimalIntakeScreen() {
   const isEdit = Boolean(animalId)
   const db = useDb()
   const navigate = useNavigate()
+  const location = useLocation()
+  const locationState = location.state as {
+    initialPhoto?: File | Blob
+    initialPhotos?: (File | Blob)[]
+  } | null
   const { member } = useCurrentMember()
   const confirm = useConfirm()
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
   const [speciesPreset, setSpeciesPreset] = useState('Dog')
   const [speciesOther, setSpeciesOther] = useState('')
-  const [statusIds, setStatusIds] = useState<string[]>([])
+  const [lifeStage, setLifeStage] = useState<'adult' | 'child'>('adult')
+  const [statusId, setStatusId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [sex, setSex] = useState('')
   const [markings, setMarkings] = useState('')
@@ -52,6 +67,10 @@ export function AnimalIntakeScreen() {
   const [intakeDate, setIntakeDate] = useState(
     () => new Date().toISOString().slice(0, 10),
   )
+  const [intakeTime, setIntakeTime] = useState(() => {
+    const d = new Date()
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  })
   const [shelterCode, setShelterCode] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -59,6 +78,49 @@ export function AnimalIntakeScreen() {
   const [removing, setRemoving] = useState(false)
   const [loading, setLoading] = useState(isEdit)
   const [notFound, setNotFound] = useState(false)
+  const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>(() => {
+    const fromStore = consumePendingIntakePhotos()
+    if (fromStore.length > 0) return fromStore
+    const locPhotos: (File | Blob)[] = []
+    if (locationState?.initialPhotos && locationState.initialPhotos.length > 0) {
+      locPhotos.push(...locationState.initialPhotos)
+    } else if (locationState?.initialPhoto) {
+      locPhotos.push(locationState.initialPhoto)
+    }
+    if (locPhotos.length > 0) {
+      return locPhotos.map((file) => ({
+        id: crypto.randomUUID(),
+        blob: file,
+        previewUrl: URL.createObjectURL(file),
+        captureSource: 'camera',
+      }))
+    }
+    return []
+  })
+
+  useEffect(() => {
+    const fromStore = consumePendingIntakePhotos()
+    if (fromStore.length > 0) {
+      setStagedPhotos((current) => [...current, ...fromStore])
+      return
+    }
+    const locPhotos: (File | Blob)[] = []
+    if (locationState?.initialPhotos && locationState.initialPhotos.length > 0) {
+      locPhotos.push(...locationState.initialPhotos)
+    } else if (locationState?.initialPhoto) {
+      locPhotos.push(locationState.initialPhoto)
+    }
+    if (locPhotos.length > 0 && stagedPhotos.length === 0) {
+      setStagedPhotos(
+        locPhotos.map((file) => ({
+          id: crypto.randomUUID(),
+          blob: file,
+          previewUrl: URL.createObjectURL(file),
+          captureSource: 'camera',
+        })),
+      )
+    }
+  }, [locationState, stagedPhotos.length])
 
   useEffect(() => {
     if (!db || !member || isEdit) return
@@ -66,9 +128,7 @@ export function AnimalIntakeScreen() {
       setStatuses(rows)
       const firstInCare = rows.find((row) => row.counts_as_in_care === 1)
       if (firstInCare) {
-        setStatusIds((current) =>
-          current.length > 0 ? current : [firstInCare.id],
-        )
+        setStatusId((current) => current ?? firstInCare.id)
       }
     })
   }, [db, member, isEdit])
@@ -91,6 +151,7 @@ export function AnimalIntakeScreen() {
         const { preset, other } = splitSpecies(animal.species)
         setSpeciesPreset(preset)
         setSpeciesOther(other)
+        setLifeStage((animal.life_stage as 'adult' | 'child') || 'adult')
         setName(animal.name ?? '')
         setSex(animal.sex ?? '')
         setMarkings(animal.markings ?? '')
@@ -109,16 +170,6 @@ export function AnimalIntakeScreen() {
 
   const species =
     speciesPreset === 'Other' ? speciesOther.trim() : speciesPreset
-
-  async function onRequestExit(exitId: string) {
-    const ok = await confirm({
-      title: 'Mark as out of care?',
-      body: 'All other statuses will be removed from this animal.',
-      confirmLabel: 'Continue',
-      tone: 'danger',
-    })
-    if (ok) setStatusIds([exitId])
-  }
 
   async function onRemoveAnimal() {
     if (!db || !animalId || removing) return
@@ -158,6 +209,7 @@ export function AnimalIntakeScreen() {
       if (isEdit && animalId) {
         await updateAnimal(db, animalId, {
           species,
+          life_stage: lifeStage,
           name,
           sex,
           markings,
@@ -165,20 +217,55 @@ export function AnimalIntakeScreen() {
         navigate(`/animals/${animalId}`, { replace: true })
         return
       }
-      if (statusIds.length === 0) {
-        throw new Error('Please choose an animal type and status.')
+      let effectiveStatusId = statusId
+      if (!effectiveStatusId) {
+        const firstInCare = statuses.find(
+          (row) => row.counts_as_in_care === 1 || row.label.toLowerCase() === 'intake',
+        ) ?? statuses[0]
+        effectiveStatusId = firstInCare?.id ?? null
+      }
+      if (!effectiveStatusId) {
+        const rows = await listStatuses(db, member.orgId)
+        const firstInCare = rows.find(
+          (row) => row.counts_as_in_care === 1 || row.label.toLowerCase() === 'intake',
+        ) ?? rows[0]
+        effectiveStatusId = firstInCare?.id ?? null
+      }
+      if (!effectiveStatusId) {
+        throw new Error('Could not find intake status.')
       }
       const animal = await createAnimal(db, {
         orgId: member.orgId,
         prefix: member.orgInitials,
         species,
-        statusIds,
+        life_stage: lifeStage,
+        statusIds: [effectiveStatusId],
         name,
         sex,
         markings,
         notes,
         intakeDate,
+        intakeTime,
       })
+
+      for (const photo of stagedPhotos) {
+        try {
+          await queuePhoto(db, {
+            orgId: member.orgId,
+            animalId: animal.id,
+            blob: photo.blob,
+            captureSource: photo.captureSource,
+            verified: photo.captureSource === 'camera',
+          })
+        } catch (photoErr) {
+          console.warn('Failed to queue photo for new animal', photoErr)
+        }
+      }
+
+      if (navigator.onLine && !isPlaygroundMode()) {
+        void processPhotoQueue(db)
+      }
+
       setToast(pickMessage(INTAKE_MESSAGES))
       window.setTimeout(() => navigate(`/animals/${animal.id}`), 600)
     } catch (err) {
@@ -254,6 +341,27 @@ export function AnimalIntakeScreen() {
               placeholder="e.g. Goat"
             />
           ) : null}
+          <div className="field">
+            <span>Life stage</span>
+            <div className="segmented" role="group" aria-label="Life stage">
+              {(
+                [
+                  { value: 'adult', label: 'Adult' },
+                  { value: 'child', label: 'Child' },
+                ] as const
+              ).map((stage) => (
+                <button
+                  key={stage.value}
+                  type="button"
+                  className="segmented__btn"
+                  aria-pressed={lifeStage === stage.value}
+                  onClick={() => setLifeStage(stage.value)}
+                >
+                  {stage.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <TextField
             label="Name"
             hint="optional"
@@ -269,7 +377,10 @@ export function AnimalIntakeScreen() {
                   key={option}
                   type="button"
                   className="segmented__btn"
-                  aria-pressed={sex === option || (option === 'Unknown' && sex === '')}
+                  aria-pressed={
+                    sex === option ||
+                    (option === 'Unknown' && (!sex || sex === 'Unknown'))
+                  }
                   onClick={() =>
                     setSex(option === 'Unknown' ? '' : option)
                   }
@@ -290,28 +401,59 @@ export function AnimalIntakeScreen() {
 
         {isEdit ? null : (
           <div className="panel stack">
+            <div className="stack stack--tight">
+              <p className="section-label">Photos</p>
+              <span className="field__hint">Optional — take or choose photos</span>
+            </div>
+            <IntakePhotoPicker
+              photos={stagedPhotos}
+              onAddPhotos={(newPhotos) =>
+                setStagedPhotos((current) => [...current, ...newPhotos])
+              }
+              onRemovePhoto={(photoId) => {
+                setStagedPhotos((current) => {
+                  const target = current.find((p) => p.id === photoId)
+                  if (target) URL.revokeObjectURL(target.previewUrl)
+                  return current.filter((p) => p.id !== photoId)
+                })
+              }}
+              disabled={busy}
+            />
+          </div>
+        )}
+
+        {isEdit ? null : (
+          <div className="panel stack">
             <p className="section-label">Arrival</p>
-            <StatusMultiSelect
-              statuses={statuses}
-              value={statusIds}
-              onChange={setStatusIds}
-              onRequestExit={(exitId) => void onRequestExit(exitId)}
-            />
-            <TextField
-              label="Date arrived"
-              type="date"
-              value={intakeDate}
-              onChange={(e) => setIntakeDate(e.target.value)}
-            />
+            <div
+              className="arrival-datetime-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 'var(--space-3)',
+              }}
+            >
+              <TextField
+                label="Date arrived"
+                type="date"
+                value={intakeDate}
+                onChange={(e) => setIntakeDate(e.target.value)}
+              />
+              <TextField
+                label="Time arrived"
+                type="time"
+                value={intakeTime}
+                onChange={(e) => setIntakeTime(e.target.value)}
+              />
+            </div>
             <TextareaField
               label="Notes"
-              hint="optional — saved to the care log"
+              hint="optional"
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Anything helpers should know"
             />
-            <p className="muted">You can add photos on the next screen after saving.</p>
           </div>
         )}
 
@@ -340,6 +482,7 @@ export function AnimalIntakeScreen() {
         </div>
       </form>
       <MoraleToast message={toast} onDone={() => setToast(null)} />
+
     </section>
   )
 }

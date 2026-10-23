@@ -1,22 +1,34 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@powersync/react'
 import {
   ArrowLeft,
-  Camera,
-  ListChecks,
+  ArrowRight,
+  CheckCircle,
   PencilSimple,
   Trash,
+  X,
 } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
+  archiveAnimal,
   getAnimal,
+  updateAnimal,
   type AnimalWithStatus,
+  type AnimalLifeStage,
 } from '@/features/animals/domain/animals'
+import {
+  getAnimalRelationships,
+  linkAnimals,
+  unlinkAnimals,
+  type AnimalRelationship,
+  type RelationshipType,
+} from '@/features/animals/domain/relationships'
+import { splitSpecies } from '@/features/animals/screens/AnimalIntakeScreen'
 import { listStatuses, type AnimalStatus } from '@/features/statuses/domain/statuses'
 import {
   listAssignmentsForAnimal,
-  replaceAnimalStatuses,
+  setSingleStatusAssignment,
 } from '@/features/statuses/domain/assignments'
 import {
   addTreatment,
@@ -28,20 +40,32 @@ import {
 } from '@/features/treatments/domain/treatments'
 import type { PhotoRecord, TreatmentRecord } from '@/features/sync/powersync/schema'
 import { PhotoCapture } from '@/features/animals/components/PhotoCapture'
+import { AnimalLineArt } from '@/features/animals/components/AnimalLineArt'
 import { VerifiedPhotoBadge } from '@/features/public/components/VerifiedPhotoBadge'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { MoraleToast } from '@/shared/ui/MoraleToast'
 import { pickMessage, TREATMENT_MESSAGES } from '@/shared/lib/morale/messages'
 import { Button } from '@/shared/ui/Button'
 import { SelectField, TextareaField, TextField } from '@/shared/ui/Field'
+import { AutocompleteField } from '@/shared/ui/AutocompleteField'
+import {
+  PRESET_VET_CLINICS,
+  PRESET_PARTNER_ORGS,
+  normalizeEntitySlug,
+} from '@/features/reports/domain/partnerDirectory'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import {
   deletePhoto,
+  deletePhotosForAnimal,
   getLocalPhoto,
 } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
-import { StatusMultiSelect } from '@/features/animals/components/StatusMultiSelect'
+import { StatusSingleSelect } from '@/features/animals/components/StatusSingleSelect'
+import { ResponsiveSheetModal } from '@/shared/ui/ResponsiveSheetModal'
+import { StatusBadge } from '@/shared/ui/StatusBadge'
+import { MedicalCrossIcon } from '@/shared/ui/MedicalCrossIcon'
+import { CreateStatusModal } from '@/features/statuses/components/CreateStatusModal'
 import {
   addAnimalsToChecklist,
   isAnimalOnChecklist,
@@ -49,15 +73,43 @@ import {
 } from '@/features/checklist/domain/checklist'
 import { formatCareTimestamp } from '@/shared/lib/dates'
 
+const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other']
+
+const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
+  bonded: 'Bonded',
+  mother: 'Mother',
+  child: 'Child',
+  sibling: 'Sibling',
+  incompatible: 'Incompatible',
+}
+
+const RELATIONSHIP_TONES: Record<RelationshipType, 'forest' | 'amber' | 'danger'> = {
+  bonded: 'forest',
+  mother: 'amber',
+  child: 'amber',
+  sibling: 'amber',
+  incompatible: 'danger',
+}
+
+const RELATIONSHIP_TYPES: { value: RelationshipType; label: string }[] = [
+  { value: 'bonded', label: 'Bonded' },
+  { value: 'mother', label: 'Mother' },
+  { value: 'child', label: 'Child' },
+  { value: 'sibling', label: 'Sibling' },
+  { value: 'incompatible', label: 'Incompatible' },
+]
+
 const TREATMENT_LABELS: Record<TreatmentType, string> = {
   meds: 'Medicine',
   vet: 'Vet visit',
   procedure: 'Procedure',
   other: 'Other care',
-  intake: 'Arrived',
-  arrived: 'Arrived',
+  intake: 'Intake',
+  arrived: 'Intake',
   status: 'Status',
 }
+
+type AnimalDetailTab = 'care' | 'timeline' | 'details'
 
 const CARE_FORM_TYPES: TreatmentType[] = ['meds', 'vet', 'procedure', 'other']
 const SYSTEM_CARE_TYPES: TreatmentType[] = ['arrived', 'intake', 'status']
@@ -86,6 +138,7 @@ async function resolvePhotoUrl(photo: PhotoRecord): Promise<string | null> {
 
 export function AnimalDetailScreen() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const location = useLocation()
   const backState = location.state as
     | { backTo?: string; backLabel?: string }
@@ -97,7 +150,7 @@ export function AnimalDetailScreen() {
   const confirm = useConfirm()
   const [animal, setAnimal] = useState<AnimalWithStatus | null>(null)
   const [statuses, setStatuses] = useState<AnimalStatus[]>([])
-  const [statusIds, setStatusIds] = useState<string[]>([])
+  const [statusId, setStatusId] = useState<string | null>(null)
   const [treatments, setTreatments] = useState<TreatmentRecord[]>([])
   const [photos, setPhotos] = useState<PhotoItem[]>([])
   const [activePhotoId, setActivePhotoId] = useState<string | null>(null)
@@ -120,17 +173,234 @@ export function AnimalDetailScreen() {
   const [deletingPhoto, setDeletingPhoto] = useState(false)
   const [onChecklist, setOnChecklist] = useState(false)
   const [checklistBusy, setChecklistBusy] = useState(false)
+  const [showAddStatusModal, setShowAddStatusModal] = useState(false)
+  const [showStatusModal, setShowStatusModal] = useState(false)
+  const [statusEffectiveAt, setStatusEffectiveAt] = useState(() =>
+    toDatetimeLocalValue(new Date().toISOString()),
+  )
+  const [statusNotes, setStatusNotes] = useState('')
+  const [clinicName, setClinicName] = useState('')
+  const [attendingVet, setAttendingVet] = useState('')
+  const [partnerName, setPartnerName] = useState('')
+  const [partnerContact, setPartnerContact] = useState('')
+  const [selectedTab, setSelectedTab] = useState<AnimalDetailTab | null>(null)
+
+  const [showEditDetailsModal, setShowEditDetailsModal] = useState(false)
+  const [editSpeciesPreset, setEditSpeciesPreset] = useState('Dog')
+  const [editSpeciesOther, setEditSpeciesOther] = useState('')
+  const [editLifeStage, setEditLifeStage] = useState<AnimalLifeStage>('adult')
+  const [editName, setEditName] = useState('')
+  const [editSex, setEditSex] = useState('')
+  const [editMarkings, setEditMarkings] = useState('')
+  const [editDetailsBusy, setEditDetailsBusy] = useState(false)
+
+  const [relationships, setRelationships] = useState<AnimalRelationship[]>([])
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [linkSearchQuery, setLinkSearchQuery] = useState('')
+  const [selectedRelatedAnimalId, setSelectedRelatedAnimalId] = useState<string | null>(null)
+  const [selectedRelationshipType, setSelectedRelationshipType] = useState<RelationshipType>('bonded')
+  const [linkNotes, setLinkNotes] = useState('')
+  const [linkBusy, setLinkBusy] = useState(false)
+  const [availableAnimals, setAvailableAnimals] = useState<
+    {
+      id: string
+      name: string | null
+      shelter_code: string
+      species: string
+      life_stage: 'adult' | 'child'
+    }[]
+  >([])
+
+  useEffect(() => {
+    setSelectedTab(null)
+  }, [id])
+
+  function openEditDetailsModal() {
+    if (!animal) return
+    const { preset, other } = splitSpecies(animal.species)
+    setEditSpeciesPreset(preset)
+    setEditSpeciesOther(other)
+    setEditLifeStage(animal.life_stage ?? 'adult')
+    setEditName(animal.name ?? '')
+    setEditSex(animal.sex ?? '')
+    setEditMarkings(animal.markings ?? '')
+    setError(null)
+    setShowEditDetailsModal(true)
+  }
+
+  function closeEditDetailsModal() {
+    setShowEditDetailsModal(false)
+    setError(null)
+  }
+
+  async function onSaveDetails(e: FormEvent) {
+    e.preventDefault()
+    if (!db || !id) return
+    const finalSpecies =
+      editSpeciesPreset === 'Other' ? editSpeciesOther.trim() : editSpeciesPreset
+    if (!finalSpecies) {
+      setError('Please choose or enter an animal species.')
+      return
+    }
+
+    setEditDetailsBusy(true)
+    setError(null)
+    try {
+      await updateAnimal(db, id, {
+        species: finalSpecies,
+        life_stage: editLifeStage,
+        name: editName.trim() || undefined,
+        sex: editSex.trim() || undefined,
+        markings: editMarkings.trim() || undefined,
+      })
+      setToast('Animal details updated.')
+      setShowEditDetailsModal(false)
+      await reload()
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not update details. Try again.',
+      )
+    } finally {
+      setEditDetailsBusy(false)
+    }
+  }
+
+  async function onRemoveAnimal() {
+    if (!db || !animal || editDetailsBusy) return
+    const label = animal.shelter_code || animal.name?.trim() || 'this animal'
+    const ok = await confirm({
+      title: `Delete ${label}?`,
+      body: 'They will leave your Animals list. Use this if the record was added by mistake.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    })
+    if (!ok) return
+    setEditDetailsBusy(true)
+    try {
+      await deletePhotosForAnimal(db, animal.id)
+      await archiveAnimal(db, animal.id)
+      navigate('/animals', { replace: true })
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not remove animal. Try again.',
+      )
+      setEditDetailsBusy(false)
+    }
+  }
+
+  async function reloadRelationships() {
+    if (!db || !id) return
+    try {
+      const nextRelationships = await getAnimalRelationships(db, id)
+      setRelationships(nextRelationships)
+    } catch (err) {
+      console.warn('Failed to reload relationships', err)
+    }
+  }
+
+  async function openLinkAnimalModal() {
+    setLinkSearchQuery('')
+    setSelectedRelatedAnimalId(null)
+    setSelectedRelationshipType('bonded')
+    setLinkNotes('')
+    setError(null)
+    setShowLinkModal(true)
+    if (db && member && id) {
+      try {
+        const rows = await db.getAll<{
+          id: string
+          name: string | null
+          shelter_code: string
+          species: string
+          life_stage: 'adult' | 'child'
+        }>(
+          `SELECT id, name, shelter_code, species, life_stage
+           FROM animals
+           WHERE org_id = ? AND id != ? AND archived = 0
+           ORDER BY shelter_code ASC`,
+          [member.orgId, id],
+        )
+        setAvailableAnimals(rows)
+      } catch (err) {
+        console.warn('Failed to load animals for linking', err)
+      }
+    }
+  }
+
+  function closeLinkAnimalModal() {
+    setShowLinkModal(false)
+    setError(null)
+  }
+
+  async function onSaveLinkAnimal(e: FormEvent) {
+    e.preventDefault()
+    if (!db || !member || !id) return
+    if (!selectedRelatedAnimalId) {
+      setError('Please select an animal to link.')
+      return
+    }
+    setLinkBusy(true)
+    setError(null)
+    try {
+      await linkAnimals(db, {
+        orgId: member.orgId,
+        animalId: id,
+        relatedAnimalId: selectedRelatedAnimalId,
+        relationshipType: selectedRelationshipType,
+        notes: linkNotes.trim() || null,
+      })
+      setToast('Animals linked')
+      setShowLinkModal(false)
+      await reloadRelationships()
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Could not link animals. Try again.',
+      )
+    } finally {
+      setLinkBusy(false)
+    }
+  }
+
+  async function onUnlink(rel: AnimalRelationship) {
+    if (!db || !id) return
+    const targetName = rel.relatedAnimalName || rel.relatedShelterCode
+    const ok = await confirm({
+      title: 'Unlink animal?',
+      body: `Remove the relationship between this animal and ${targetName}?`,
+      confirmLabel: 'Unlink',
+      tone: 'danger',
+    })
+    if (!ok) return
+    try {
+      await unlinkAnimals(db, {
+        animalId: id,
+        relatedAnimalId: rel.relatedAnimalId,
+      })
+      setToast('Animal unlinked')
+      await reloadRelationships()
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Could not unlink animal. Try again.',
+      )
+    }
+  }
 
   async function reload() {
     if (!db || !id) return
-    const [nextAnimal, nextTreatments, assignments] = await Promise.all([
+    const [nextAnimal, nextTreatments, assignments, nextRelationships] = await Promise.all([
       getAnimal(db, id),
       listTreatmentsForAnimal(db, id),
       listAssignmentsForAnimal(db, id),
+      getAnimalRelationships(db, id).catch(() => []),
     ])
     setAnimal(nextAnimal)
     setTreatments(nextTreatments)
-    setStatusIds(assignments.map((assignment) => assignment.status_id))
+    setStatusId(assignments[0]?.status_id ?? nextAnimal?.status_id ?? null)
+    setRelationships(nextRelationships)
     if (member) {
       setOnChecklist(await isAnimalOnChecklist(db, member.orgId, id))
     }
@@ -207,33 +477,99 @@ export function AnimalDetailScreen() {
     setShowCareForm(true)
   }
 
-  async function onStatusChange(nextIds: string[]) {
+  function openStatusModal() {
+    setStatusEffectiveAt(toDatetimeLocalValue(new Date().toISOString()))
+    setStatusNotes('')
+    setStatusId(null)
+    setError(null)
+    setShowStatusModal(true)
+  }
+
+  function closeStatusModal() {
+    setShowStatusModal(false)
+    setStatusNotes('')
+    setStatusId(null)
+    setClinicName('')
+    setAttendingVet('')
+    setPartnerName('')
+    setPartnerContact('')
+    setError(null)
+  }
+
+  async function onSaveStatusForm(e: FormEvent) {
+    e.preventDefault()
+    if (!statusId) {
+      setError('Please select a new status.')
+      return
+    }
     if (!db || !id || !member) return
-    setStatusIds(nextIds)
     setError(null)
     try {
-      await replaceAnimalStatuses(db, {
+      const effectiveIso = new Date(statusEffectiveAt).toISOString()
+      const selectedStatus = statuses.find((s) => s.id === statusId)
+      const label = selectedStatus?.label || 'Status update'
+      const labelLower = label.toLowerCase()
+      const isTreatmentOrCritical =
+        labelLower.includes('treatment') ||
+        labelLower.includes('critical') ||
+        labelLower.includes('hospital') ||
+        labelLower.includes('clinic') ||
+        labelLower.includes('vet')
+      const isTransferred =
+        labelLower.includes('transfer') ||
+        labelLower.includes('partner')
+
+      const extraParts: string[] = []
+      if (isTreatmentOrCritical) {
+        if (clinicName.trim()) {
+          const slug = normalizeEntitySlug(clinicName)
+          extraParts.push(`Clinic: ${clinicName.trim()} [${slug}]`)
+        }
+        if (attendingVet.trim()) {
+          extraParts.push(`Attending Vet: ${attendingVet.trim()}`)
+        }
+      } else if (isTransferred) {
+        if (partnerName.trim()) {
+          const slug = normalizeEntitySlug(partnerName)
+          extraParts.push(`Transferred to: ${partnerName.trim()} [${slug}]`)
+        }
+        if (partnerContact.trim()) {
+          extraParts.push(`Contact: ${partnerContact.trim()}`)
+        }
+      }
+
+      let fullNotes = statusNotes.trim()
+      if (extraParts.length > 0) {
+        fullNotes = fullNotes ? `${extraParts.join(' · ')}\n${fullNotes}` : extraParts.join(' · ')
+      }
+
+      await setSingleStatusAssignment(db, {
         orgId: member.orgId,
         animalId: id,
-        statusIds: nextIds,
+        statusId,
+        treatedAt: statusEffectiveAt,
+        notes: fullNotes || undefined,
       })
+      await addTreatment(db, {
+        orgId: member.orgId,
+        animalId: id,
+        treatmentType: 'status',
+        notes: fullNotes ? `${label} - ${fullNotes}` : label,
+        treatedAt: effectiveIso,
+      })
+      setShowStatusModal(false)
+      setStatusNotes('')
+      setClinicName('')
+      setAttendingVet('')
+      setPartnerName('')
+      setPartnerContact('')
+      setToast('Status updated')
       await reload()
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Could not update status. Try again.',
       )
-      await reload()
     }
-  }
-
-  async function onRequestExit(exitId: string) {
-    const ok = await confirm({
-      title: 'Mark as out of care?',
-      body: 'All other statuses will be removed from this animal.',
-      confirmLabel: 'Continue',
-      tone: 'danger',
-    })
-    if (ok) await onStatusChange([exitId])
   }
 
   async function onDeletePhoto(photoId: string) {
@@ -370,6 +706,49 @@ export function AnimalDetailScreen() {
   )
   const showLegacyArrival = Boolean(animal.intake_date && !hasArrivalEntry)
 
+  const careTreatments = treatments.filter(
+    (t) => t.treatment_type !== 'status' && !isArrivalTreatmentType(t.treatment_type),
+  )
+  const arrivalTreatments = treatments.filter(
+    (t) => isArrivalTreatmentType(t.treatment_type),
+  )
+  const arrivalDateOrTime =
+    arrivalTreatments[0]?.treated_at || animal.intake_date || ''
+  const timelineTreatments = treatments.filter((t) => {
+    if (t.treatment_type !== 'status') return false
+    const trimmedNotes = t.notes?.trim()
+    const isIntakeStatus =
+      trimmedNotes?.toLowerCase() === 'intake' ||
+      (!trimmedNotes &&
+        (animal.status_label || 'intake').toLowerCase() === 'intake')
+
+    // If arrival milestone already displays Intake, do not show duplicate Intake status entry on arrival date
+    if (isIntakeStatus && (hasArrivalEntry || showLegacyArrival)) {
+      const tTime = t.treated_at ? t.treated_at.slice(0, 10) : ''
+      const aTime = arrivalDateOrTime ? arrivalDateOrTime.slice(0, 10) : ''
+      if (!tTime || !aTime || tTime === aTime) {
+        return false
+      }
+    }
+    return true
+  })
+
+  const hasCareNotes = careTreatments.length > 0
+  const defaultTab: AnimalDetailTab = hasCareNotes ? 'care' : 'timeline'
+  const activeTab: AnimalDetailTab = selectedTab ?? defaultTab
+
+  const tabs: { id: AnimalDetailTab; label: string }[] = hasCareNotes
+    ? [
+        { id: 'care', label: 'Care' },
+        { id: 'timeline', label: 'Timeline' },
+        { id: 'details', label: 'Details' },
+      ]
+    : [
+        { id: 'timeline', label: 'Timeline' },
+        { id: 'care', label: 'Care' },
+        { id: 'details', label: 'Details' },
+      ]
+
   const careFormTypes: TreatmentType[] =
     editingTreatmentId && SYSTEM_CARE_TYPES.includes(treatmentType)
       ? [treatmentType, ...CARE_FORM_TYPES]
@@ -377,6 +756,20 @@ export function AnimalDetailScreen() {
   const detailMeta = [animal.species, animal.sex, animal.markings]
     .filter(Boolean)
     .join(' · ')
+
+  const filteredAnimals = availableAnimals.filter((a) => {
+    if (a.id === id) return false
+    const q = linkSearchQuery.trim().toLowerCase()
+    if (!q) return false
+    return (
+      a.shelter_code.toLowerCase().includes(q) ||
+      Boolean(a.name && a.name.toLowerCase().includes(q))
+    )
+  })
+
+  const selectedRelatedAnimal = availableAnimals.find(
+    (a) => a.id === selectedRelatedAnimalId,
+  )
 
   return (
     <section className="screen">
@@ -435,10 +828,12 @@ export function AnimalDetailScreen() {
                 </button>
               </>
             ) : (
-              <span className="detail-hero__photo-empty">
-                <Camera size={28} weight="duotone" aria-hidden />
-                No photo yet
-              </span>
+              <AnimalLineArt
+                species={animal.species}
+                lifeStage={animal.life_stage || (animal as any).lifeStage}
+                aspectRatio="cover"
+                className="detail-hero__line-art"
+              />
             )}
           </div>
 
@@ -448,6 +843,8 @@ export function AnimalDetailScreen() {
                 <PhotoCapture
                   orgId={member.orgId}
                   animalId={animal.id}
+                  shelterCode={animal.shelter_code}
+                  animalName={animal.name}
                   onQueued={() => void reload()}
                   onError={setError}
                 />
@@ -505,101 +902,554 @@ export function AnimalDetailScreen() {
         <div className="stack">
           <div>
             <div className="detail-hero__id-row">
-              <h1
-                className={
-                  animal.name?.trim()
-                    ? 'detail-hero__title'
-                    : 'detail-hero__title shelter-code'
-                }
-              >
-                {animal.name?.trim() || animal.shelter_code}
-              </h1>
-              <Button
-                to={`/animals/${animal.id}/edit`}
-                variant="ghost"
-                className="btn--icon"
-                aria-label="Edit animal"
-                title="Edit"
-              >
-                <PencilSimple size={18} weight="bold" aria-hidden />
-              </Button>
+              <div className="detail-hero__title-wrap">
+                <h1
+                  className={
+                    animal.name?.trim()
+                      ? 'detail-hero__title'
+                      : 'detail-hero__title shelter-code'
+                  }
+                >
+                  {animal.name?.trim() || animal.shelter_code}
+                </h1>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="btn--icon btn--inline-edit"
+                  aria-label="Edit animal"
+                  title="Edit"
+                  onClick={() => openEditDetailsModal()}
+                >
+                  <PencilSimple size={18} weight="bold" aria-hidden />
+                </Button>
+              </div>
+
+              {member ? (
+                <button
+                  type="button"
+                  className={`animal-daily-care-btn${onChecklist ? ' is-active' : ''}`}
+                  disabled={checklistBusy}
+                  onClick={() => void onToggleChecklist()}
+                  aria-label={onChecklist ? 'Remove from Daily Care' : 'Add to Daily Care'}
+                >
+                  {onChecklist ? (
+                    <>
+                      <CheckCircle size={16} weight="fill" /> In Daily Care
+                    </>
+                  ) : (
+                    <>
+                      <MedicalCrossIcon size={14} /> Daily Care
+                    </>
+                  )}
+                </button>
+              ) : null}
             </div>
             {animal.name?.trim() ? (
-              <p className="detail-hero__title shelter-code">
+              <p className="detail-hero__sub-id shelter-code">
                 {animal.shelter_code}
               </p>
             ) : null}
           </div>
 
-          {detailMeta ? (
+          {animal.species === 'Unknown' ? (
+            <div
+              role="button"
+              tabIndex={0}
+              className="stub-callout stub-callout--clickable"
+              aria-label="Rescue details needed. This animal was saved during quick field intake. Tap to add details."
+              onClick={() => openEditDetailsModal()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  openEditDetailsModal()
+                }
+              }}
+            >
+              <div className="stub-callout__content">
+                <div className="stub-callout__text-block">
+                  <strong className="stub-callout__title">Rescue details needed</strong>
+                  <p className="stub-callout__body">
+                    This animal was saved during quick field intake.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="stub-callout__btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openEditDetailsModal()
+                  }}
+                >
+                  Add <ArrowRight size={14} weight="bold" aria-hidden />
+                </button>
+              </div>
+            </div>
+          ) : detailMeta ? (
             <p className="muted" style={{ margin: 0 }}>
               {detailMeta}
             </p>
           ) : null}
 
-          <StatusMultiSelect
-            statuses={statuses}
-            value={statusIds}
-            onChange={(nextIds) => void onStatusChange(nextIds)}
-            onRequestExit={(exitId) => void onRequestExit(exitId)}
-          />
-
-          {member ? (
-            <div className="animal-checklist-actions">
-              <p className="animal-checklist-actions__heading">Checklist</p>
-              <div className="animal-checklist-actions__row">
-                {onChecklist ? (
-                  <Button
-                    type="button"
-                    variant="danger-outline"
-                    disabled={checklistBusy}
-                    onClick={() => void onToggleChecklist()}
-                  >
-                    <Trash size={18} weight="bold" aria-hidden />
-                    {checklistBusy ? 'Removing…' : 'Remove from checklist'}
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="accent"
-                    disabled={checklistBusy}
-                    onClick={() => void onToggleChecklist()}
-                  >
-                    <ListChecks size={18} weight="bold" aria-hidden />
-                    {checklistBusy ? 'Adding…' : 'Add to checklist'}
-                  </Button>
-                )}
-                <Button
-                  to="/checklist"
-                  state={{
-                    backTo: `/animals/${animal.id}`,
-                    backLabel: animal.name?.trim() || animal.shelter_code || 'Animal',
-                  }}
-                  variant="secondary"
-                >
-                  View checklist
-                </Button>
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
 
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h2 style={{ margin: 0 }}>Care log</h2>
-        {!showCareForm ? (
-          <Button
+      <div
+        className="tab-group"
+        role="tablist"
+        style={{ marginTop: '1.5rem', marginBottom: '1rem' }}
+      >
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
             type="button"
-            variant="secondary"
-            onClick={openCreateCareForm}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={`tab-btn${activeTab === tab.id ? ' is-active' : ''}`}
+            onClick={() => setSelectedTab(tab.id)}
           >
-            Log care
-          </Button>
-        ) : null}
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {showCareForm ? (
-        <form className="panel stack" onSubmit={onSaveTreatment} style={{ marginTop: '1rem' }}>
+      {activeTab === 'care' ? (
+        <div className="tab-panel" role="tabpanel">
+          <div
+            className="row"
+            style={{ justifyContent: 'space-between', alignItems: 'center' }}
+          >
+            <h2 style={{ margin: 0 }}>Care History</h2>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={openCreateCareForm}
+            >
+              Log care
+            </Button>
+          </div>
+
+          <div style={{ marginTop: '0.5rem' }}>
+            {careTreatments.map((t) => {
+              const type = t.treatment_type as TreatmentType
+              const title = TREATMENT_LABELS[type] ?? t.treatment_type
+              return (
+                <div className="list-item list-item--row" key={t.id}>
+                  <div
+                    className="list-item__body"
+                    style={{
+                      border: 'none',
+                      padding: 0,
+                      display: 'flex',
+                      gap: '0.75rem',
+                      alignItems: 'flex-start',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '0.75rem',
+                        height: '1.5rem',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <span className="timeline-dot" aria-hidden />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          minHeight: '1.5rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '0.35rem',
+                        }}
+                      >
+                        <strong>{title}</strong>{' '}
+                        <span className="muted">
+                          {t.treated_at
+                            ? formatCareTimestamp(t.treated_at)
+                            : 'Unknown date'}
+                        </span>
+                      </div>
+                      {t.notes?.trim() ? (
+                        <div className="list-item__notes">{t.notes}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="list-item__actions">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="btn--icon"
+                      aria-label="Edit care note"
+                      title="Edit"
+                      onClick={() => openEditCareForm(t)}
+                    >
+                      <PencilSimple size={18} weight="bold" aria-hidden />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="danger-ghost"
+                      className="btn--icon"
+                      aria-label="Delete care note"
+                      onClick={() => void onDeleteTreatment(t.id)}
+                    >
+                      <Trash size={18} weight="bold" aria-hidden />
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+            {careTreatments.length === 0 ? (
+              <p className="muted">
+                No care notes yet. Tap Log care to add the first one.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === 'timeline' ? (
+        <div className="tab-panel" role="tabpanel">
+          <div
+            className="row"
+            style={{
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1rem',
+            }}
+          >
+            <h2 style={{ margin: 0 }}>Status timeline</h2>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={openStatusModal}
+            >
+              Update status
+            </Button>
+          </div>
+
+          <div className="timeline-feed" style={{ marginTop: '0.5rem' }}>
+            {timelineTreatments.map((t) => {
+              const trimmedNotes = t.notes?.trim()
+              let badgeLabel = animal.status_label || 'Status update'
+              let displayNotes: string | null = null
+
+              if (trimmedNotes) {
+                if (trimmedNotes.includes(' - ')) {
+                  const [prefix, ...rest] = trimmedNotes.split(' - ')
+                  badgeLabel = prefix.trim()
+                  displayNotes = rest.join(' - ').trim() || null
+                } else if (
+                  statuses.some(
+                    (s) => s.label?.toLowerCase() === trimmedNotes.toLowerCase(),
+                  ) ||
+                  trimmedNotes.toLowerCase() ===
+                    animal.status_label?.toLowerCase() ||
+                  animal.status_labels?.some(
+                    (l) => l?.toLowerCase() === trimmedNotes.toLowerCase(),
+                  )
+                ) {
+                  badgeLabel = trimmedNotes
+                  displayNotes = null
+                } else {
+                  badgeLabel = animal.status_label || 'Status update'
+                  displayNotes = trimmedNotes
+                }
+              }
+
+              return (
+                <div className="timeline-entry" key={t.id}>
+                  <div className="timeline-track">
+                    <span className="timeline-dot" />
+                  </div>
+                  <div className="timeline-item">
+                    <div className="timeline-item__primary">
+                      <StatusBadge label={badgeLabel} />
+                    </div>
+                    <div className="timeline-item__timestamp muted">
+                      {t.treated_at
+                        ? formatCareTimestamp(t.treated_at)
+                        : 'Unknown date'}
+                    </div>
+                    {displayNotes ? (
+                      <div className="timeline-item__notes">{displayNotes}</div>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            })}
+            {arrivalTreatments.map((t) => {
+              const type = t.treatment_type as TreatmentType
+              const label = TREATMENT_LABELS[type] ?? (animal.status_label || 'Intake')
+              return (
+                <div className="timeline-entry" key={t.id}>
+                  <div className="timeline-track">
+                    <span className="timeline-dot timeline-dot--arrival" />
+                  </div>
+                  <div className="timeline-item">
+                    <div className="timeline-item__primary">
+                      <StatusBadge label={label} tone="forest" />
+                    </div>
+                    <div className="timeline-item__timestamp muted">
+                      {t.treated_at
+                        ? formatCareTimestamp(t.treated_at)
+                        : 'Unknown date'}
+                    </div>
+                    {t.notes?.trim() ? (
+                      <div className="timeline-item__notes">{t.notes}</div>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            })}
+            {showLegacyArrival ? (
+              <div className="timeline-entry">
+                <div className="timeline-track">
+                  <span className="timeline-dot timeline-dot--arrival" />
+                </div>
+                <div className="timeline-item">
+                  <div className="timeline-item__primary">
+                    <StatusBadge label={animal.status_label || 'Intake'} tone="forest" />
+                  </div>
+                  <div className="timeline-item__timestamp muted">
+                    {animal.intake_date
+                      ? formatCareTimestamp(`${animal.intake_date}T12:00:00`)
+                      : 'Intake'}
+                  </div>
+                  {animal.notes?.trim() ? (
+                    <div className="timeline-item__notes">{animal.notes}</div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+            {timelineTreatments.length === 0 &&
+            arrivalTreatments.length === 0 &&
+            !showLegacyArrival ? (
+              <p className="muted">No status transitions recorded yet.</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === 'details' ? (
+        <div className="tab-panel" role="tabpanel">
+          <div
+            className="row"
+            style={{
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1rem',
+            }}
+          >
+            <h2 style={{ margin: 0 }}>Animal Details</h2>
+            {member ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={openEditDetailsModal}
+              >
+                Edit details
+              </Button>
+            ) : null}
+          </div>
+          <div className="tab-panel__content characteristics-card panel">
+            <div className="characteristics-grid">
+              <div className="characteristic-item">
+                <span className="characteristic-label">Species & Life Stage</span>
+                <span className="characteristic-value">
+                  {animal.species} · {animal.life_stage === 'child' ? 'Child' : 'Adult'}
+                </span>
+              </div>
+              <div className="characteristic-item">
+                <span className="characteristic-label">Sex</span>
+                <span className="characteristic-value">
+                  {animal.sex?.trim() || 'Unknown'}
+                </span>
+              </div>
+              <div className="characteristic-item characteristic-item--full">
+                <span className="characteristic-label">Markings / Description</span>
+                <span className="characteristic-value">
+                  {animal.markings?.trim() || 'None recorded'}
+                </span>
+              </div>
+              <div className="characteristic-item">
+                <span className="characteristic-label">Shelter Code</span>
+                <span className="characteristic-value shelter-code">
+                  {animal.shelter_code}
+                </span>
+              </div>
+              <div className="characteristic-item">
+                <span className="characteristic-label">Intake Date</span>
+                <span className="characteristic-value">
+                  {animal.intake_date || 'Unknown'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="row"
+            style={{
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: '1.5rem',
+              marginBottom: '1rem',
+            }}
+          >
+            <h2 style={{ margin: 0 }}>Relationships</h2>
+            {member ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={openLinkAnimalModal}
+              >
+                Link animal
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="relationships-card panel">
+            {relationships.length === 0 ? (
+              <p className="muted" style={{ margin: 0 }}>
+                No linked animals yet. Record family members, bonded pairs, or incompatibility warnings.
+              </p>
+            ) : (
+              <div className="relationships-list">
+                {relationships.map((rel) => {
+                  const label = RELATIONSHIP_LABELS[rel.relationshipType] ?? rel.relationshipType
+                  const tone = RELATIONSHIP_TONES[rel.relationshipType] ?? 'default'
+                  return (
+                    <div className="list-item list-item--row relationship-item" key={rel.id}>
+                      <div className="relationship-item__body">
+                        <div className="relationship-item__avatar">
+                          {rel.relatedPhotoUrl ? (
+                            <img
+                              src={rel.relatedPhotoUrl}
+                              alt={rel.relatedAnimalName || rel.relatedShelterCode}
+                              className="relationship-item__photo"
+                            />
+                          ) : (
+                            <AnimalLineArt
+                              species={rel.relatedSpecies}
+                              lifeStage={rel.relatedLifeStage}
+                              aspectRatio="square"
+                              className="relationship-item__line-art"
+                            />
+                          )}
+                        </div>
+                        <div className="relationship-item__info">
+                          <div className="relationship-item__headline">
+                            <Link
+                              to={`/animals/${rel.relatedAnimalId}`}
+                              className="relationship-item__link"
+                            >
+                              {rel.relatedAnimalName ? (
+                                <>
+                                  <strong className="relationship-item__name">
+                                    {rel.relatedAnimalName}
+                                  </strong>{' '}
+                                  <span className="relationship-item__code shelter-code muted">
+                                    {rel.relatedShelterCode}
+                                  </span>
+                                </>
+                              ) : (
+                                <strong className="relationship-item__code shelter-code">
+                                  {rel.relatedShelterCode}
+                                </strong>
+                              )}
+                            </Link>
+                            <StatusBadge label={label} tone={tone} />
+                          </div>
+                          {rel.notes?.trim() ? (
+                            <div className="relationship-item__notes list-item__notes">
+                              {rel.notes}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                      {member ? (
+                        <div className="list-item__actions">
+                          <Button
+                            type="button"
+                            variant="danger-ghost"
+                            className="btn--icon"
+                            aria-label={`Unlink ${rel.relatedAnimalName || rel.relatedShelterCode}`}
+                            title="Unlink animal"
+                            onClick={() => void onUnlink(rel)}
+                          >
+                            <Trash size={18} weight="bold" aria-hidden />
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {member ? (
+            <div
+              className="danger-zone"
+              style={{
+                borderTop: 'none',
+                paddingTop: 0,
+                marginTop: 'var(--space-6)',
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 'var(--text-base)',
+                  fontWeight: 600,
+                  color: 'var(--color-danger, #b42318)',
+                }}
+              >
+                Remove animal
+              </h3>
+              <p
+                className="muted danger-zone__copy"
+                style={{
+                  fontSize: 'var(--text-sm)',
+                  margin: 'var(--space-1) 0 var(--space-3)',
+                }}
+              >
+                Permanently remove this animal record and all associated photos from active care.
+              </p>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={editDetailsBusy}
+                onClick={() => void onRemoveAnimal()}
+              >
+                <Trash size={16} weight="bold" /> Delete
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <MoraleToast message={toast} onDone={() => setToast(null)} />
+      {showAddStatusModal && member ? (
+        <CreateStatusModal
+          orgId={member.orgId}
+          onClose={() => setShowAddStatusModal(false)}
+          onCreated={(newStatus) => {
+            setStatuses((prev) => [...prev, newStatus])
+            setStatusId(newStatus.id)
+          }}
+        />
+      ) : null}
+
+      <ResponsiveSheetModal
+        isOpen={showCareForm}
+        onClose={resetCareForm}
+        title={editingTreatmentId ? 'Edit care note' : 'Log care'}
+      >
+        <form className="stack" onSubmit={onSaveTreatment}>
           <SelectField
             label="What kind of care?"
             value={treatmentType}
@@ -632,111 +1482,381 @@ export function AnimalDetailScreen() {
             <span>Hide from public</span>
           </label>
           {error ? <p className="form-error">{error}</p> : null}
-          <div className="row">
+          <div className="responsive-modal__actions">
             <Button type="submit" variant="primary" disabled={!notes.trim()}>
               {editingTreatmentId ? 'Save changes' : 'Save care note'}
             </Button>
-            <Button type="button" variant="ghost" onClick={resetCareForm}>
+            <Button type="button" variant="secondary" onClick={resetCareForm}>
               Cancel
             </Button>
           </div>
         </form>
-      ) : null}
+      </ResponsiveSheetModal>
 
-      <div style={{ marginTop: '0.5rem' }}>
-        {treatments.map((t) => {
-          const type = t.treatment_type as TreatmentType
-          const isStatus = type === 'status'
-          const title = isStatus
-            ? t.notes?.trim() || TREATMENT_LABELS.status
-            : TREATMENT_LABELS[type] ?? t.treatment_type
-          return (
-          <div className="list-item list-item--row" key={t.id}>
-            <div className="list-item__body timeline-item" style={{ border: 'none', padding: 0 }}>
-              <span className="timeline-dot" aria-hidden />
-              <div>
-                {isStatus ? (
-                  <>
-                    <div>
-                      <strong>Status</strong>
-                    </div>
-                    <div>{title}</div>
-                    <span className="muted">
-                      {t.treated_at
-                        ? formatCareTimestamp(t.treated_at)
-                        : 'Unknown date'}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <strong>{title}</strong>{' '}
-                    <span className="muted">
-                      {t.treated_at
-                        ? formatCareTimestamp(t.treated_at)
-                        : 'Unknown date'}
-                    </span>
-                    {t.notes?.trim() ? (
-                      <div className="list-item__notes">{t.notes}</div>
-                    ) : null}
-                  </>
-                )}
-              </div>
+      <ResponsiveSheetModal
+        isOpen={showStatusModal}
+        onClose={closeStatusModal}
+        title="Update status"
+      >
+        <form className="stack" onSubmit={onSaveStatusForm}>
+          <p className="section-label" style={{ margin: 0 }}>
+            Select new status
+          </p>
+          <StatusSingleSelect
+            statuses={statuses.filter(
+              (s) =>
+                s.id !== animal?.status_id &&
+                s.label?.trim().toLowerCase() !==
+                  animal?.status_label?.trim().toLowerCase(),
+            )}
+            value={statusId}
+            onChange={(nextId) => {
+              setStatusId(nextId)
+              setError(null)
+            }}
+            onAddStatus={() => setShowAddStatusModal(true)}
+          />
+
+          {(() => {
+            const selectedStatus = statuses.find((s) => s.id === statusId)
+            const labelLower = (selectedStatus?.label || '').toLowerCase()
+            const isTreatmentOrCritical =
+              labelLower.includes('treatment') ||
+              labelLower.includes('critical') ||
+              labelLower.includes('hospital') ||
+              labelLower.includes('clinic') ||
+              labelLower.includes('vet')
+            const isTransferred =
+              labelLower.includes('transfer') ||
+              labelLower.includes('partner')
+
+            if (isTreatmentOrCritical) {
+              return (
+                <div className="panel stack stack--tight" style={{ background: 'var(--color-surface)', padding: '12px' }}>
+                  <p className="section-label" style={{ margin: 0 }}>
+                    Veterinary Hospital &amp; Doctor
+                  </p>
+                  <AutocompleteField
+                    label="Clinic / Hospital Name"
+                    placeholder="e.g. UVAS Small Animal Hospital"
+                    value={clinicName}
+                    onChange={setClinicName}
+                    suggestions={PRESET_VET_CLINICS as unknown as string[]}
+                  />
+                  <TextField
+                    label="Attending Vet"
+                    hint="optional"
+                    placeholder="e.g. Dr. Adeel / Dr. Usman"
+                    value={attendingVet}
+                    onChange={(e) => setAttendingVet(e.target.value)}
+                  />
+                </div>
+              )
+            }
+
+            if (isTransferred) {
+              return (
+                <div className="panel stack stack--tight" style={{ background: 'var(--color-surface)', padding: '12px' }}>
+                  <p className="section-label" style={{ margin: 0 }}>
+                    Partner Transfer Details
+                  </p>
+                  <AutocompleteField
+                    label="Partner Organization / Shelter Name"
+                    placeholder="e.g. Todd's Welfare Society (TWS)"
+                    value={partnerName}
+                    onChange={setPartnerName}
+                    suggestions={PRESET_PARTNER_ORGS as unknown as string[]}
+                  />
+                  <TextField
+                    label="Focal Person / Contact"
+                    hint="optional"
+                    placeholder="e.g. Case coordinator or phone"
+                    value={partnerContact}
+                    onChange={(e) => setPartnerContact(e.target.value)}
+                  />
+                </div>
+              )
+            }
+
+            return null
+          })()}
+
+          <TextField
+            label="Effective date & time"
+            type="datetime-local"
+            value={statusEffectiveAt}
+            onChange={(e) => setStatusEffectiveAt(e.target.value)}
+          />
+          <TextareaField
+            label="Notes"
+            hint="optional — reason for status change"
+            rows={2}
+            value={statusNotes}
+            onChange={(e) => setStatusNotes(e.target.value)}
+            placeholder="e.g. Cleared quarantine, moved to foster..."
+          />
+          {error ? <p className="form-error">{error}</p> : null}
+          <div className="responsive-modal__actions">
+            <Button type="submit" variant="primary" disabled={!statusId}>
+              Save status
+            </Button>
+            <Button type="button" variant="secondary" onClick={closeStatusModal}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </ResponsiveSheetModal>
+
+      <ResponsiveSheetModal
+        isOpen={showEditDetailsModal}
+        onClose={closeEditDetailsModal}
+        title="Edit details"
+      >
+        <form className="stack" onSubmit={onSaveDetails}>
+          <div className="field">
+            <span>Animal species</span>
+            <div className="filter-chips" role="group" aria-label="Animal species">
+              {SPECIES_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className="chip"
+                  aria-pressed={editSpeciesPreset === preset}
+                  onClick={() => setEditSpeciesPreset(preset)}
+                >
+                  {preset}
+                </button>
+              ))}
             </div>
-            {type === 'status' ? null : (
-              <div className="list-item__actions">
+          </div>
+
+          {editSpeciesPreset === 'Other' ? (
+            <TextField
+              label="Specify species"
+              value={editSpeciesOther}
+              onChange={(e) => setEditSpeciesOther(e.target.value)}
+              required
+              placeholder="e.g. Alpaca, Goat, Rabbit…"
+            />
+          ) : null}
+
+          <div className="field">
+            <span>Life stage</span>
+            <div className="segmented" role="group" aria-label="Life stage">
+              {(
+                [
+                  { value: 'adult', label: 'Adult' },
+                  { value: 'child', label: 'Child' },
+                ] as const
+              ).map((stage) => (
+                <button
+                  key={stage.value}
+                  type="button"
+                  className="segmented__btn"
+                  aria-pressed={editLifeStage === stage.value}
+                  onClick={() => setEditLifeStage(stage.value)}
+                >
+                  {stage.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <TextField
+            label="Name"
+            hint="optional"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="If they have one"
+          />
+
+          <div className="field">
+            <span>Sex</span>
+            <div className="segmented" role="group" aria-label="Sex">
+              {(['Female', 'Male', 'Unknown'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className="segmented__btn"
+                  aria-pressed={
+                    editSex === option ||
+                    (option === 'Unknown' && (!editSex || editSex === 'Unknown'))
+                  }
+                  onClick={() =>
+                    setEditSex(option === 'Unknown' ? '' : option)
+                  }
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <TextareaField
+            label="Markings"
+            hint="optional"
+            rows={3}
+            value={editMarkings}
+            onChange={(e) => setEditMarkings(e.target.value)}
+            placeholder="Colors, scars, collar tags, distinctive markings…"
+          />
+
+          {error ? <p className="form-error">{error}</p> : null}
+
+          <div className="responsive-modal__actions">
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={editDetailsBusy}
+            >
+              Save
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={closeEditDetailsModal}
+              disabled={editDetailsBusy}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </ResponsiveSheetModal>
+
+      <ResponsiveSheetModal
+        isOpen={showLinkModal}
+        onClose={closeLinkAnimalModal}
+        title={
+          selectedRelatedAnimalId &&
+          relationships.some((r) => r.relatedAnimalId === selectedRelatedAnimalId)
+            ? 'Update relationship'
+            : 'Link animal'
+        }
+      >
+        <form className="stack" onSubmit={onSaveLinkAnimal}>
+          {selectedRelatedAnimal ? (
+            <div className="field">
+              <span>Animal to link</span>
+              <div className="animal-pick animal-pick--selected">
+                <span>
+                  {selectedRelatedAnimal.name ? (
+                    <strong>{selectedRelatedAnimal.name} · </strong>
+                  ) : null}
+                  <span className="shelter-code">
+                    {selectedRelatedAnimal.shelter_code}
+                  </span>
+                </span>
                 <Button
                   type="button"
                   variant="ghost"
                   className="btn--icon"
-                  aria-label="Edit care note"
-                  title="Edit"
-                  onClick={() => openEditCareForm(t)}
+                  aria-label="Change animal"
+                  onClick={() => setSelectedRelatedAnimalId(null)}
                 >
-                  <PencilSimple size={18} weight="bold" aria-hidden />
+                  <X size={16} weight="bold" aria-hidden />
                 </Button>
-                {isArrivalTreatmentType(type) ? null : (
-                  <Button
-                    type="button"
-                    variant="danger-ghost"
-                    className="btn--icon"
-                    aria-label="Delete care note"
-                    onClick={() => void onDeleteTreatment(t.id)}
-                  >
-                    <Trash size={18} weight="bold" aria-hidden />
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-          )
-        })}
-        {showLegacyArrival ? (
-          <div className="list-item list-item--row">
-            <div
-              className="list-item__body timeline-item"
-              style={{ border: 'none', padding: 0 }}
-            >
-              <span className="timeline-dot" aria-hidden />
-              <div>
-                <strong>{TREATMENT_LABELS.arrived}</strong>{' '}
-                <span className="muted">
-                  {animal.intake_date
-                    ? formatCareTimestamp(`${animal.intake_date}T12:00:00`)
-                    : 'Arrival'}
-                </span>
-                {animal.notes?.trim() ? (
-                  <div className="list-item__notes">{animal.notes}</div>
-                ) : null}
               </div>
             </div>
-          </div>
-        ) : null}
-        {treatments.length === 0 && !showLegacyArrival ? (
-          <p className="muted">No care notes yet. Tap Log care to add the first one.</p>
-        ) : null}
-      </div>
+          ) : (
+            <div>
+              <TextField
+                label="Animal to link"
+                placeholder="Search by ID or name"
+                value={linkSearchQuery}
+                onChange={(e) => setLinkSearchQuery(e.target.value)}
+                autoComplete="off"
+              />
+              {filteredAnimals.length > 0 ? (
+                <ul
+                  className="animal-suggest"
+                  role="listbox"
+                  aria-label="Matching animals"
+                >
+                  {filteredAnimals.slice(0, 10).map((a) => (
+                    <li key={a.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        className="animal-suggest__item"
+                        onClick={() => {
+                          setSelectedRelatedAnimalId(a.id)
+                          const existing = relationships.find(
+                            (r) => r.relatedAnimalId === a.id,
+                          )
+                          if (existing) {
+                            setSelectedRelationshipType(existing.relationshipType)
+                            setLinkNotes(existing.notes || '')
+                          }
+                        }}
+                      >
+                        {a.name ? `${a.name} · ` : ''}
+                        <span className="shelter-code">{a.shelter_code}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : linkSearchQuery.trim() ? (
+                <p className="muted" style={{ margin: '0.25rem 0 0 0' }}>
+                  No animals found matching "{linkSearchQuery}"
+                </p>
+              ) : null}
+            </div>
+          )}
 
-      <MoraleToast message={toast} onDone={() => setToast(null)} />
+          <div className="field">
+            <span>Relationship type</span>
+            <div
+              className="filter-chips"
+              role="group"
+              aria-label="Relationship type"
+            >
+              {RELATIONSHIP_TYPES.map((type) => (
+                <button
+                  key={type.value}
+                  type="button"
+                  className="chip"
+                  aria-pressed={selectedRelationshipType === type.value}
+                  onClick={() => setSelectedRelationshipType(type.value)}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <TextareaField
+            label="Notes"
+            hint="optional"
+            rows={2}
+            value={linkNotes}
+            onChange={(e) => setLinkNotes(e.target.value)}
+            placeholder="Notes about this relationship…"
+          />
+
+          {error ? <p className="form-error">{error}</p> : null}
+
+          <div className="responsive-modal__actions">
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={linkBusy || !selectedRelatedAnimalId}
+            >
+              {selectedRelatedAnimalId &&
+              relationships.some((r) => r.relatedAnimalId === selectedRelatedAnimalId)
+                ? 'Update'
+                : 'Save'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={closeLinkAnimalModal}
+              disabled={linkBusy}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </ResponsiveSheetModal>
     </section>
   )
 }

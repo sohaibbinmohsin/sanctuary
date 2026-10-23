@@ -9,17 +9,26 @@ import {
   listAssignmentsForAnimal,
   replaceAnimalStatuses,
 } from '@/features/statuses/domain/assignments'
+import { listStatuses } from '@/features/statuses/domain/statuses'
+import { queuePhoto } from '@/features/photos/domain/photos'
+
+export type AnimalLifeStage = 'adult' | 'child'
+export type { AnimalRecord }
 
 export type CreateAnimalInput = {
   orgId: string
   prefix: string
   species: string
+  life_stage?: AnimalLifeStage
+  lifeStage?: AnimalLifeStage
   statusIds: string[]
   name?: string
   sex?: string
   markings?: string
   notes?: string
   intakeDate?: string
+  intakeTime?: string
+  arrivalTimestamp?: string
 }
 
 export type AnimalSearchFilters = {
@@ -59,11 +68,13 @@ export async function createAnimal(
 
   const notes = input.notes?.trim() || null
 
+  const life_stage: AnimalLifeStage = input.life_stage ?? input.lifeStage ?? 'adult'
+
   await db.execute(
     `INSERT INTO animals (
       id, org_id, shelter_code, name, species, sex, markings,
-      intake_date, status_id, notes, archived, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      intake_date, status_id, notes, archived, created_at, updated_at, life_stage
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
     [
       id,
       input.orgId,
@@ -77,6 +88,7 @@ export async function createAnimal(
       notes,
       now,
       now,
+      life_stage,
     ],
   )
 
@@ -84,14 +96,21 @@ export async function createAnimal(
     orgId: input.orgId,
     animalId: id,
     statusIds: input.statusIds,
+    skipTreatmentLog: true,
   })
+
+  const treatedAt =
+    input.arrivalTimestamp ??
+    (input.intakeTime && intake_date
+      ? `${intake_date}T${input.intakeTime}:00`
+      : arrivalTimestampFromIntakeDate(intake_date, nowDate))
 
   await addTreatment(db, {
     orgId: input.orgId,
     animalId: id,
     treatmentType: 'arrived',
     notes: notes ?? undefined,
-    treatedAt: arrivalTimestampFromIntakeDate(intake_date, nowDate),
+    treatedAt,
   })
 
   const created = await getAnimal(db, id)
@@ -104,6 +123,7 @@ export async function createAnimal(
     name: input.name?.trim() || null,
     species: input.species.trim(),
     sex: input.sex?.trim() || null,
+    life_stage,
     markings: input.markings?.trim() || null,
     intake_date,
     status_id: created.status_id,
@@ -111,6 +131,71 @@ export async function createAnimal(
     archived: 0,
     created_at: now,
     updated_at: now,
+  }
+}
+
+export type CreateQuickAnimalStubInput = {
+  orgId: string
+  prefix: string
+  photoBlob?: Blob
+  captureSource?: 'camera' | 'gallery'
+  captureToken?: string
+  statusId?: string
+}
+
+export async function getNextShelterCode(
+  db: SanctuaryDb,
+  orgId: string,
+  prefix: string,
+): Promise<string> {
+  const codes = await db.getAll<{ shelter_code: string }>(
+    `SELECT shelter_code FROM animals WHERE org_id = ?`,
+    [orgId],
+  )
+  return nextShelterId(
+    prefix,
+    codes.map((c) => c.shelter_code),
+  )
+}
+
+export async function createQuickAnimalStub(
+  db: SanctuaryDb,
+  input: CreateQuickAnimalStubInput,
+): Promise<{ animal: AnimalRecord; shelterCode: string }> {
+  let statusId = input.statusId
+  if (!statusId) {
+    const statuses = await listStatuses(db, input.orgId)
+    const inCare = statuses.find((s) => s.counts_as_in_care === 1 && !s.archived)
+    statusId = inCare ? inCare.id : statuses[0]?.id
+  }
+
+  if (!statusId) {
+    throw new Error('No animal status found to assign.')
+  }
+
+  const animal = await createAnimal(db, {
+    orgId: input.orgId,
+    prefix: input.prefix,
+    species: 'Unknown',
+    statusIds: [statusId],
+    name: undefined,
+    sex: undefined,
+    markings: undefined,
+  })
+
+  if (input.photoBlob) {
+    await queuePhoto(db, {
+      orgId: input.orgId,
+      animalId: animal.id,
+      blob: input.photoBlob,
+      captureSource: input.captureSource ?? 'camera',
+      captureToken: input.captureToken,
+    })
+  }
+
+  return {
+    animal,
+    shelterCode: animal.shelter_code ?? '',
   }
 }
 
@@ -231,6 +316,8 @@ export type UpdateAnimalInput = {
   species: string
   name?: string
   sex?: string
+  life_stage?: AnimalLifeStage
+  lifeStage?: AnimalLifeStage
   markings?: string
   /** When omitted, existing statuses are left unchanged. */
   statusIds?: string[]
@@ -263,11 +350,18 @@ export async function updateAnimal(
     ? (input.intakeDate ?? existing.intake_date ?? localDateString())
     : (existing.intake_date ?? localDateString())
   const intakeDateChanged = intake_date !== existing.intake_date
+  const touchLifeStage =
+    input.life_stage !== undefined || input.lifeStage !== undefined
+  const life_stage: AnimalLifeStage = touchLifeStage
+    ? (input.life_stage ?? input.lifeStage ?? 'adult')
+    : (existing.life_stage ?? 'adult')
+
   await db.execute(
     `UPDATE animals SET
       name = ?,
       species = ?,
       sex = ?,
+      life_stage = ?,
       markings = ?,
       intake_date = ?,
       notes = ?,
@@ -277,6 +371,7 @@ export async function updateAnimal(
       input.name?.trim() || null,
       input.species.trim(),
       input.sex?.trim() || null,
+      life_stage,
       input.markings?.trim() || null,
       intake_date,
       notes,
@@ -395,3 +490,68 @@ export async function countAnimalsByStatus(
     sortOrder: r.sort_order ?? 999,
   }))
 }
+
+export type AnimalLifeStageCount = {
+  adult: number
+  child: number
+}
+
+export async function countAnimalsByLifeStage(
+  db: SanctuaryDb,
+  orgId: string,
+): Promise<AnimalLifeStageCount> {
+  const rows = await db.getAll<{ life_stage: string | null; count: number }>(
+    `SELECT life_stage, COUNT(*) as count
+     FROM animals
+     WHERE org_id = ? AND archived = 0
+     GROUP BY life_stage`,
+    [orgId],
+  ).catch(() => [])
+
+  let adult = 0
+  let child = 0
+  for (const row of rows) {
+    if (row.life_stage === 'child') child += Number(row.count) || 0
+    else adult += Number(row.count) || 0
+  }
+  return { adult, child }
+}
+
+export type AnimalSpeciesCount = {
+  species: string
+  count: number
+  adultCount: number
+  childCount: number
+}
+
+export async function countAnimalsBySpecies(
+  db: SanctuaryDb,
+  orgId: string,
+): Promise<AnimalSpeciesCount[]> {
+  const rows = await db.getAll<{
+    species: string
+    count: number
+    child_count: number
+    adult_count: number
+  }>(
+    `SELECT
+       species,
+       COUNT(*) as count,
+       SUM(CASE WHEN life_stage = 'child' THEN 1 ELSE 0 END) as child_count,
+       SUM(CASE WHEN life_stage != 'child' OR life_stage IS NULL THEN 1 ELSE 0 END) as adult_count
+     FROM animals
+     WHERE org_id = ? AND archived = 0
+     GROUP BY species
+     ORDER BY count DESC`,
+    [orgId],
+  ).catch(() => [])
+
+  return rows.map((r) => ({
+    species: r.species?.trim() || 'Unknown',
+    count: Number(r.count) || 0,
+    adultCount: Number(r.adult_count) || 0,
+    childCount: Number(r.child_count) || 0,
+  }))
+}
+
+

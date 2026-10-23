@@ -23,6 +23,11 @@ export async function compressImage(
   const compressed = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob((b) => resolve(b), type, quality)
   })
+
+  // Explicitly clear canvas buffer memory
+  canvas.width = 0
+  canvas.height = 0
+
   return compressed ?? blob
 }
 

@@ -1,25 +1,36 @@
 type StatusBadgeProps = {
   label: string
-  tone?: 'default' | 'amber' | 'muted'
+  tone?: 'default' | 'amber' | 'muted' | 'forest' | 'danger'
 }
 
 function toneFromLabel(label: string): StatusBadgeProps['tone'] {
   const lower = label.toLowerCase()
+  if (lower.includes('critical') || lower.includes('incompatible')) {
+    return 'danger'
+  }
   if (
     lower.includes('quarantine') ||
     lower.includes('urgent') ||
-    lower.includes('critical') ||
     lower.includes('treatment')
   ) {
     return 'amber'
   }
   if (
     lower.includes('passed') ||
+    lower.includes('deceased') ||
     lower.includes('archived') ||
     lower.includes('adopted') ||
+    lower.includes('transferred') ||
     lower.includes('released')
   ) {
     return 'muted'
+  }
+  if (
+    lower.includes('intake') ||
+    lower.includes('in sanctuary') ||
+    lower.includes('healthy')
+  ) {
+    return 'forest'
   }
   return 'default'
 }
@@ -31,6 +42,10 @@ export function StatusBadge({ label, tone }: StatusBadgeProps) {
       ? 'status-badge status-badge--amber'
       : resolved === 'muted'
         ? 'status-badge status-badge--muted'
-        : 'status-badge'
+        : resolved === 'forest'
+          ? 'status-badge status-badge--forest'
+          : resolved === 'danger'
+            ? 'status-badge status-badge--danger'
+            : 'status-badge'
   return <span className={className}>{label}</span>
 }

@@ -30,10 +30,6 @@ export function UploadsScreen() {
             ? 'Photos and receipts send while this app is open.'
             : pendingUploadsBody(online)
         }
-        backTo="/dashboard"
-        backLabel="Overview"
-        hideBackOnDesktop
-        actionsOnBackRow
         actions={
           items.length > 0 ? (
             <Button
