@@ -153,11 +153,21 @@ export async function ensureDefaultStatuses(
 
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
-  await db.execute(
-    `INSERT OR REPLACE INTO animal_statuses (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
-     VALUES (?, ?, 'Intake', 1, 1, 0, ?)`,
-    [id, orgId, now],
-  )
+  if (typeof db.execute === 'function') {
+    await db.execute(
+      `INSERT OR REPLACE INTO animal_statuses (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
+       VALUES (?, ?, 'Intake', 1, 1, 0, ?)`,
+      [id, orgId, now],
+    )
+  } else if (typeof db.writeTransaction === 'function') {
+    await db.writeTransaction(async (tx) => {
+      await tx.execute(
+        `INSERT OR REPLACE INTO animal_statuses (id, org_id, label, sort_order, counts_as_in_care, archived, created_at)
+         VALUES (?, ?, 'Intake', 1, 1, 0, ?)`,
+        [id, orgId, now],
+      )
+    })
+  }
 
   void supabase
     .from('animal_statuses')

@@ -126,17 +126,18 @@ describe('Quick Animal Stub Domain', () => {
 
   it('throws an error if no animal status exists', async () => {
     const db = createMockDb()
-    ;(db as any).getAll = vi.fn().mockImplementation(async (query: string) => {
-      if (query.includes('FROM animal_statuses')) return []
-      if (query.includes('FROM animals WHERE org_id = ?')) return []
-      return []
-    })
+    const statusesModule = await import('@/features/statuses/domain/statuses')
+    const spy = vi.spyOn(statusesModule, 'listStatuses').mockResolvedValueOnce([])
 
-    await expect(
-      createQuickAnimalStub(db, {
-        orgId: 'org-1',
-        prefix: 'TS',
-      }),
-    ).rejects.toThrow('No animal status found to assign.')
+    try {
+      await expect(
+        createQuickAnimalStub(db, {
+          orgId: 'org-1',
+          prefix: 'TS',
+        }),
+      ).rejects.toThrow('No animal status found to assign.')
+    } finally {
+      spy.mockRestore()
+    }
   })
 })

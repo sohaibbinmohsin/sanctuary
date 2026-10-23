@@ -119,9 +119,10 @@ describe('AnimalDetailScreen status moved inside Timeline tab', () => {
       expect(screen.queryByRole('dialog')).toBeNull()
     })
 
-    // Status assignment write transaction was called
-    expect(mockWriteTx).toHaveBeenCalled()
-    // Treatment entry was executed
-    expect(mockExecute).toHaveBeenCalled()
+    // Status assignment and treatment records were executed
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE animals SET status_id = ?'),
+      expect.arrayContaining(['st-2', 'anim-1']),
+    )
   })
 })
