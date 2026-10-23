@@ -48,7 +48,8 @@ describe('AnimalDetailScreen header alignment', () => {
     const idRow = await screen.findByRole('heading', { level: 1, name: 'Barnaby' })
     const parentRow = idRow.closest('.detail-hero__id-row')
     expect(parentRow).toBeInTheDocument()
-    expect(parentRow?.querySelector('.btn--inline-edit')).toBeInTheDocument()
+    // Inline edit pencil removed; details are edited via "Edit details" button in details tab
+    expect(parentRow?.querySelector('.btn--inline-edit')).toBeNull()
     expect(parentRow?.querySelector('.animal-daily-care-btn')).toBeInTheDocument()
 
     // Named animal should render smaller subtitle ID

@@ -41,8 +41,8 @@ vi.mock('@/shared/hooks/useCurrentMember', () => ({
   }),
 }))
 
-describe('Inline edit and word-based Daily Care button', () => {
-  it('renders inline edit pencil and "+ Daily Care" word button when not on checklist', async () => {
+describe('Word-based Daily Care button and details editing', () => {
+  it('does not render inline edit pencil and renders "+ Daily Care" word button when not on checklist', async () => {
     mockGetOptional.mockImplementation(async (sql: string) => {
       if (typeof sql === 'string' && sql.includes('checklist_items')) {
         return null
@@ -59,8 +59,9 @@ describe('Inline edit and word-based Daily Care button', () => {
       </MemoryRouter>
     )
 
-    const editBtn = await screen.findByRole('button', { name: /Edit animal/i })
-    expect(editBtn).toBeInTheDocument()
+    // Inline pencil icon was removed; details are edited via "Edit details" button in details tab
+    const editPencilBtn = screen.queryByRole('button', { name: /Edit animal/i })
+    expect(editPencilBtn).not.toBeInTheDocument()
 
     const careBtn = await screen.findByRole('button', { name: /Add to Daily Care/i })
     expect(careBtn).toBeInTheDocument()

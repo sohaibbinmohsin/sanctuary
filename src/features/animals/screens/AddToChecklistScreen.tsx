@@ -24,7 +24,6 @@ import { addAnimalsToChecklist } from '@/features/checklist/domain/checklist'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
   getLocalPhoto,
-  listPhotosForAnimal,
   localPhotoUrl,
 } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
@@ -102,23 +101,38 @@ export function AddToChecklistScreen() {
         if (cancelled) return
         setAnimals(rows)
 
+        const photoRows = await db.getAll<{
+          id: string
+          animal_id: string | null
+          r2_key: string | null
+        }>(
+          `SELECT id, animal_id, r2_key FROM photos WHERE org_id = ? ORDER BY created_at DESC`,
+          [member.orgId],
+        )
+
         const urls: Record<string, string> = {}
-        for (const animal of rows.slice(0, 60)) {
-          const photos = await listPhotosForAnimal(db, animal.id)
-          const first = photos[0]
-          if (!first) continue
-          const remote = publicPhotoUrl(first.r2_key)
+        const needLocal: { animalId: string; photoId: string }[] = []
+
+        for (const p of photoRows) {
+          if (!p.animal_id || urls[p.animal_id]) continue
+          const remote = publicPhotoUrl(p.r2_key)
           if (remote) {
-            urls[animal.id] = remote
-            continue
-          }
-          const local = await getLocalPhoto(first.id)
-          if (local) {
-            urls[animal.id] = URL.createObjectURL(local)
+            urls[p.animal_id] = remote
           } else {
-            urls[animal.id] = localPhotoUrl(first.id)
+            needLocal.push({ animalId: p.animal_id, photoId: p.id })
           }
         }
+
+        for (const item of needLocal) {
+          if (urls[item.animalId]) continue
+          const local = await getLocalPhoto(item.photoId)
+          if (local) {
+            urls[item.animalId] = URL.createObjectURL(local)
+          } else {
+            urls[item.animalId] = localPhotoUrl(item.photoId)
+          }
+        }
+
         if (!cancelled) {
           setPhotoUrls(urls)
         }
