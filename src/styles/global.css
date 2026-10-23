@@ -1439,6 +1439,10 @@ a.primary {
 }
 
 .app-sidebar__copyright {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-ink);
@@ -5779,6 +5783,10 @@ a.primary {
   }
 
   .app-sidebar__copyright {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
     font-size: var(--text-sm);
     font-weight: 600;
     color: var(--color-ink);

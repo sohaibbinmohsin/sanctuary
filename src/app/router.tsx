@@ -285,14 +285,11 @@ function AppShellContent() {
               </span>
             </button>
             <div className="app-sidebar__brand-text">
-              <div className="app-sidebar__brand-row">
-                <div
-                  className="app-sidebar__brand"
-                  title={member?.orgName || 'Sanctuary'}
-                >
-                  {member?.orgName || 'Sanctuary'}
-                </div>
-                <PwaUpdatePill />
+              <div
+                className="app-sidebar__brand"
+                title={member?.orgName || 'Sanctuary'}
+              >
+                {member?.orgName || 'Sanctuary'}
               </div>
             </div>
             <button
@@ -345,7 +342,8 @@ function AppShellContent() {
         />
         <div className="app-sidebar__footer">
           <div className="app-sidebar__copyright">
-            Sanctuary &copy; {new Date().getFullYear()}
+            <span>Sanctuary &copy; {new Date().getFullYear()}</span>
+            <PwaUpdatePill />
           </div>
           <a
             className="app-sidebar__mohsin"
