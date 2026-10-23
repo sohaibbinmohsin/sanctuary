@@ -16,6 +16,7 @@ export const RESERVED_PUBLIC_SLUGS = new Set([
   'manifest.webmanifest',
   'sw.js',
   'index.html',
+  'report',
 ])
 
 export function normalizePublicSlug(raw: string): string {
