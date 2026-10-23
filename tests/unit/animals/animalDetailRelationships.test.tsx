@@ -254,6 +254,9 @@ describe('AnimalDetailScreen Relationships', () => {
         ['anim-1', 'anim-2'],
       )
     })
+    await waitFor(() => {
+      expect(screen.getByText('Animal unlinked')).toBeInTheDocument()
+    })
   })
 
   it('opens LinkAnimalModal, filters animals, selects type, and links animals successfully', async () => {
@@ -300,6 +303,9 @@ describe('AnimalDetailScreen Relationships', () => {
         expect.stringContaining('INSERT INTO animal_relationships'),
         expect.arrayContaining(['org-1', 'anim-1', 'anim-2', 'mother', 'Adopted together as mother/pup']),
       )
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Animals linked')).toBeInTheDocument()
     })
   })
 

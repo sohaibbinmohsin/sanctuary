@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@powersync/react'
 import {
@@ -211,6 +211,14 @@ export function AnimalDetailScreen() {
     }[]
   >([])
 
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
   useEffect(() => {
     setSelectedTab(null)
   }, [id])
@@ -296,6 +304,7 @@ export function AnimalDetailScreen() {
     if (!db || !id) return
     try {
       const nextRelationships = await getAnimalRelationships(db, id)
+      if (!isMountedRef.current) return
       setRelationships(nextRelationships)
     } catch (err) {
       console.warn('Failed to reload relationships', err)
@@ -324,6 +333,7 @@ export function AnimalDetailScreen() {
            ORDER BY shelter_code ASC`,
           [member.orgId, id],
         )
+        if (!isMountedRef.current) return
         setAvailableAnimals(rows)
       } catch (err) {
         console.warn('Failed to load animals for linking', err)
@@ -353,15 +363,19 @@ export function AnimalDetailScreen() {
         relationshipType: selectedRelationshipType,
         notes: linkNotes.trim() || null,
       })
+      if (!isMountedRef.current) return
       setToast('Animals linked')
       setShowLinkModal(false)
       await reloadRelationships()
     } catch (err) {
+      if (!isMountedRef.current) return
       setError(
         err instanceof Error ? err.message : 'Could not link animals. Try again.',
       )
     } finally {
-      setLinkBusy(false)
+      if (isMountedRef.current) {
+        setLinkBusy(false)
+      }
     }
   }
 
@@ -380,9 +394,11 @@ export function AnimalDetailScreen() {
         animalId: id,
         relatedAnimalId: rel.relatedAnimalId,
       })
+      if (!isMountedRef.current) return
       setToast('Animal unlinked')
       await reloadRelationships()
     } catch (err) {
+      if (!isMountedRef.current) return
       setError(
         err instanceof Error ? err.message : 'Could not unlink animal. Try again.',
       )
@@ -397,12 +413,15 @@ export function AnimalDetailScreen() {
       listAssignmentsForAnimal(db, id),
       getAnimalRelationships(db, id).catch(() => []),
     ])
+    if (!isMountedRef.current) return
     setAnimal(nextAnimal)
     setTreatments(nextTreatments)
     setStatusId(assignments[0]?.status_id ?? nextAnimal?.status_id ?? null)
     setRelationships(nextRelationships)
     if (member) {
-      setOnChecklist(await isAnimalOnChecklist(db, member.orgId, id))
+      const onList = await isAnimalOnChecklist(db, member.orgId, id)
+      if (!isMountedRef.current) return
+      setOnChecklist(onList)
     }
   }
 
@@ -421,7 +440,7 @@ export function AnimalDetailScreen() {
         if (url?.startsWith('blob:')) objectUrls.push(url)
         items.push({ photo, url })
       }
-      if (cancelled) {
+      if (cancelled || !isMountedRef.current) {
         for (const u of objectUrls) URL.revokeObjectURL(u)
         return
       }
@@ -439,7 +458,9 @@ export function AnimalDetailScreen() {
 
   useEffect(() => {
     if (!db || !member) return
-    void listStatuses(db, member.orgId).then(setStatuses)
+    void listStatuses(db, member.orgId).then((next) => {
+      if (isMountedRef.current) setStatuses(next)
+    })
   }, [db, member])
 
   function resetCareForm() {
