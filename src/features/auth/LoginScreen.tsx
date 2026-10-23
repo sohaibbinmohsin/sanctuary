@@ -67,7 +67,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             />
             <div className="login-screen__brand-text">
               <h1 className="brand">Sanctuary</h1>
-              <p className="subheading">Animal welfare platform</p>
+              <p className="subheading">Animal welfare network</p>
             </div>
           </div>
           <p className="lede">
@@ -120,6 +120,18 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               rel="noopener noreferrer"
             >
               Request access
+            </a>
+          </p>
+          <p className="login-screen__demo">
+            Want to explore first?{' '}
+            <a
+              href="/playground"
+              onClick={(e) => {
+                e.preventDefault()
+                window.location.assign('/playground')
+              }}
+            >
+              Try interactive demo
             </a>
           </p>
         </div>
