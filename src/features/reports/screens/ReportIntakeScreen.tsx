@@ -1253,7 +1253,10 @@ export function ReportIntakeScreen() {
 
         {/* 4. Photos & Proof (Optional) */}
         <div className="panel stack">
-          <p className="section-label">Photos &amp; Proof</p>
+          <div className="stack stack--tight">
+            <p className="section-label">Photos &amp; Proof</p>
+            <span className="field__hint">Optional</span>
+          </div>
 
           {/* Existing Photos in Edit Mode */}
           {isEditMode && existingPhotos.length > 0 && (

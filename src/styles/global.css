@@ -1200,8 +1200,7 @@ a.primary {
     min-height: var(--touch-min, 44px);
   }
 
-  .page-header__sub,
-  .section-label + .field__hint {
+  .page-header__sub {
     display: none !important;
   }
 
@@ -1545,15 +1544,19 @@ a.primary {
 
 .page-header__copy {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.page-header h1 {
+.page-header h1,
+.screen .page-header h1 {
   font-family: var(--font-display);
   font-size: var(--text-xl);
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0;
-  line-height: var(--leading-tight);
+  line-height: 1;
 }
 
 .page-header__sub {
@@ -1600,7 +1603,7 @@ a.primary {
   margin-top: var(--space-2);
 }
 
-.screen h1 {
+.screen :where(h1:not(.page-header h1)) {
   font-family: var(--font-display);
   font-size: var(--text-xl);
   font-weight: 700;
