@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Funnel,
   List,
@@ -21,9 +21,14 @@ import {
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import {
   getLocalPhoto,
-  listPhotosForAnimal,
   localPhotoUrl,
 } from '@/features/photos/domain/photos'
+import {
+  getAnimalsScrollPosition,
+  clearAnimalsScrollPosition,
+  saveAnimalsScrollPosition,
+  setAppScrollTop,
+} from '@/shared/lib/scroll'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
@@ -63,6 +68,7 @@ export function AnimalsListScreen() {
   >({})
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<AnimalsView>(() => readStoredView())
+  const scrollRestoredRef = useRef(false)
   const { data: animalCountRows } = useQuery<{ n: number }>(
     member?.orgId
       ? `SELECT COUNT(*) as n FROM animals WHERE org_id = ? AND archived = 0`
@@ -70,6 +76,29 @@ export function AnimalsListScreen() {
     member?.orgId ? [member.orgId] : [],
   )
   const localAnimalCount = Number(animalCountRows?.[0]?.n ?? 0)
+
+  // Save scroll position when navigating away from the animals list
+  useEffect(() => {
+    return () => {
+      saveAnimalsScrollPosition()
+    }
+  }, [])
+
+  // Restore scroll position when returning to the animals list
+  useEffect(() => {
+    if (loading || animals.length === 0 || scrollRestoredRef.current) return
+    const savedTop = getAnimalsScrollPosition()
+    if (savedTop !== null && savedTop > 0) {
+      scrollRestoredRef.current = true
+      requestAnimationFrame(() => {
+        setAppScrollTop(savedTop)
+        setTimeout(() => {
+          setAppScrollTop(savedTop)
+          clearAnimalsScrollPosition()
+        }, 50)
+      })
+    }
+  }, [loading, animals.length])
 
   useEffect(() => {
     if (!db || !member) return
@@ -87,25 +116,43 @@ export function AnimalsListScreen() {
         if (cancelled) return
         setAnimals(rows)
 
+        const photoRows = await db.getAll<{
+          id: string
+          animal_id: string | null
+          r2_key: string | null
+          verified: number | boolean | null
+        }>(
+          `SELECT id, animal_id, r2_key, verified FROM photos WHERE org_id = ? ORDER BY created_at DESC`,
+          [member.orgId],
+        )
+
         const urls: Record<string, string> = {}
         const verified: Record<string, boolean> = {}
-        for (const animal of rows.slice(0, 60)) {
-          const photos = await listPhotosForAnimal(db, animal.id)
-          verified[animal.id] = photos.some((p) => Boolean(p.verified))
-          const first = photos[0]
-          if (!first) continue
-          const remote = publicPhotoUrl(first.r2_key)
-          if (remote) {
-            urls[animal.id] = remote
-            continue
-          }
-          const local = await getLocalPhoto(first.id)
-          if (local) {
-            urls[animal.id] = URL.createObjectURL(local)
-          } else {
-            urls[animal.id] = localPhotoUrl(first.id)
+        const needLocal: { animalId: string; photoId: string }[] = []
+
+        for (const p of photoRows) {
+          if (!p.animal_id) continue
+          if (p.verified) verified[p.animal_id] = true
+          if (!urls[p.animal_id]) {
+            const remote = publicPhotoUrl(p.r2_key)
+            if (remote) {
+              urls[p.animal_id] = remote
+            } else {
+              needLocal.push({ animalId: p.animal_id, photoId: p.id })
+            }
           }
         }
+
+        for (const item of needLocal) {
+          if (urls[item.animalId]) continue
+          const local = await getLocalPhoto(item.photoId)
+          if (local) {
+            urls[item.animalId] = URL.createObjectURL(local)
+          } else {
+            urls[item.animalId] = localPhotoUrl(item.photoId)
+          }
+        }
+
         if (!cancelled) {
           setPhotoUrls(urls)
           setVerifiedAnimalIds(verified)
@@ -293,7 +340,11 @@ export function AnimalsListScreen() {
       ) : (
         <div className={listClassName}>
           {animals.map((animal) => (
-            <div key={animal.id} className="animal-card-selectable">
+            <div
+              key={animal.id}
+              className="animal-card-selectable"
+              onClick={() => saveAnimalsScrollPosition()}
+            >
               <AnimalCard
                 animal={animal}
                 photoUrl={photoUrls[animal.id]}

@@ -5386,6 +5386,21 @@ a.primary {
   gap: var(--space-3);
   flex: 1;
   min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--radius-md);
+  padding: var(--space-1);
+  margin: calc(-1 * var(--space-1));
+  transition: background-color var(--duration) var(--ease-out);
+}
+
+.relationship-item__body:hover {
+  background-color: var(--color-surface-hover, rgba(0, 0, 0, 0.03));
+}
+
+.relationship-item__body:hover .relationship-item__title,
+.relationship-item__body:hover .relationship-item__name {
+  color: var(--color-forest);
 }
 
 .relationship-item__avatar {
@@ -5421,14 +5436,17 @@ a.primary {
   gap: var(--space-2);
 }
 
+.relationship-item__title,
 .relationship-item__link {
   color: var(--color-ink);
   text-decoration: none;
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-1);
+  transition: color var(--duration) var(--ease-out);
 }
 
+.relationship-item__title:hover,
 .relationship-item__link:hover {
   color: var(--color-forest);
 }

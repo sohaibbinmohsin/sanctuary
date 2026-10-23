@@ -10,7 +10,11 @@ import {
   MegaphoneSimple,
 } from '@phosphor-icons/react'
 import type { AppModuleId } from '@/shared/domain/modules'
-import { SyncBanner } from '@/shared/ui/SyncBanner'
+import {
+  getAnimalsScrollPosition,
+  clearAnimalsScrollPosition,
+  setAppScrollTop,
+} from '@/shared/lib/scroll'
 import { PlaygroundBanner } from '@/features/playground/PlaygroundBanner'
 import { isPlaygroundMode } from '@/features/playground/mode'
 import { AnimalsListScreen } from '@/features/animals/screens/AnimalsListScreen'
@@ -121,6 +125,24 @@ function NavItems({
   )
 }
 
+function ScrollToTopOnRoute() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    // If returning to /animals and there is a saved scroll position waiting to be restored, don't reset to 0
+    if (pathname === '/animals' && getAnimalsScrollPosition() !== null) {
+      return
+    }
+    // Clear any orphaned list scroll if navigating to completely different modules
+    if (pathname !== '/animals' && !pathname.startsWith('/animals/')) {
+      clearAnimalsScrollPosition()
+    }
+    setAppScrollTop(0)
+  }, [pathname])
+
+  return null
+}
+
 function AppShellContent() {
   const db = useDb()
   const { member, loading } = useCurrentMember()
@@ -216,7 +238,7 @@ function AppShellContent() {
         .filter(Boolean)
         .join(' ')}
     >
-      {playground ? null : <SyncBanner />}
+      <ScrollToTopOnRoute />
       <div
         className={`sidebar-backdrop ${mobileDrawerOpen ? 'open' : ''}`}
         onClick={() => setMobileDrawerOpen(false)}

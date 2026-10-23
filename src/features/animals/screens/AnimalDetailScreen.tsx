@@ -912,16 +912,6 @@ export function AnimalDetailScreen() {
                 >
                   {animal.name?.trim() || animal.shelter_code}
                 </h1>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="btn--icon btn--inline-edit"
-                  aria-label="Edit animal"
-                  title="Edit"
-                  onClick={() => openEditDetailsModal()}
-                >
-                  <PencilSimple size={18} weight="bold" aria-hidden />
-                </Button>
               </div>
 
               {member ? (
@@ -1323,7 +1313,14 @@ export function AnimalDetailScreen() {
                   const tone = RELATIONSHIP_TONES[rel.relationshipType] ?? 'default'
                   return (
                     <div className="list-item list-item--row relationship-item" key={rel.id}>
-                      <div className="relationship-item__body">
+                      <Link
+                        to={`/animals/${rel.relatedAnimalId}`}
+                        state={{
+                          backTo: `/animals/${id}`,
+                          backLabel: animal.name?.trim() || animal.shelter_code,
+                        }}
+                        className="relationship-item__body"
+                      >
                         <div className="relationship-item__avatar">
                           {rel.relatedPhotoUrl ? (
                             <img
@@ -1342,10 +1339,7 @@ export function AnimalDetailScreen() {
                         </div>
                         <div className="relationship-item__info">
                           <div className="relationship-item__headline">
-                            <Link
-                              to={`/animals/${rel.relatedAnimalId}`}
-                              className="relationship-item__link"
-                            >
+                            <span className="relationship-item__title">
                               {rel.relatedAnimalName ? (
                                 <>
                                   <strong className="relationship-item__name">
@@ -1360,7 +1354,7 @@ export function AnimalDetailScreen() {
                                   {rel.relatedShelterCode}
                                 </strong>
                               )}
-                            </Link>
+                            </span>
                             <StatusBadge label={label} tone={tone} />
                           </div>
                           {rel.notes?.trim() ? (
@@ -1369,7 +1363,7 @@ export function AnimalDetailScreen() {
                             </div>
                           ) : null}
                         </div>
-                      </div>
+                      </Link>
                       {member ? (
                         <div className="list-item__actions">
                           <Button
