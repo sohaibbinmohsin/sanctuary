@@ -84,5 +84,67 @@ describe('CurrentMember setupCompleted parsing', () => {
     }
     expect(mapMemberRow(rowNull).setupCompleted).toBe(false)
   })
+
+  it('keeps loading state true when user is authenticated but bootstrap hydration has not finished', () => {
+    // Helper replicating the loading condition in useCurrentMember:
+    // authLoading || (userId ? queryLoading || (!member && !bootstrapDone) : false)
+    const computeLoading = (params: {
+      authLoading: boolean
+      userId: string | undefined
+      queryLoading: boolean
+      member: CurrentMember | null
+      bootstrapDone: boolean
+    }) =>
+      params.authLoading ||
+      (params.userId
+        ? params.queryLoading || (!params.member && !params.bootstrapDone)
+        : false)
+
+    // Right after login: auth resolved, userId present, but member is null and bootstrap not done
+    expect(
+      computeLoading({
+        authLoading: false,
+        userId: 'user-123',
+        queryLoading: false,
+        member: null,
+        bootstrapDone: false,
+      }),
+    ).toBe(true)
+
+    // Once bootstrap completes, if member is found, loading is false
+    const dummyMember = mapMemberRow({
+      id: 'm1',
+      org_id: 'o1',
+      user_id: 'user-123',
+      role: 'admin',
+      org_name: 'Shelter',
+      org_initials: 'S',
+      org_logo_r2_key: null,
+      org_public_enabled: 0,
+      org_public_slug: null,
+      org_setup_completed: 1,
+    })
+
+    expect(
+      computeLoading({
+        authLoading: false,
+        userId: 'user-123',
+        queryLoading: false,
+        member: dummyMember,
+        bootstrapDone: true,
+      }),
+    ).toBe(false)
+
+    // If bootstrap completes but user truly has no org, loading becomes false so onboarding renders
+    expect(
+      computeLoading({
+        authLoading: false,
+        userId: 'user-123',
+        queryLoading: false,
+        member: null,
+        bootstrapDone: true,
+      }),
+    ).toBe(false)
+  })
 })
 

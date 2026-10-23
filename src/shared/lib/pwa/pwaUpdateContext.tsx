@@ -79,6 +79,10 @@ export function PwaUpdateProvider({
     updateServiceWorker,
   } = useRegisterSW({
     immediate: true,
+    onNeedReload() {
+      // Do not auto-reload on service worker controlling event.
+      // Reload is applied when user explicitly clicks "Update now" in modal or pill.
+    },
     onRegisteredSW(_url, registration) {
       registrationRef.current = registration
     },
