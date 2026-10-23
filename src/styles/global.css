@@ -2043,9 +2043,11 @@ a.primary {
 
 .filter-bar__search {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.filter-bar__search svg {
+.filter-bar__search > svg {
   position: absolute;
   left: 0.85rem;
   top: 50%;
@@ -2056,6 +2058,46 @@ a.primary {
 
 .filter-bar__search input {
   padding-left: 2.5rem;
+  padding-right: 2.5rem;
+}
+
+.filter-bar__search input::-webkit-search-decoration,
+.filter-bar__search input::-webkit-search-cancel-button,
+.filter-bar__search input::-webkit-search-results-button,
+.filter-bar__search input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  display: none;
+}
+
+.filter-bar__clear {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  transition: color var(--duration) var(--ease-out), background-color var(--duration) var(--ease-out);
+}
+
+.filter-bar__clear:hover {
+  color: var(--color-ink);
+  background: var(--color-forest-soft);
+}
+
+.filter-bar__clear svg {
+  position: static;
+  transform: none;
+  pointer-events: auto;
+  color: inherit;
 }
 
 .filter-bar .btn--icon {

@@ -307,6 +307,16 @@ export function AddToChecklistScreen() {
             onChange={(event) => updateQuery(event.target.value)}
             aria-label="Search animals"
           />
+          {filters.query ? (
+            <button
+              type="button"
+              className="filter-bar__clear"
+              onClick={() => updateQuery('')}
+              aria-label="Clear search"
+            >
+              <X size={14} weight="bold" aria-hidden />
+            </button>
+          ) : null}
         </div>
         <div className="filter-button-wrap">
           <Button
