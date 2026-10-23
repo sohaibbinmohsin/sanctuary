@@ -12,6 +12,7 @@ import {
 } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { maskPhoneNumber, maskCnic } from '@/features/reports/domain/privacyMask'
+import { useReportTrackSeo } from '@/features/reports/domain/reportSeo'
 import '@/features/reports/publicReport.css'
 
 interface PipelineStageDef {
@@ -98,6 +99,7 @@ export function PublicReportTrackScreen() {
   const { reportNumber } = useParams<{ reportNumber: string }>()
   const db = useDb()
   const [report, setReport] = useState<Record<string, any> | null>(null)
+  useReportTrackSeo(reportNumber, report?.status)
   const [photos, setPhotos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)

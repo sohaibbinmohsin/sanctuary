@@ -18,6 +18,7 @@ import {
   type PublicPhotoItem,
 } from '@/features/reports/components/public/PublicReportStepLocation'
 import { PublicReportStepContact } from '@/features/reports/components/public/PublicReportStepContact'
+import { useReportSeo } from '@/features/reports/domain/reportSeo'
 import '@/features/reports/publicReport.css'
 
 const STEPS = [
@@ -27,6 +28,7 @@ const STEPS = [
 ] as const
 
 export function PublicReportScreen() {
+  useReportSeo()
   const navigate = useNavigate()
   const db = useDb()
   const { draft, updateDraft, clearDraft } = useReportDraft()
