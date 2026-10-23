@@ -1201,7 +1201,52 @@ a.primary {
   }
 }
 
-/* App Sidebar (Base: Full-Screen Drawer on mobile, Rail on Desktop) */
+/* App Sidebar mobile drawer — enlarged sizes for mobile readability */
+@media (max-width: 1023px) {
+  /* Bigger logo */
+  .app-sidebar .app-sidebar__logo {
+    width: 48px;
+    height: 48px;
+  }
+
+  /* SanctuaryLogo SVG */
+  .app-sidebar .sidebar-logo-img svg {
+    width: 48px;
+    height: 48px;
+  }
+
+  /* Bigger brand name */
+  .app-sidebar .app-sidebar__brand {
+    font-size: var(--text-lg);
+  }
+
+  /* Bigger nav link rows */
+  .app-sidebar .app-sidebar__nav a {
+    font-size: var(--text-base);
+    padding: 0.9rem 1rem;
+    min-height: 3.25rem;
+    gap: var(--space-4);
+  }
+
+  /* Bigger nav icons */
+  .app-sidebar .app-sidebar__nav a svg {
+    width: 1.65rem;
+    height: 1.65rem;
+  }
+
+  /* Bigger close (X) toggle button — match the mobile-drawer-trigger size */
+  .sidebar-toggle-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* Subtle accent on X button in mobile */
+  .sidebar-toggle-btn--close {
+    color: var(--color-ink);
+  }
+}
+
+
 .app-sidebar {
   display: flex;
   flex-direction: column;
