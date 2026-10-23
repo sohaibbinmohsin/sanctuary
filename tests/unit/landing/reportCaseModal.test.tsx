@@ -11,7 +11,7 @@ describe('ReportCaseModal', () => {
   it('renders modal with form fields when isOpen is true', () => {
     render(<ReportCaseModal isOpen={true} onClose={vi.fn()} />)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByLabelText(/Animal/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Animal and condition/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Location/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Contact phone/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Submit report/i })).toBeInTheDocument()
@@ -26,7 +26,7 @@ describe('ReportCaseModal', () => {
 
   it('shows confirmation state upon submitting form', () => {
     render(<ReportCaseModal isOpen={true} onClose={vi.fn()} />)
-    fireEvent.change(screen.getByLabelText(/Animal/i), { target: { value: 'Injured stray dog' } })
+    fireEvent.change(screen.getByLabelText(/Animal and condition/i), { target: { value: 'Injured stray dog' } })
     fireEvent.change(screen.getByLabelText(/Location/i), { target: { value: 'Gulberg, Lahore' } })
     fireEvent.change(screen.getByLabelText(/Contact phone/i), { target: { value: '03001234567' } })
     fireEvent.click(screen.getByRole('button', { name: /Submit report/i }))

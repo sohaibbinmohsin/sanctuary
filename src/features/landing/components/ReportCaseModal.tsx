@@ -19,6 +19,7 @@ export function ReportCaseModal({ isOpen, onClose }: ReportCaseModalProps) {
     if (!isOpen) {
       setSubmitted(false)
       setAnimal('')
+      setUrgency('Critical')
       setLocation('')
       setPhone('')
       setDetails('')
@@ -52,7 +53,7 @@ export function ReportCaseModal({ isOpen, onClose }: ReportCaseModalProps) {
         className="report-modal__dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="Report case"
+        aria-labelledby="report-modal-title"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="report-modal__header">
