@@ -22,7 +22,39 @@ function formatPipelineTime(isoString?: string | null): string {
 
   const hours = String(d.getHours()).padStart(2, '0')
   const minutes = String(d.getMinutes()).padStart(2, '0')
-  return `Today ${hours}:${minutes}`
+  const timeStr = `${hours}:${minutes}`
+
+  const now = new Date()
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear()
+
+  if (isToday) {
+    return `Today ${timeStr}`
+  }
+
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  const isYesterday =
+    d.getDate() === yesterday.getDate() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getFullYear() === yesterday.getFullYear()
+
+  if (isYesterday) {
+    return `Yesterday ${timeStr}`
+  }
+
+  const day = d.getDate()
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const month = months[d.getMonth()]
+  const year = d.getFullYear()
+  const currentYear = now.getFullYear()
+
+  if (year === currentYear) {
+    return `${day} ${month}, ${timeStr}`
+  }
+  return `${day} ${month} ${year}, ${timeStr}`
 }
 
 export function ReportPipelineTracker({ report, onStepClick }: ReportPipelineTrackerProps) {

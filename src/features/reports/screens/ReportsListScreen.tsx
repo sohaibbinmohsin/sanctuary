@@ -7,8 +7,10 @@ import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import {
   getRescueReports,
+  getRescueOperationsSummary,
   type RescueReport,
   type RescueReportFilter,
+  type RescueOperationsSummary,
 } from '@/features/reports/domain/rescueReports'
 import { ReportTimelineCard } from '@/features/reports/components/ReportTimelineCard'
 import { localDateString } from '@/shared/lib/checklist/missedStreak'
@@ -45,15 +47,21 @@ function getDayHeaderLabel(dateStr: string, todayStr: string, yesterdayStr: stri
   })
 }
 
+const PAGE_BATCH_SIZE = 60
+
 export function ReportsListScreen() {
   const db = useDb()
   const { member } = useCurrentMember()
   const [reports, setReports] = useState<RescueReport[]>([])
+  const [summary, setSummary] = useState<RescueOperationsSummary | null>(null)
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const deferredQuery = useDeferredValue(searchQuery)
+  const [displayLimit, setDisplayLimit] = useState(PAGE_BATCH_SIZE)
   const [loading, setLoading] = useState(true)
   const scrollRestoredRef = useRef(false)
+  const defaultSelectedRef = useRef(false)
+  const sentinelRef = useRef<HTMLDivElement>(null)
 
   const orgId = member?.orgId ?? ''
 
@@ -78,7 +86,31 @@ export function ReportsListScreen() {
     if (!db || !orgId) return
     setLoading(true)
     try {
-      const data = await getRescueReports(db, orgId, activeFilter as RescueReportFilter)
+      let targetFilter = activeFilter
+
+      // Option 2 (Smart Operational Default):
+      // On initial load, inspect counts: prioritize New reports, then In Progress, else All
+      if (!defaultSelectedRef.current) {
+        defaultSelectedRef.current = true
+        const sum = await getRescueOperationsSummary(db, orgId)
+        setSummary(sum)
+        if (sum.awaitingTriage > 0) {
+          targetFilter = 'new'
+        } else if (sum.inField > 0) {
+          targetFilter = 'in_progress'
+        } else {
+          targetFilter = 'all'
+        }
+
+        if (targetFilter !== activeFilter) {
+          setActiveFilter(targetFilter)
+          return
+        }
+      } else {
+        void getRescueOperationsSummary(db, orgId).then(setSummary).catch(() => {})
+      }
+
+      const data = await getRescueReports(db, orgId, targetFilter as RescueReportFilter)
       setReports(data)
     } catch (err) {
       console.error('Failed to load rescue reports', err)
@@ -114,6 +146,11 @@ export function ReportsListScreen() {
     })
   }, [reports, deferredQuery])
 
+  // Reset display limit when query or filter changes
+  useEffect(() => {
+    setDisplayLimit(PAGE_BATCH_SIZE)
+  }, [deferredQuery, activeFilter])
+
   // Restore scroll position when returning to the reports list
   useEffect(() => {
     if (loading || filteredReports.length === 0 || scrollRestoredRef.current) return
@@ -122,6 +159,14 @@ export function ReportsListScreen() {
     const savedTop = getReportsScrollPosition()
 
     if (!targetId && (!savedTop || savedTop <= 0)) return
+
+    // If target report is outside current batch limit, expand limit so the DOM element exists
+    if (targetId) {
+      const targetIndex = filteredReports.findIndex((r) => r.id === targetId)
+      if (targetIndex >= 0 && targetIndex >= displayLimit) {
+        setDisplayLimit(Math.ceil((targetIndex + 10) / PAGE_BATCH_SIZE) * PAGE_BATCH_SIZE)
+      }
+    }
 
     scrollRestoredRef.current = true
 
@@ -162,7 +207,33 @@ export function ReportsListScreen() {
     requestAnimationFrame(() => {
       tryRestore()
     })
-  }, [loading, filteredReports.length])
+  }, [loading, filteredReports, displayLimit])
+
+  // Sliced reports for high-performance DOM rendering
+  const visibleReports = useMemo(() => {
+    return filteredReports.slice(0, displayLimit)
+  }, [filteredReports, displayLimit])
+
+  // Automatically increment batch limit as user approaches bottom
+  useEffect(() => {
+    if (visibleReports.length >= filteredReports.length) return
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    if (typeof IntersectionObserver === 'undefined') return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setDisplayLimit((prev) => Math.min(filteredReports.length, prev + PAGE_BATCH_SIZE))
+        }
+      },
+      { rootMargin: '400px' },
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [visibleReports.length, filteredReports.length])
 
   // Compute date strings for grouping
   const { todayStr, yesterdayStr } = useMemo(() => {
@@ -174,12 +245,12 @@ export function ReportsListScreen() {
     return { todayStr: today, yesterdayStr: yesterday }
   }, [])
 
-  // Group reports chronologically by day
+  // Group visible reports chronologically by day
   const groupedReports = useMemo(() => {
     const groups: { dateStr: string; label: string; reports: RescueReport[] }[] = []
     const groupMap = new Map<string, RescueReport[]>()
 
-    for (const report of filteredReports) {
+    for (const report of visibleReports) {
       const d = report.created_at ? new Date(report.created_at) : null
       const dayKey = d && !Number.isNaN(d.getTime()) ? localDateString(d) : 'Unknown'
       if (!groupMap.has(dayKey)) {
@@ -197,7 +268,7 @@ export function ReportsListScreen() {
     }
 
     return groups
-  }, [filteredReports, todayStr, yesterdayStr])
+  }, [visibleReports, todayStr, yesterdayStr])
 
   const hasSearchOrFilter = Boolean(searchQuery.trim() || activeFilter !== 'all')
 
@@ -248,17 +319,30 @@ export function ReportsListScreen() {
       </div>
 
       <div className="reports-status-filter" role="group" aria-label="Report status filter" style={{ marginBottom: '1.25rem' }}>
-        {FILTER_CONFIG.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            className={`chip${activeFilter === key ? ' chip--active' : ''}`}
-            aria-pressed={activeFilter === key}
-            onClick={() => setActiveFilter(key)}
-          >
-            {label}
-          </button>
-        ))}
+        {FILTER_CONFIG.map(({ key, label }) => {
+          const count =
+            key === 'new'
+              ? (summary?.awaitingTriage ?? 0)
+              : key === 'in_progress'
+                ? (summary?.inField ?? 0)
+                : 0
+
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`chip${activeFilter === key ? ' chip--active' : ''}`}
+              aria-pressed={activeFilter === key}
+              onClick={() => {
+                defaultSelectedRef.current = true
+                setActiveFilter(key)
+              }}
+            >
+              <span>{label}</span>
+              {count > 0 && <span className="chip-counter">{count}</span>}
+            </button>
+          )
+        })}
       </div>
 
       {loading && reports.length === 0 ? (
@@ -295,6 +379,32 @@ export function ReportsListScreen() {
               </div>
             </div>
           ))}
+
+          {visibleReports.length < filteredReports.length && (
+            <div
+              ref={sentinelRef}
+              className="timeline-load-more"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '1.25rem 0 2rem',
+                gap: '0.5rem',
+              }}
+            >
+              <button
+                type="button"
+                className="chip"
+                onClick={() =>
+                  setDisplayLimit((prev) => Math.min(filteredReports.length, prev + PAGE_BATCH_SIZE))
+                }
+                style={{ cursor: 'pointer', padding: '0.45rem 1rem' }}
+              >
+                Load more ({filteredReports.length - visibleReports.length} remaining)
+              </button>
+            </div>
+          )}
         </div>
       )}
     </section>
