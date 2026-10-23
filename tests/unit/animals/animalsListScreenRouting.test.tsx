@@ -81,4 +81,21 @@ describe('AnimalsListScreen Add Animal button integration', () => {
     const addLink = await screen.findByRole('link', { name: /^Add animal$/i })
     expect(addLink).toHaveAttribute('href', '/animals/new')
   })
+
+  it('renders clear search button when searching and clears query on click', async () => {
+    vi.spyOn(animalsDomain, 'searchAnimals').mockResolvedValue([])
+
+    render(
+      <MemoryRouter initialEntries={['/animals?query=fluffy']}>
+        <AnimalsListScreen />
+      </MemoryRouter>,
+    )
+
+    const searchInput = screen.getByRole('searchbox', { name: /Search animals/i })
+    expect(searchInput).toHaveValue('fluffy')
+
+    const clearBtn = screen.getByRole('button', { name: /Clear search/i })
+    expect(clearBtn).toBeInTheDocument()
+    expect(clearBtn).toHaveClass('filter-bar__clear')
+  })
 })
