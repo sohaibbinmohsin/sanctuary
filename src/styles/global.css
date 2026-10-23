@@ -1152,14 +1152,14 @@ a.primary {
 
 .mobile-drawer-trigger {
   position: fixed;
-  top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
+  top: calc(var(--space-4) + env(safe-area-inset-top, 0px));
   left: var(--space-4);
   z-index: 90;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: var(--touch-min, 44px);
+  height: var(--touch-min, 44px);
   padding: 0;
   border-radius: var(--radius-md);
   background: var(--color-surface, #f7faf8);
@@ -1176,8 +1176,8 @@ a.primary {
 
 .mobile-drawer-trigger__dot {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 7px;
+  right: 7px;
   width: 8px;
   height: 8px;
   border-radius: 999px;
@@ -1187,8 +1187,17 @@ a.primary {
 
 
 @media (max-width: 1023px) {
+  .app-content {
+    padding-top: calc(var(--space-4) + env(safe-area-inset-top, 0px));
+  }
+
   .app-shell--primary .page-header {
-    padding-left: 52px;
+    padding-left: calc(var(--touch-min, 44px) + var(--space-3, 12px));
+  }
+
+  .page-header__main {
+    align-items: center;
+    min-height: var(--touch-min, 44px);
   }
 
   .page-header__sub,
@@ -1236,8 +1245,8 @@ a.primary {
 
   /* Bigger close (X) toggle button — match the mobile-drawer-trigger size */
   .sidebar-toggle-btn {
-    width: 40px;
-    height: 40px;
+    width: var(--touch-min, 44px);
+    height: var(--touch-min, 44px);
   }
 
   /* Subtle accent on X button in mobile */
