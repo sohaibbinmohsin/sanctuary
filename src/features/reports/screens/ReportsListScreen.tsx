@@ -5,6 +5,8 @@ import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { useIncrementalList } from '@/shared/hooks/useIncrementalList'
+import { LoadMoreSentinel } from '@/shared/ui/LoadMoreSentinel'
 import {
   getRescueReports,
   getRescueOperationsSummary,
@@ -57,11 +59,9 @@ export function ReportsListScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const deferredQuery = useDeferredValue(searchQuery)
-  const [displayLimit, setDisplayLimit] = useState(PAGE_BATCH_SIZE)
   const [loading, setLoading] = useState(true)
   const scrollRestoredRef = useRef(false)
   const defaultSelectedRef = useRef(false)
-  const sentinelRef = useRef<HTMLDivElement>(null)
 
   const orgId = member?.orgId ?? ''
 
@@ -146,27 +146,29 @@ export function ReportsListScreen() {
     })
   }, [reports, deferredQuery])
 
-  // Reset display limit when query or filter changes
-  useEffect(() => {
-    setDisplayLimit(PAGE_BATCH_SIZE)
-  }, [deferredQuery, activeFilter])
+  const targetReportId = useMemo(() => getLastClickedReportId(), [])
+
+  const {
+    visibleItems: visibleReports,
+    hasMore,
+    remainingCount,
+    loadMore,
+    sentinelRef,
+  } = useIncrementalList(filteredReports, {
+    batchSize: PAGE_BATCH_SIZE,
+    targetId: targetReportId,
+    getId: (r) => r.id,
+    resetDeps: [deferredQuery, activeFilter],
+  })
 
   // Restore scroll position when returning to the reports list
   useEffect(() => {
-    if (loading || filteredReports.length === 0 || scrollRestoredRef.current) return
+    if (loading || visibleReports.length === 0 || scrollRestoredRef.current) return
 
     const targetId = getLastClickedReportId()
     const savedTop = getReportsScrollPosition()
 
     if (!targetId && (!savedTop || savedTop <= 0)) return
-
-    // If target report is outside current batch limit, expand limit so the DOM element exists
-    if (targetId) {
-      const targetIndex = filteredReports.findIndex((r) => r.id === targetId)
-      if (targetIndex >= 0 && targetIndex >= displayLimit) {
-        setDisplayLimit(Math.ceil((targetIndex + 10) / PAGE_BATCH_SIZE) * PAGE_BATCH_SIZE)
-      }
-    }
 
     scrollRestoredRef.current = true
 
@@ -207,33 +209,7 @@ export function ReportsListScreen() {
     requestAnimationFrame(() => {
       tryRestore()
     })
-  }, [loading, filteredReports, displayLimit])
-
-  // Sliced reports for high-performance DOM rendering
-  const visibleReports = useMemo(() => {
-    return filteredReports.slice(0, displayLimit)
-  }, [filteredReports, displayLimit])
-
-  // Automatically increment batch limit as user approaches bottom
-  useEffect(() => {
-    if (visibleReports.length >= filteredReports.length) return
-    const sentinel = sentinelRef.current
-    if (!sentinel) return
-
-    if (typeof IntersectionObserver === 'undefined') return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setDisplayLimit((prev) => Math.min(filteredReports.length, prev + PAGE_BATCH_SIZE))
-        }
-      },
-      { rootMargin: '400px' },
-    )
-
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [visibleReports.length, filteredReports.length])
+  }, [loading, visibleReports.length])
 
   // Compute date strings for grouping
   const { todayStr, yesterdayStr } = useMemo(() => {
@@ -380,31 +356,13 @@ export function ReportsListScreen() {
             </div>
           ))}
 
-          {visibleReports.length < filteredReports.length && (
-            <div
-              ref={sentinelRef}
-              className="timeline-load-more"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '1.25rem 0 2rem',
-                gap: '0.5rem',
-              }}
-            >
-              <button
-                type="button"
-                className="chip"
-                onClick={() =>
-                  setDisplayLimit((prev) => Math.min(filteredReports.length, prev + PAGE_BATCH_SIZE))
-                }
-                style={{ cursor: 'pointer', padding: '0.45rem 1rem' }}
-              >
-                Load more ({filteredReports.length - visibleReports.length} remaining)
-              </button>
-            </div>
-          )}
+          <LoadMoreSentinel
+            sentinelRef={sentinelRef}
+            hasMore={hasMore}
+            remainingCount={remainingCount}
+            onLoadMore={loadMore}
+            className="timeline-load-more"
+          />
         </div>
       )}
     </section>

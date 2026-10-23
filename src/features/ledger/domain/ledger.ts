@@ -143,11 +143,21 @@ export async function ensureDefaultLedgerCategories(
 
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
-  await db.execute(
-    `INSERT OR REPLACE INTO ledger_categories (id, org_id, label, direction, archived, created_at)
-     VALUES (?, ?, 'Food', 'out', 0, ?)`,
-    [id, orgId, now],
-  )
+  if (typeof db.execute === 'function') {
+    await db.execute(
+      `INSERT OR REPLACE INTO ledger_categories (id, org_id, label, direction, archived, created_at)
+       VALUES (?, ?, 'Food', 'out', 0, ?)`,
+      [id, orgId, now],
+    )
+  } else if (typeof db.writeTransaction === 'function') {
+    await db.writeTransaction(async (tx) => {
+      await tx.execute(
+        `INSERT OR REPLACE INTO ledger_categories (id, org_id, label, direction, archived, created_at)
+         VALUES (?, ?, 'Food', 'out', 0, ?)`,
+        [id, orgId, now],
+      )
+    })
+  }
 
   void supabase
     .from('ledger_categories')
