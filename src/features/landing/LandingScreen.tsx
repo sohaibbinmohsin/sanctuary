@@ -80,7 +80,7 @@ export function LandingScreen() {
           <div className="wrap">
             <h1>Connecting everyone who protects animals.</h1>
             <p className="lede">
-              A shared digital backbone for rescuers, shelters, veterinarians, and animal guardians. Report animals in distress, manage daily care, and coordinate rescues, even without internet signal.
+              A shared digital backbone for rescuers, shelters, veterinarians, and animal guardians.
             </p>
             <div className="hero__actions">
               <button
