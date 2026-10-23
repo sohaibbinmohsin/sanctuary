@@ -1,12 +1,10 @@
 /**
  * Regenerates iOS apple-touch-startup-image PNGs under public/splashes/.
  *
- * Requires Playwright once:
- *   npm i -D playwright && npx playwright install chromium
  * Usage:
  *   node scripts/generate-splashes.mjs
  */
-import { chromium } from 'playwright'
+import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,8 +12,16 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const outDir = path.join(root, 'public/splashes')
-const favicon = path.join(root, 'public/favicon.svg')
-const mohsin = path.join(root, 'public/mohsin-project-logo.svg')
+const markPath = path.join(root, 'public/sanctuary-mark.svg')
+const mohsinPath = path.join(root, 'public/mohsin-project-logo-white.svg')
+
+function getFontBase64(relPath) {
+  const fullPath = path.join(root, 'node_modules/@fontsource', relPath)
+  return fs.readFileSync(fullPath).toString('base64')
+}
+
+const outfit700 = getFontBase64('outfit/files/outfit-latin-700-normal.woff2')
+const dmSans500 = getFontBase64('dm-sans/files/dm-sans-latin-500-normal.woff2')
 
 const SIZES = [
   [750, 1334],
@@ -32,26 +38,36 @@ const SIZES = [
 const FOREST = '#2F5D3A'
 const MIST = '#E8EEE9'
 
-function html(width, height) {
-  const logo = Math.round(Math.min(width, height) * 0.26)
-  const title = Math.round(Math.min(width, height) * 0.09)
-  const credit = Math.round(Math.min(width, height) * 0.032)
-  const mark = Math.round(credit * 1.65)
-  const bottomPad = Math.round(height * 0.07)
-  const gap = Math.round(Math.min(width, height) * 0.04)
-  const platePad = Math.round(logo * 0.14)
+const markData = fs.readFileSync(markPath).toString('base64')
+const mohsinData = fs.readFileSync(mohsinPath).toString('base64')
 
-  const favData = fs.readFileSync(favicon).toString('base64')
-  const mohsinData = fs.readFileSync(mohsin).toString('base64')
+function html(width, height) {
+  const minDim = Math.min(width, height)
+  const logoSize = Math.round(minDim * 0.28)
+  const titleFontSize = Math.round(minDim * 0.082)
+  const subFontSize = Math.round(minDim * 0.034)
+  const gapLogoToTitle = Math.round(minDim * 0.03)
+  const gapTitleToSub = Math.round(minDim * 0.016)
+  const footerFontSize = Math.round(minDim * 0.03)
+  const birdHeight = Math.round(footerFontSize * 1.55)
+  const footerGap = Math.round(footerFontSize * 0.55)
+  const bottomPad = Math.round(height * 0.065)
 
   return `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600&family=Outfit:wght@700&display=swap" rel="stylesheet" />
   <style>
+    @font-face {
+      font-family: 'Outfit';
+      font-weight: 700;
+      src: url(data:font/woff2;base64,${outfit700}) format('woff2');
+    }
+    @font-face {
+      font-family: 'DM Sans';
+      font-weight: 500;
+      src: url(data:font/woff2;base64,${dmSans500}) format('woff2');
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: ${width}px;
@@ -59,7 +75,7 @@ function html(width, height) {
       overflow: hidden;
       background: ${FOREST};
       color: ${MIST};
-      font-family: "DM Sans", "Segoe UI", sans-serif;
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
     .frame {
@@ -68,6 +84,8 @@ function html(width, height) {
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: space-between;
+      padding-bottom: ${bottomPad}px;
     }
     .center {
       flex: 1;
@@ -75,61 +93,57 @@ function html(width, height) {
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: ${gap}px;
-      padding: 0 ${Math.round(width * 0.08)}px;
-    }
-    .logo-plate {
-      width: ${logo + platePad * 2}px;
-      height: ${logo + platePad * 2}px;
-      border-radius: ${Math.round((logo + platePad * 2) * 0.22)}px;
-      background: ${MIST};
-      display: grid;
-      place-items: center;
+      padding-bottom: ${Math.round(height * 0.015)}px;
     }
     .logo {
-      width: ${logo}px;
-      height: ${logo}px;
-      border-radius: ${Math.round(logo * 0.18)}px;
+      width: ${logoSize}px;
+      height: ${logoSize}px;
       display: block;
+      margin-bottom: ${gapLogoToTitle}px;
     }
     .name {
-      font-family: "Outfit", "Segoe UI", sans-serif;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
       font-weight: 700;
-      font-size: ${title}px;
-      letter-spacing: -0.03em;
-      line-height: 1;
+      font-size: ${titleFontSize}px;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
       color: ${MIST};
+      margin-bottom: ${gapTitleToSub}px;
+    }
+    .sub {
+      font-size: ${subFontSize}px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+      color: rgba(212, 229, 208, 0.9);
     }
     .footer {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: ${Math.round(credit * 0.55)}px;
-      padding-bottom: ${bottomPad}px;
-      font-size: ${credit}px;
+      gap: ${footerGap}px;
+      font-size: ${footerFontSize}px;
       font-weight: 500;
-      color: rgba(232, 238, 233, 0.78);
+      letter-spacing: -0.01em;
+      color: rgba(212, 229, 208, 0.85);
       line-height: 1.2;
     }
     .footer img {
-      height: ${mark}px;
+      height: ${birdHeight}px;
       width: auto;
       display: block;
-      filter: brightness(0) invert(1);
-      opacity: 0.85;
     }
   </style>
 </head>
 <body>
   <div class="frame">
     <div class="center">
-      <div class="logo-plate">
-        <img class="logo" src="data:image/svg+xml;base64,${favData}" alt="" />
-      </div>
+      <img class="logo" src="data:image/svg+xml;base64,${markData}" alt="" />
       <div class="name">Sanctuary</div>
+      <div class="sub">Animal welfare network</div>
     </div>
     <div class="footer">
-      <span>Free software by The Mohsin Project</span>
+      <span>A free software by The Mohsin Project</span>
       <img src="data:image/svg+xml;base64,${mohsinData}" alt="" />
     </div>
   </div>
@@ -137,28 +151,26 @@ function html(width, height) {
 </html>`
 }
 
-async function main() {
-  fs.mkdirSync(outDir, { recursive: true })
-  const browser = await chromium.launch({ headless: true })
-  try {
-    for (const [w, h] of SIZES) {
-      const page = await browser.newPage({
-        viewport: { width: w, height: h },
-        deviceScaleFactor: 1,
-      })
-      await page.setContent(html(w, h), { waitUntil: 'networkidle' })
-      await page.waitForTimeout(200)
-      const file = path.join(outDir, `splash-${w}x${h}.png`)
-      await page.screenshot({ path: file, type: 'png' })
-      await page.close()
-      console.log('wrote', path.relative(root, file))
-    }
-  } finally {
-    await browser.close()
-  }
-}
+const chromeBin =
+  process.platform === 'darwin'
+    ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    : '/usr/bin/google-chrome'
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+fs.mkdirSync(outDir, { recursive: true })
+const tempHtmlPath = path.join(root, 'scripts/.temp-splash.html')
+
+try {
+  for (const [w, h] of SIZES) {
+    fs.writeFileSync(tempHtmlPath, html(w, h), 'utf8')
+    const file = path.join(outDir, `splash-${w}x${h}.png`)
+    execSync(
+      `"${chromeBin}" --headless=new --no-sandbox --disable-gpu --force-device-scale-factor=1 --hide-scrollbars --screenshot="${file}" --window-size=${w},${h} "file://${tempHtmlPath}"`,
+      { stdio: 'pipe' }
+    )
+    console.log('wrote', path.relative(root, file))
+  }
+} finally {
+  try {
+    fs.unlinkSync(tempHtmlPath)
+  } catch {}
+}

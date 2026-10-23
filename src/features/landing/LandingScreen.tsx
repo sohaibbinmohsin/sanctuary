@@ -621,7 +621,7 @@ export function LandingScreen() {
           </p>
           <div className="footer__bottom">
             <span>
-              Free software by{' '}
+              A free software by{' '}
               <a
                 href="https://themohsinproject.org/"
                 target="_blank"

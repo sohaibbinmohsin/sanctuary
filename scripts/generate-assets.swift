@@ -135,7 +135,7 @@ func generateSplashes() {
         ]
 
         let titleStr = NSAttributedString(string: "Sanctuary", attributes: titleAttrs)
-        let subStr = NSAttributedString(string: "Animal welfare platform", attributes: subAttrs)
+        let subStr = NSAttributedString(string: "Animal welfare network", attributes: subAttrs)
 
         let titleSize = titleStr.size()
         let subSize = subStr.size()
@@ -169,7 +169,7 @@ func generateSplashes() {
             .foregroundColor: footerColor,
             .kern: -0.01 * footerFontSize
         ]
-        let footerStr = NSAttributedString(string: "Free software by The Mohsin Project", attributes: footerAttrs)
+        let footerStr = NSAttributedString(string: "A free software by The Mohsin Project", attributes: footerAttrs)
         let footerStrSize = footerStr.size()
 
         let birdHeight = round(footerFontSize * 1.55)

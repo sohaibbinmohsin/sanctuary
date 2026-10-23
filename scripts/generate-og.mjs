@@ -101,8 +101,8 @@ body {
 }
 
 .brand-logo {
-  width: 58px;
-  height: 58px;
+  width: 62px;
+  height: 62px;
   border-radius: 50%;
   flex-shrink: 0;
   display: flex;
@@ -116,30 +116,55 @@ body {
   display: block;
 }
 
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .brand-title {
   margin: 0;
   font-family: 'Outfit', sans-serif;
   font-weight: 700;
-  font-size: 3.4rem;
+  font-size: 3.25rem;
   letter-spacing: -0.03em;
   line-height: 1;
   color: #1b4332;
 }
 
+.brand-sub {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #2f5d3a;
+  letter-spacing: -0.01em;
+}
+
 .tagline {
-  margin: 0.15rem 0 0;
-  font-size: 1.4rem;
+  margin: 0.35rem 0 0;
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+  color: #1a2e22;
+  max-width: 22ch;
+}
+
+.subtagline {
+  margin: -0.35rem 0 0;
+  font-size: 1.12rem;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1.45;
   color: #4a5c50;
-  max-width: 20ch;
+  max-width: 34ch;
 }
 
 .credit {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  margin-top: 0.85rem;
+  margin-top: 0.65rem;
   font-size: 0.98rem;
   font-weight: 500;
   color: #4a5c50;
@@ -257,11 +282,15 @@ body {
       <div class="brand-logo">
         ${sanctuaryLogoSvg}
       </div>
-      <h1 class="brand-title">Sanctuary</h1>
+      <div class="brand-text">
+        <h1 class="brand-title">Sanctuary</h1>
+        <p class="brand-sub">Animal welfare network</p>
+      </div>
     </div>
-    <p class="tagline">Phone-first shelter software that works offline.</p>
+    <p class="tagline">Connecting everyone who protects animals.</p>
+    <p class="subtagline">A shared digital backbone for rescuers, shelters, veterinarians, and animal guardians.</p>
     <div class="credit">
-      <span>Free software by The Mohsin Project</span>
+      <span>A free software by The Mohsin Project</span>
       ${mohsinLogoSvg}
     </div>
   </div>
@@ -273,7 +302,7 @@ body {
     </div>
     <div class="chips">
       <span class="chip chip-ok">In sanctuary</span>
-      <span class="chip chip-warn">Quarantine</span>
+      <span class="chip chip-warn">Field rescue</span>
       <span class="chip chip-care">Treatment</span>
     </div>
     <div class="cards">
@@ -309,19 +338,29 @@ const targetJpgPath = join(root, 'public/og-image.jpg')
 
 writeFileSync(tempHtmlPath, html, 'utf8')
 
-const chromeBin = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+const chromeBin =
+  process.platform === 'darwin'
+    ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    : '/usr/bin/google-chrome'
 
 console.log('Generating OG image via Chrome screenshot...')
 execSync(
-  `"${chromeBin}" --headless=new --disable-gpu --force-device-scale-factor=1 --screenshot="${tempPngPath}" --window-size=1200,630 "file://${tempHtmlPath}"`,
+  `"${chromeBin}" --headless=new --no-sandbox --disable-gpu --force-device-scale-factor=1 --hide-scrollbars --screenshot="${tempPngPath}" --window-size=1200,630 "file://${tempHtmlPath}"`,
   { stdio: 'inherit' }
 )
 
 console.log('Converting to JPEG...')
-execSync(
-  `sips -s format jpeg -s formatOptions 92 "${tempPngPath}" --out "${targetJpgPath}"`,
-  { stdio: 'inherit' }
-)
+if (process.platform === 'darwin') {
+  execSync(
+    `sips -s format jpeg -s formatOptions 92 "${tempPngPath}" --out "${targetJpgPath}"`,
+    { stdio: 'inherit' }
+  )
+} else {
+  execSync(
+    `convert "${tempPngPath}" -quality 92 "${targetJpgPath}"`,
+    { stdio: 'inherit' }
+  )
+}
 
 // Cleanup
 try {
