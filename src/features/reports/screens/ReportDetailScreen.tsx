@@ -102,10 +102,11 @@ export function ReportDetailScreen() {
         const released = statuses.find((s) => s.label.toLowerCase() === 'released')
         targetStatusId = released?.id ?? statuses[0]?.id ?? null
       } else {
-        const inCare = statuses.find(
-          (s) => s.label.toLowerCase() === 'intake' || s.counts_as_in_care === 1,
-        )
-        targetStatusId = inCare?.id ?? statuses[0]?.id ?? null
+        const intake =
+          statuses.find((s) => !s.archived && s.label.trim().toLowerCase() === 'intake') ??
+          statuses.find((s) => !s.archived && s.counts_as_in_care === 1) ??
+          statuses[0]
+        targetStatusId = intake?.id ?? null
       }
     } catch (err) {
       console.warn('Could not load statuses for report animal intake', err)

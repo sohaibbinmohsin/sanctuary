@@ -330,4 +330,29 @@ describe('checklist auto-add on status change', () => {
 
     addChecklistSpy.mockRestore()
   })
+
+  it('generates a valid UUID (without asa- prefix) in setSingleStatusAssignment', async () => {
+    const txExecute = vi.fn().mockResolvedValue(undefined)
+    const db = {
+      writeTransaction: vi.fn(async (fn: any) => fn({ execute: txExecute })),
+      getOptional: vi.fn().mockResolvedValue({ label: 'In sanctuary' }),
+    }
+
+    await setSingleStatusAssignment(db as never, {
+      animalId: 'anim-92',
+      orgId: 'org-test',
+      statusId: 'status-sanctuary',
+    })
+
+    const insertCall = txExecute.mock.calls.find(([sql]) =>
+      String(sql).includes('INSERT INTO animal_status_assignments'),
+    )
+    expect(insertCall).toBeDefined()
+    const generatedId = String(insertCall![1][0])
+    expect(generatedId).not.toMatch(/^asa-/)
+    expect(generatedId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    )
+  })
 })
+

@@ -197,7 +197,7 @@ export async function setSingleStatusAssignment(
     )
     await tx.execute(
       'INSERT INTO animal_status_assignments (id, org_id, animal_id, status_id, created_at) VALUES (?, ?, ?, ?, ?)',
-      [`asa-${crypto.randomUUID()}`, input.orgId, input.animalId, input.statusId, now],
+      [crypto.randomUUID(), input.orgId, input.animalId, input.statusId, now],
     )
     await tx.execute(
       'UPDATE animals SET status_id = ?, updated_at = ? WHERE id = ?',
