@@ -14,6 +14,9 @@ import {
   getAnimalsScrollPosition,
   getLastClickedAnimalId,
   clearAnimalsScrollPosition,
+  getReportsScrollPosition,
+  getLastClickedReportId,
+  clearReportsScrollPosition,
   setAppScrollTop,
 } from '@/shared/lib/scroll'
 import { PlaygroundBanner } from '@/features/playground/PlaygroundBanner'
@@ -137,9 +140,19 @@ function ScrollToTopOnRoute() {
     ) {
       return
     }
+    // If returning to /reports and there is a saved scroll position or report waiting to be restored, don't reset to 0
+    if (
+      pathname === '/reports' &&
+      (getReportsScrollPosition() !== null || getLastClickedReportId() !== null)
+    ) {
+      return
+    }
     // Clear any orphaned list scroll if navigating to completely different modules
     if (pathname !== '/animals' && !pathname.startsWith('/animals/')) {
       clearAnimalsScrollPosition()
+    }
+    if (pathname !== '/reports' && !pathname.startsWith('/reports/')) {
+      clearReportsScrollPosition()
     }
     setAppScrollTop(0)
   }, [pathname])

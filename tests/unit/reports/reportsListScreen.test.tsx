@@ -96,10 +96,10 @@ describe('ReportsListScreen', () => {
     expect(emptyAction).toHaveAttribute('href', '/reports/new')
   })
 
-  it('filters reports when filter chips are clicked', async () => {
+  it('keeps Log report button in middle EmptyState when status filter has no reports', async () => {
     const getRescueReportsSpy = vi.spyOn(domainModule, 'getRescueReports').mockResolvedValue([])
 
-    render(
+    const { container } = render(
       <MemoryRouter>
         <ReportsListScreen />
       </MemoryRouter>,
@@ -111,5 +111,11 @@ describe('ReportsListScreen', () => {
     await waitFor(() => {
       expect(getRescueReportsSpy).toHaveBeenCalledWith(expect.anything(), 'org-1', 'in_progress')
     })
+
+    expect(await screen.findByText('No matches')).toBeInTheDocument()
+    expect(container.querySelector('.page-header__actions')).toBeNull()
+    const emptyStateLink = container.querySelector('.empty-state a[href="/reports/new"]')
+    expect(emptyStateLink).not.toBeNull()
   })
 })
+

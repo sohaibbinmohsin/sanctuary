@@ -1537,9 +1537,10 @@ a.primary {
 
 .page-header__main {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  min-height: var(--touch-min, 44px);
 }
 
 .page-header__copy {
@@ -5564,11 +5565,17 @@ a.primary {
 
   .app-content {
     padding: var(--space-6);
+    padding-top: calc(var(--space-6) + env(safe-area-inset-top, 0px));
     padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-6));
   }
 
   .app-shell--no-bottom-nav .app-content {
     padding-bottom: calc(var(--space-6) + var(--safe-bottom));
+  }
+
+  .mobile-drawer-trigger {
+    top: calc(var(--space-6) + env(safe-area-inset-top, 0px));
+    left: var(--space-6);
   }
 
   .animal-grid {
@@ -6165,6 +6172,11 @@ a.primary {
 
   .morale-toast {
     bottom: var(--space-8);
+  }
+
+  .page-header__main {
+    align-items: flex-start;
+    min-height: 0;
   }
 
   .page-header h1 {

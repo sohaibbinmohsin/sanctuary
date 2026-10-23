@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, useDeferredValue } from 'react'
+import { useEffect, useState, useMemo, useCallback, useDeferredValue, useRef } from 'react'
 import { Plus, MagnifyingGlass, X, MegaphoneSimple } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
@@ -12,6 +12,14 @@ import {
 } from '@/features/reports/domain/rescueReports'
 import { ReportTimelineCard } from '@/features/reports/components/ReportTimelineCard'
 import { localDateString } from '@/shared/lib/checklist/missedStreak'
+import {
+  getReportsScrollPosition,
+  getLastClickedReportId,
+  clearReportsScrollPosition,
+  saveReportsScrollPosition,
+  getAppScrollTop,
+  setAppScrollTop,
+} from '@/shared/lib/scroll'
 import '@/features/reports/reports.css'
 
 type FilterKey = 'all' | 'new' | 'in_progress' | 'completed'
@@ -45,8 +53,26 @@ export function ReportsListScreen() {
   const [searchQuery, setSearchQuery] = useState('')
   const deferredQuery = useDeferredValue(searchQuery)
   const [loading, setLoading] = useState(true)
+  const scrollRestoredRef = useRef(false)
 
   const orgId = member?.orgId ?? ''
+
+  // Track scroll position while browsing reports
+  useEffect(() => {
+    const handleScroll = () => {
+      const top = getAppScrollTop()
+      if (top > 0) {
+        saveReportsScrollPosition()
+      }
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    const shellBody = document.querySelector('.app-shell__body')
+    shellBody?.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      shellBody?.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
 
   const fetchReports = useCallback(async () => {
     if (!db || !orgId) return
@@ -87,6 +113,56 @@ export function ReportsListScreen() {
       )
     })
   }, [reports, deferredQuery])
+
+  // Restore scroll position when returning to the reports list
+  useEffect(() => {
+    if (loading || filteredReports.length === 0 || scrollRestoredRef.current) return
+
+    const targetId = getLastClickedReportId()
+    const savedTop = getReportsScrollPosition()
+
+    if (!targetId && (!savedTop || savedTop <= 0)) return
+
+    scrollRestoredRef.current = true
+
+    let attempts = 0
+    const maxAttempts = 12
+
+    const tryRestore = () => {
+      attempts += 1
+      let done = false
+
+      if (targetId) {
+        const el = document.getElementById(`report-card-${targetId}`)
+        if (el) {
+          if (typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior })
+          }
+          if (savedTop && savedTop > 0 && getAppScrollTop() === 0) {
+            setAppScrollTop(savedTop)
+          }
+          done = true
+        }
+      }
+
+      if (!done && savedTop && savedTop > 0) {
+        setAppScrollTop(savedTop)
+        if (Math.abs(getAppScrollTop() - savedTop) < 30) {
+          done = true
+        }
+      }
+
+      if (done || attempts >= maxAttempts) {
+        clearReportsScrollPosition()
+      } else {
+        setTimeout(tryRestore, 40)
+      }
+    }
+
+    requestAnimationFrame(() => {
+      tryRestore()
+    })
+  }, [loading, filteredReports.length])
 
   // Compute date strings for grouping
   const { todayStr, yesterdayStr } = useMemo(() => {
@@ -139,7 +215,7 @@ export function ReportsListScreen() {
         title="Reports"
         subtitle={subtitle}
         actions={
-          reports.length > 0 || hasSearchOrFilter ? (
+          filteredReports.length > 0 ? (
             <Button to="/reports/new" variant="accent">
               <Plus size={18} weight="bold" />
               <span>Log report</span>
@@ -185,7 +261,17 @@ export function ReportsListScreen() {
         ))}
       </div>
 
-      {!loading && filteredReports.length === 0 ? (
+      {loading && reports.length === 0 ? (
+        <div className="timeline-reports-feed" id="reports-timeline-container" aria-busy="true">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="skeleton"
+              style={{ height: '4.5rem', marginBottom: '0.65rem' }}
+            />
+          ))}
+        </div>
+      ) : !loading && filteredReports.length === 0 ? (
         <EmptyState
           icon={<MegaphoneSimple size={28} weight="duotone" />}
           title={hasSearchOrFilter ? 'No matches' : 'No reports yet'}
@@ -194,8 +280,8 @@ export function ReportsListScreen() {
               ? 'Try a different search or clear your filter.'
               : 'Triage incoming citizen reports & dispatch field teams.'
           }
-          actionLabel={hasSearchOrFilter ? undefined : 'Log report'}
-          actionTo={hasSearchOrFilter ? undefined : '/reports/new'}
+          actionLabel="Log report"
+          actionTo="/reports/new"
         />
       ) : (
         <div className="timeline-reports-feed" id="reports-timeline-container">
@@ -214,3 +300,4 @@ export function ReportsListScreen() {
     </section>
   )
 }
+

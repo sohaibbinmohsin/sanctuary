@@ -25,8 +25,8 @@ export function EmptyState({
       {icon ? <div className="empty-state__icon">{icon}</div> : null}
       <h2>{title}</h2>
       <p>{body}</p>
-      {actionLabel && actionTo ? (
-        actionDisabled ? (
+      {actionLabel && (actionTo || (actionDisabled && !onAction)) ? (
+        actionDisabled || !actionTo ? (
           <Button type="button" variant="accent" disabled>
             {actionLabel}
           </Button>

@@ -154,7 +154,7 @@ export function ChecklistScreen() {
   useEffect(() => {
     if (!db || !member) return
     let cancelled = false
-    void (async () => {
+    const checkCount = async () => {
       try {
         const row = await db.getOptional<{ count: number }>(
           `SELECT COUNT(*) as count FROM animals WHERE org_id = ? AND archived = 0`,
@@ -164,9 +164,16 @@ export function ChecklistScreen() {
       } catch {
         if (!cancelled) setTotalAnimalsCount(0)
       }
-    })()
+    }
+    void checkCount()
+    const unsubscribe = db.registerListener?.({
+      statusChanged: () => {
+        void checkCount()
+      },
+    })
     return () => {
       cancelled = true
+      unsubscribe?.()
     }
   }, [db, member])
 
@@ -216,7 +223,7 @@ export function ChecklistScreen() {
               : 'Add animals to your shelter first before creating a checklist.'
           }
           actionLabel="Add to checklist"
-          actionTo={hasAnimals ? '/animals/add-to-checklist' : undefined}
+          actionTo="/animals/add-to-checklist"
           actionDisabled={!hasAnimals}
         />
       ) : (

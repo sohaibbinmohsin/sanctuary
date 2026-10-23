@@ -464,14 +464,17 @@ export function ReportIntakeScreen() {
 
   if (loadingInitial) {
     return (
-      <section className="screen">
+      <section className="screen" aria-busy="true">
         <PageHeader
           backTo={id ? `/reports/${id}` : '/reports'}
           backLabel={id ? 'Report' : 'Reports'}
           title="Edit rescue report"
-          subtitle="Loading report details…"
         />
-        <p className="loading-state">Loading report details…</p>
+        <div className="stack">
+          <div className="skeleton" style={{ height: '7rem' }} />
+          <div className="skeleton" style={{ height: '9rem' }} />
+          <div className="skeleton" style={{ height: '9rem' }} />
+        </div>
       </section>
     )
   }
