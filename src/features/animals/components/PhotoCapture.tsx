@@ -16,7 +16,6 @@ import {
 } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { useDb } from '@/shared/hooks/useDb'
-import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
 import { useIsMobile } from '@/shared/hooks/useIsMobile'
 import { InAppCamera } from '@/features/animals/components/InAppCamera'
 import {
@@ -65,7 +64,6 @@ export function PhotoCapture({
   onError,
 }: PhotoCaptureProps) {
   const db = useDb()
-  const canTakePhoto = useCanTakePhoto()
   const isMobile = useIsMobile()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -273,11 +271,7 @@ export function PhotoCapture({
 
   function onPlusClick() {
     if (cameraFlowActive) return
-    if (canTakePhoto || isPlaygroundMode()) {
-      setMenuOpen((open) => !open)
-      return
-    }
-    galleryRef.current?.click()
+    setMenuOpen((open) => !open)
   }
 
   function onCameraCaptureSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -377,8 +371,8 @@ export function PhotoCapture({
                 ? `Add photo, ${pending} waiting to upload`
                 : 'Add photo'
           }
-          aria-expanded={(canTakePhoto || isPlaygroundMode()) ? menuOpen : undefined}
-          aria-haspopup={(canTakePhoto || isPlaygroundMode()) ? 'menu' : undefined}
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
           title={
             pending > 0
               ? `${pending} waiting to upload`

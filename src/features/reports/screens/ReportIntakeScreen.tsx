@@ -1382,16 +1382,16 @@ export function ReportIntakeScreen() {
 
         {/* 6. Danger Zone: Delete report in edit mode */}
         {isEditMode && (
-          <div className="panel stack" style={{ border: '1px solid var(--color-danger-soft, #fca5a5)' }}>
-            <div>
+          <div className="panel report-danger-panel">
+            <div className="report-danger-panel__info">
               <p className="section-label" style={{ color: 'var(--color-danger, #dc2626)', margin: 0 }}>
                 Danger Zone
               </p>
-              <p className="field__hint" style={{ margin: 'var(--space-1) 0 var(--space-3)' }}>
+              <p className="field__hint" style={{ margin: 'var(--space-1) 0 0' }}>
                 Remove this report from active records. Use this if the report was created by mistake.
               </p>
             </div>
-            <div>
+            <div className="report-danger-panel__action">
               <Button
                 type="button"
                 variant="danger-outline"

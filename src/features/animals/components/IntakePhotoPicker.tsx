@@ -6,8 +6,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { Camera, ImageSquare, Plus, X } from '@phosphor-icons/react'
-import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
-import { useIsMobile } from '@/shared/hooks/useIsMobile'
+import { supportsCameraCapture } from '@/shared/hooks/useCanTakePhoto'
 import { InAppCamera } from '@/features/animals/components/InAppCamera'
 
 export type StagedPhoto = {
@@ -32,8 +31,6 @@ export function IntakePhotoPicker({
   onRemovePhoto,
   disabled = false,
 }: IntakePhotoPickerProps) {
-  const canTakePhoto = useCanTakePhoto()
-  const isMobile = useIsMobile()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
@@ -48,10 +45,13 @@ export function IntakePhotoPicker({
       return
     }
     const rect = buttonRef.current.getBoundingClientRect()
-    setMenuPos({
-      top: rect.bottom + 6,
-      left: rect.left,
-    })
+    const menuHeight = 90
+    const top =
+      rect.bottom + menuHeight > window.innerHeight && rect.top > menuHeight
+        ? rect.top - menuHeight
+        : rect.bottom + 6
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - 170))
+    setMenuPos({ top, left })
   }, [menuOpen])
 
   useEffect(() => {
@@ -78,11 +78,7 @@ export function IntakePhotoPicker({
 
   function onPlusClick() {
     if (disabled || showCamera) return
-    if (canTakePhoto) {
-      setMenuOpen((open) => !open)
-      return
-    }
-    galleryRef.current?.click()
+    setMenuOpen((open) => !open)
   }
 
   function onFiles(files: FileList | null) {
@@ -133,8 +129,8 @@ export function IntakePhotoPicker({
                   ? `Add photo, ${photos.length} attached`
                   : 'Add photo'
             }
-            aria-expanded={canTakePhoto ? menuOpen : undefined}
-            aria-haspopup={canTakePhoto ? 'menu' : undefined}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
             title="Add photo"
             onClick={onPlusClick}
           >
@@ -180,10 +176,10 @@ export function IntakePhotoPicker({
                 role="menuitem"
                 onClick={() => {
                   setMenuOpen(false)
-                  if (!isMobile) {
-                    setShowCamera(true)
-                  } else {
+                  if (supportsCameraCapture()) {
                     cameraInputRef.current?.click()
+                  } else {
+                    setShowCamera(true)
                   }
                 }}
               >
