@@ -641,41 +641,126 @@ input#report-area::-webkit-calendar-picker-indicator {
 }
 
 /* Public Report Tracking Screen */
-.public-track {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
+@keyframes public-track-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
 }
 
-.public-track__nav-back {
+.public-track-page {
+  min-height: 100vh;
+  background-color: var(--color-background, #f6f8f6);
+  color: var(--color-ink);
+  display: flex;
+  flex-direction: column;
+}
+
+.public-track-page__header {
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.public-track-page__header-inner {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.public-track-page__brand {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
-}
-
-.public-track__back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--color-ink-muted);
   text-decoration: none;
-  font-size: var(--text-xs);
-  font-weight: 500;
-  transition: color var(--duration-fast) var(--ease-out);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-base);
 }
 
-.public-track__back-link:hover {
+.public-track-page__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.public-track-page__live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-forest-soft);
   color: var(--color-forest);
+  border: 1px solid rgba(44, 76, 56, 0.15);
+  border-radius: 9999px;
+  padding: 4px 10px;
+  font-size: var(--text-xs);
+  font-weight: 600;
 }
 
-.public-track__share-hint {
+.public-track-page__live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-forest);
+  box-shadow: 0 0 0 2px var(--color-forest-soft);
+  animation: public-track-pulse 2s infinite ease-in-out;
+}
+
+.public-track-page__new-report-link {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   color: var(--color-ink-muted);
   font-size: var(--text-xs);
+  font-weight: 600;
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.public-track-page__new-report-link:hover {
+  color: var(--color-forest);
+  background: var(--color-mist);
+}
+
+.public-track-page__main {
+  flex: 1;
+  padding: var(--space-6) var(--space-4) var(--space-12);
+}
+
+.public-track-page__container {
+  max-width: 820px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.public-track-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: 0 1px 3px rgba(26, 46, 34, 0.05);
+}
+
+.public-track {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
 
 .public-track__header-row {
@@ -695,7 +780,7 @@ input#report-area::-webkit-calendar-picker-indicator {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: 700;
-  padding: var(--space-1) var(--space-3);
+  padding: 4px 12px;
   border-radius: 9999px;
   border: 1px solid var(--color-border);
 }
@@ -704,7 +789,7 @@ input#report-area::-webkit-calendar-picker-indicator {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  padding: 4px 12px;
   border-radius: 9999px;
   font-size: var(--text-xs);
   font-weight: 700;
@@ -717,6 +802,7 @@ input#report-area::-webkit-calendar-picker-indicator {
 .public-track__status-badge--logged {
   background: var(--color-amber-soft);
   color: var(--color-amber);
+  border: 1px solid rgba(222, 107, 43, 0.2);
 }
 
 .public-track__status-badge--accepted,
@@ -724,18 +810,21 @@ input#report-area::-webkit-calendar-picker-indicator {
 .public-track__status-badge--attended {
   background: var(--color-forest-soft);
   color: var(--color-forest);
+  border: 1px solid rgba(44, 76, 56, 0.2);
 }
 
 .public-track__status-badge--resolved {
   background: var(--color-forest-soft);
   color: var(--color-success);
+  border: 1px solid rgba(34, 139, 78, 0.2);
 }
 
 .public-track__banner {
   background: var(--color-forest-soft);
+  border: 1px solid var(--color-border);
   border-left: 4px solid var(--color-forest);
   border-radius: var(--radius-md);
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
@@ -751,7 +840,7 @@ input#report-area::-webkit-calendar-picker-indicator {
 }
 
 .public-track__pipeline {
-  padding: var(--space-4) 0;
+  padding: var(--space-2) 0;
 }
 
 .public-track__pipeline-list {
@@ -777,7 +866,7 @@ input#report-area::-webkit-calendar-picker-indicator {
 .public-track__pipeline-step::before {
   content: '';
   position: absolute;
-  top: 14px;
+  top: 15px;
   left: -50%;
   right: 50%;
   height: 2px;
@@ -795,8 +884,8 @@ input#report-area::-webkit-calendar-picker-indicator {
 }
 
 .public-track__indicator {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 9999px;
   display: flex;
   align-items: center;
@@ -829,6 +918,13 @@ input#report-area::-webkit-calendar-picker-indicator {
   color: var(--color-ink-muted);
 }
 
+.public-track__step-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
 .public-track__step-label {
   font-size: var(--text-xs);
   font-weight: 600;
@@ -836,9 +932,16 @@ input#report-area::-webkit-calendar-picker-indicator {
 }
 
 .public-track__step-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.6875rem;
   color: var(--color-ink-muted);
-  margin-top: var(--space-1);
+  margin-top: 2px;
+}
+
+.public-track__step-sep {
+  color: var(--color-border-strong);
 }
 
 .public-track__section {
@@ -937,7 +1040,7 @@ input#report-area::-webkit-calendar-picker-indicator {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  margin-top: var(--space-4);
+  margin-top: var(--space-2);
   padding-top: var(--space-4);
   border-top: 1px solid var(--color-border);
 }
@@ -954,6 +1057,7 @@ input#report-area::-webkit-calendar-picker-indicator {
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
+  min-height: 48px;
   transition: all var(--duration-fast) var(--ease-out);
 }
 
@@ -1007,19 +1111,88 @@ input#report-area::-webkit-calendar-picker-indicator {
   line-height: var(--leading-normal);
 }
 
-@media (max-width: 520px) {
+@media (max-width: 640px) {
+  .public-track-page__main {
+    padding: var(--space-4) var(--space-3) var(--space-8);
+  }
+
+  .public-track-card {
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+  }
+
   .public-track__pipeline-list {
     flex-direction: column;
     align-items: stretch;
-    gap: var(--space-3);
+    gap: 0;
+    padding-left: var(--space-2);
   }
+
   .public-track__pipeline-step {
     flex-direction: row;
+    align-items: flex-start;
     text-align: left;
+    position: relative;
+    padding-bottom: var(--space-4);
     gap: var(--space-3);
   }
+
+  .public-track__pipeline-step:last-child {
+    padding-bottom: 0;
+  }
+
+  /* Vertical connecting line */
   .public-track__pipeline-step::before {
+    content: '';
+    position: absolute;
+    top: 30px;
+    bottom: 0;
+    left: 14px;
+    right: auto;
+    width: 2px;
+    height: auto;
+    background: var(--color-border);
+    z-index: 0;
+  }
+
+  .public-track__pipeline-step:last-child::before {
     display: none;
+  }
+
+  .public-track__pipeline-step--completed::before,
+  .public-track__pipeline-step--active::before {
+    background: var(--color-forest);
+  }
+
+  .public-track__indicator {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 0;
+  }
+
+  .public-track__step-body {
+    align-items: flex-start;
+    padding-top: 4px;
+    gap: 2px;
+  }
+
+  .public-track__step-time {
+    flex-direction: row;
+    gap: 4px;
+    margin-top: 0;
+  }
+
+  .public-track__actions-row {
+    flex-direction: column-reverse;
+    gap: var(--space-3);
+    width: 100%;
+  }
+
+  .public-track__actions-row .public-track__btn {
+    width: 100%;
   }
 }
 

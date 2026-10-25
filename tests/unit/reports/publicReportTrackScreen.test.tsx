@@ -36,7 +36,7 @@ describe('PublicReportTrackScreen', () => {
     vi.clearAllMocks()
   })
 
-  it('renders case number and pipeline status', async () => {
+  it('renders case number in sentence case and pipeline status with date and time', async () => {
     render(
       <MemoryRouter initialEntries={['/report/track/SANCTUARY-0142']}>
         <Routes>
@@ -44,9 +44,10 @@ describe('PublicReportTrackScreen', () => {
         </Routes>
       </MemoryRouter>
     )
-    expect(await screen.findByText(/SANCTUARY-0142/i)).toBeInTheDocument()
+    expect(await screen.findByText('Case #Sanctuary-0142')).toBeInTheDocument()
     expect(screen.getAllByText(/Logged/i)[0]).toBeInTheDocument()
     expect(screen.getByText(/Dispatched/i)).toBeInTheDocument()
+    expect(screen.getByText('Oct 23')).toBeInTheDocument()
   })
 
   it('masks reporter personal contact data', async () => {

@@ -104,15 +104,15 @@ export function PublicReportScreen() {
     if (honeypotValue.trim() !== '') {
       clearDraft()
       setSubmitting(false)
-      navigate('/report/track/SANCTUARY-R000')
+      navigate('/report/track/Sanctuary-R000')
       return
     }
 
     try {
-      let reportNumber = `SANCTUARY-R${Math.floor(100 + Math.random() * 900)}`
+      let reportNumber = `Sanctuary-R${Math.floor(100 + Math.random() * 900)}`
       if (db) {
         try {
-          const gen = await generateReportNumber(db, 'SANCTUARY')
+          const gen = await generateReportNumber(db, 'Sanctuary')
           if (gen) reportNumber = gen
         } catch {}
       }
