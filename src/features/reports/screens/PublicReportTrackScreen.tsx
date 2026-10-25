@@ -63,9 +63,8 @@ function getStatusBadgeText(status?: string | null): string {
 
 export function formatReportNumber(raw?: string | null): string {
   if (!raw) return ''
-  if (/^sanctuary-/i.test(raw)) {
-    return 'Sanctuary-' + raw.slice('sanctuary-'.length)
-  }
+  const digits = raw.replace(/\D+/g, '')
+  if (digits) return digits
   return raw
 }
 
@@ -226,6 +225,14 @@ export function PublicReportTrackScreen() {
                 parsed[sanctuaryKey] ||
                 parsed[upperSanctuaryKey] ||
                 null
+              if (!fetchedReport && digits) {
+                fetchedReport =
+                  Object.values(parsed).find(
+                    (item: any) =>
+                      item &&
+                      String(item.report_number || item.reportNumber || '').replace(/\D+/g, '') === digits
+                  ) || null
+              }
             }
           }
         } catch {
@@ -286,7 +293,11 @@ export function PublicReportTrackScreen() {
   async function handleCopyLink() {
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(window.location.href)
+        const canonicalUrl =
+          typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null'
+            ? `${window.location.origin}/report/track/${caseNumber || reportNumber}`
+            : window.location.href
+        await navigator.clipboard.writeText(canonicalUrl)
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
       }

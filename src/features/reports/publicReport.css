@@ -1446,14 +1446,17 @@ input#report-area::-webkit-calendar-picker-indicator {
   line-height: var(--leading-normal);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .public-track-page__main {
     padding: var(--space-4) var(--space-3) var(--space-8);
   }
 
   .public-track-card {
-    padding: var(--space-4);
-    border-radius: var(--radius-lg);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
   }
 
   .public-track__pipeline-list {

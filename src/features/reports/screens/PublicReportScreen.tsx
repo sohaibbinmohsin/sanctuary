@@ -105,7 +105,7 @@ export function PublicReportScreen() {
     if (honeypotValue.trim() !== '') {
       clearDraft()
       setSubmitting(false)
-      navigate('/report/track/Sanctuary-R000')
+      navigate('/report/track/000')
       return
     }
 

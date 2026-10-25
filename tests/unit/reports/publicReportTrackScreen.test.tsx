@@ -26,7 +26,8 @@ vi.mock('@/shared/hooks/useDb', () => ({
         params?.includes('SANCTUARY-0142') ||
         params?.includes('Sanctuary-0142') ||
         params?.includes('Sanctuary-R0142') ||
-        params?.includes('SANCTUARY-R0142')
+        params?.includes('SANCTUARY-R0142') ||
+        params?.includes('0142')
       ) {
         return mockReport
       }
@@ -232,7 +233,9 @@ describe('PublicReportTrackScreen', () => {
     const copyBtn = screen.getByRole('button', { name: /Copy tracking link/i })
     fireEvent.click(copyBtn)
 
-    expect(writeTextMock).toHaveBeenCalledWith(window.location.href)
+    expect(writeTextMock).toHaveBeenCalledWith(
+      expect.stringContaining('/report/track/0142')
+    )
     await waitFor(() => {
       expect(screen.getByText(/Copied!/i)).toBeInTheDocument()
     })
