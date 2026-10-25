@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { ArrowLeft, Check, Siren } from '@phosphor-icons/react'
+import { ArrowLeft, Check, Siren, CircleNotch } from '@phosphor-icons/react'
 import { validatePhoneNumber, formatPhoneNumber } from '@/features/reports/domain/phone'
 import { validateCnic, formatCnic } from '@/features/reports/domain/cnic'
 import type { ReportDraftState } from '@/features/reports/hooks/useReportDraft'
@@ -162,11 +162,20 @@ export function PublicReportStepContact({
         </button>
         <button
           type="submit"
-          className="public-report__btn public-report__btn--primary"
+          className={`public-report__btn public-report__btn--primary ${submitting ? 'public-report__btn--loading' : ''}`}
           disabled={submitting || !isPhoneValid || !isCnicValid}
         >
-          <Siren size={20} weight="bold" aria-hidden />
-          {submitting ? 'Submitting report...' : 'Submit Emergency Report'}
+          {submitting ? (
+            <>
+              <CircleNotch size={20} weight="bold" className="public-report__spin" aria-hidden />
+              <span>Submitting report...</span>
+            </>
+          ) : (
+            <>
+              <Siren size={20} weight="bold" aria-hidden />
+              <span>Submit Emergency Report</span>
+            </>
+          )}
         </button>
       </div>
     </form>

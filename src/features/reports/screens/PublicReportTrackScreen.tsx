@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   Copy,
@@ -117,6 +117,7 @@ function getStageTimestamp(
 
 export function PublicReportTrackScreen() {
   const { reportNumber } = useParams<{ reportNumber: string }>()
+  const navigate = useNavigate()
   const db = useDb()
   const [report, setReport] = useState<Record<string, any> | null>(null)
   useReportTrackSeo(reportNumber, report?.status)
@@ -124,6 +125,15 @@ export function PublicReportTrackScreen() {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const loadedKeyRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (reportNumber) {
+      const formatted = formatReportNumber(reportNumber)
+      if (formatted && formatted !== reportNumber) {
+        navigate(`/report/track/${formatted}`, { replace: true })
+      }
+    }
+  }, [reportNumber, navigate])
 
   useEffect(() => {
     let isMounted = true
@@ -293,10 +303,34 @@ export function PublicReportTrackScreen() {
         </header>
         <main className="public-track-page__main">
           <div className="public-track-page__container">
-            <div className="public-track-card" style={{ textAlign: 'center', padding: 'var(--space-12) var(--space-6)' }}>
-              <p style={{ color: 'var(--color-ink-muted)', margin: 0 }}>
-                Loading case details...
-              </p>
+            <div className="public-track-card">
+              <div className="public-track">
+                <div className="public-track__header-row">
+                  <div className="public-track-skeleton" style={{ width: 140, height: 28, borderRadius: 9999 }} />
+                  <div className="public-track-skeleton" style={{ width: 88, height: 28, borderRadius: 9999 }} />
+                </div>
+                <div className="public-track-skeleton" style={{ width: '100%', height: 48, borderRadius: 'var(--radius-md)' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-4) 0' }}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flex: 1 }}>
+                      <div className="public-track-skeleton" style={{ width: 30, height: 30, borderRadius: '50%' }} />
+                      <div className="public-track-skeleton" style={{ width: 48, height: 12 }} />
+                    </div>
+                  ))}
+                </div>
+                <div className="public-track__section">
+                  <div className="public-track-skeleton" style={{ width: 120, height: 16 }} />
+                  <div className="public-track-skeleton" style={{ width: '85%', height: 20 }} />
+                </div>
+                <div className="public-track__section">
+                  <div className="public-track-skeleton" style={{ width: 110, height: 16 }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                    <div className="public-track-skeleton" style={{ height: 36 }} />
+                    <div className="public-track-skeleton" style={{ height: 36 }} />
+                    <div className="public-track-skeleton" style={{ height: 36 }} />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </main>
@@ -383,9 +417,6 @@ export function PublicReportTrackScreen() {
               <span className="public-track-page__live-dot" />
               <span>Live Case Tracker</span>
             </div>
-            <Link to="/report" className="public-track-page__new-report-link">
-              <span>Submit report</span>
-            </Link>
           </div>
         </div>
       </header>
@@ -411,7 +442,14 @@ export function PublicReportTrackScreen() {
               </div>
 
               <div className="public-track__pipeline">
-                <ol className="public-track__pipeline-list">
+                <ol
+                  className="public-track__pipeline-list"
+                  style={
+                    {
+                      '--pipeline-progress': `${(isResolved ? 4 : activeStageIndex) * 20}%`,
+                    } as React.CSSProperties
+                  }
+                >
                   {PIPELINE_STAGES.map((stage, idx) => {
                     const isCompleted = isResolved ? true : idx < activeStageIndex
                     const isActive = !isResolved && idx === activeStageIndex
@@ -541,10 +579,16 @@ export function PublicReportTrackScreen() {
               )}
 
               <div className="public-track__section">
-                <h3 className="public-track__section-title">
-                  <ShieldCheck size={16} aria-hidden />
-                  <span>Reporter & Privacy</span>
-                </h3>
+                <div className="public-track__section-header">
+                  <h3 className="public-track__section-title">
+                    <ShieldCheck size={16} aria-hidden />
+                    <span>Reporter Details</span>
+                  </h3>
+                  <span className="public-track__protected-pill">
+                    <ShieldCheck size={13} weight="bold" aria-hidden />
+                    <span>Protected</span>
+                  </span>
+                </div>
                 <div className="public-track__grid">
                   <div className="public-track__item">
                     <span className="public-track__item-label">Reporter name</span>
@@ -565,37 +609,31 @@ export function PublicReportTrackScreen() {
                     </span>
                   </div>
                 </div>
-                <div className="public-track__privacy-card">
-                  <ShieldCheck size={20} className="public-track__privacy-icon" aria-hidden />
-                  <p className="public-track__privacy-text">
-                    Reporter contact details are privacy-protected. Only authorized Sanctuary dispatchers can access full contact information.
-                  </p>
-                </div>
-              </div>
-
-              <div className="public-track__actions-row">
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  className="public-track__btn public-track__btn--secondary"
-                >
-                  {copied ? (
-                    <>
-                      <Check size={18} aria-hidden />
-                      <span>Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={18} aria-hidden />
-                      <span>Copy tracking link</span>
-                    </>
-                  )}
-                </button>
-                <Link to="/report" className="public-track__btn public-track__btn--primary">
-                  Report another case
-                </Link>
               </div>
             </div>
+          </div>
+
+          <div className="public-track__actions-row">
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="public-track__btn public-track__btn--secondary"
+            >
+              {copied ? (
+                <>
+                  <Check size={18} aria-hidden />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={18} aria-hidden />
+                  <span>Copy tracking link</span>
+                </>
+              )}
+            </button>
+            <Link to="/report" className="public-track__btn public-track__btn--primary">
+              Report another case
+            </Link>
           </div>
         </div>
       </main>

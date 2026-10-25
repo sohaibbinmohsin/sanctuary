@@ -20,6 +20,7 @@ import {
 } from '@/features/reports/components/public/PublicReportStepLocation'
 import { PublicReportStepContact } from '@/features/reports/components/public/PublicReportStepContact'
 import { useReportSeo } from '@/features/reports/domain/reportSeo'
+import { formatReportNumber } from './PublicReportTrackScreen'
 import '@/features/reports/publicReport.css'
 
 const STEPS = [
@@ -231,7 +232,7 @@ export function PublicReportScreen() {
 
       clearDraft()
       setSubmitting(false)
-      navigate(`/report/track/${reportNumber}`)
+      navigate(`/report/track/${formatReportNumber(reportNumber)}`)
     } catch (err) {
       setSubmitting(false)
       setError(err instanceof Error ? err.message : 'Failed to submit report.')

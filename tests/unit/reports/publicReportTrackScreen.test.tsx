@@ -22,7 +22,7 @@ const mockReport = {
 vi.mock('@/shared/hooks/useDb', () => ({
   useDb: () => ({
     getOptional: vi.fn().mockImplementation(async (_sql: string, params: any[]) => {
-      if (params?.[0] === 'SANCTUARY-0142') return mockReport
+      if (params?.includes('SANCTUARY-0142') || params?.includes('Sanctuary-0142')) return mockReport
       return null
     }),
     getAll: vi.fn().mockResolvedValue([]),

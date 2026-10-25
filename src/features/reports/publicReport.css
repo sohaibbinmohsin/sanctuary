@@ -640,6 +640,19 @@ input#report-area::-webkit-calendar-picker-indicator {
   border-color: var(--color-border-strong);
 }
 
+@keyframes public-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.public-report__spin {
+  animation: public-spin 0.8s linear infinite;
+}
+
 /* Public Report Tracking Screen */
 @keyframes public-track-pulse {
   0%, 100% {
@@ -652,20 +665,45 @@ input#report-area::-webkit-calendar-picker-indicator {
   }
 }
 
+@keyframes public-track-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.public-track-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(226, 232, 228, 0.7) 25%,
+    rgba(244, 248, 245, 0.95) 37%,
+    rgba(226, 232, 228, 0.7) 63%
+  );
+  background-size: 300% 100%;
+  animation: public-track-shimmer 1.4s ease infinite;
+  border-radius: var(--radius-md);
+}
+
 .public-track-page {
   min-height: 100vh;
   background-color: var(--color-background, #f6f8f6);
   color: var(--color-ink);
   display: flex;
   flex-direction: column;
+  padding-top: 57px;
 }
 
 .public-track-page__header {
   background: var(--color-white);
   border-bottom: 1px solid var(--color-border);
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 20;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  box-shadow: 0 1px 3px rgba(26, 46, 34, 0.05);
 }
 
 .public-track-page__header-inner {
@@ -717,23 +755,7 @@ input#report-area::-webkit-calendar-picker-indicator {
   animation: public-track-pulse 2s infinite ease-in-out;
 }
 
-.public-track-page__new-report-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  text-decoration: none;
-  padding: 4px 8px;
-  border-radius: var(--radius-md);
-  transition: all var(--duration-fast) var(--ease-out);
-}
 
-.public-track-page__new-report-link:hover {
-  color: var(--color-forest);
-  background: var(--color-mist);
-}
 
 .public-track-page__main {
   flex: 1;
@@ -853,6 +875,31 @@ input#report-area::-webkit-calendar-picker-indicator {
   position: relative;
 }
 
+/* Base connecting line between center of node 1 (10%) and node 5 (90%) */
+.public-track__pipeline-list::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: var(--color-border);
+  z-index: 0;
+}
+
+/* Active progress connecting line */
+.public-track__pipeline-list::after {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: 10%;
+  width: var(--pipeline-progress, 0%);
+  height: 2px;
+  background: var(--color-forest);
+  z-index: 0;
+  transition: width var(--duration-normal, 200ms) var(--ease-out);
+}
+
 .public-track__pipeline-step {
   display: flex;
   flex-direction: column;
@@ -861,26 +908,6 @@ input#report-area::-webkit-calendar-picker-indicator {
   flex: 1;
   position: relative;
   z-index: 1;
-}
-
-.public-track__pipeline-step::before {
-  content: '';
-  position: absolute;
-  top: 15px;
-  left: -50%;
-  right: 50%;
-  height: 2px;
-  background: var(--color-border);
-  z-index: -1;
-}
-
-.public-track__pipeline-step:first-child::before {
-  display: none;
-}
-
-.public-track__pipeline-step--completed::before,
-.public-track__pipeline-step--active::before {
-  background: var(--color-forest);
 }
 
 .public-track__indicator {
@@ -896,6 +923,8 @@ input#report-area::-webkit-calendar-picker-indicator {
   border: 2px solid var(--color-border);
   color: var(--color-ink-muted);
   margin-bottom: var(--space-2);
+  position: relative;
+  z-index: 1;
   transition: all var(--duration-fast) var(--ease-out);
 }
 
@@ -913,7 +942,7 @@ input#report-area::-webkit-calendar-picker-indicator {
 }
 
 .public-track__indicator--pending {
-  background: var(--color-surface);
+  background: var(--color-white);
   border-color: var(--color-border);
   color: var(--color-ink-muted);
 }
@@ -997,27 +1026,24 @@ input#report-area::-webkit-calendar-picker-indicator {
   word-break: break-word;
 }
 
-.public-track__privacy-card {
+.public-track__section-header {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  background: var(--color-white);
-  border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
-.public-track__privacy-icon {
+.public-track__protected-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-forest-soft);
   color: var(--color-forest);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.public-track__privacy-text {
+  border: 1px solid rgba(44, 76, 56, 0.18);
+  border-radius: 9999px;
+  padding: 3px 10px;
   font-size: var(--text-xs);
-  color: var(--color-ink-muted);
-  margin: 0;
-  line-height: var(--leading-normal);
+  font-weight: 600;
 }
 
 .public-track__photos-gallery {
@@ -1040,9 +1066,8 @@ input#report-area::-webkit-calendar-picker-indicator {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
+  width: 100%;
   margin-top: var(--space-2);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
 }
 
 .public-track__btn {
@@ -1126,6 +1151,11 @@ input#report-area::-webkit-calendar-picker-indicator {
     align-items: stretch;
     gap: 0;
     padding-left: var(--space-2);
+  }
+
+  .public-track__pipeline-list::before,
+  .public-track__pipeline-list::after {
+    display: none;
   }
 
   .public-track__pipeline-step {
