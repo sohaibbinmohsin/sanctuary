@@ -28,6 +28,9 @@ import {
 import { createAnimal } from '@/features/animals/domain/animals'
 import { linkAnimals } from '@/features/animals/domain/relationships'
 import { listStatuses } from '@/features/statuses/domain/statuses'
+import { getLocalPhoto, storeLocalPhoto } from '@/features/photos/domain/photos'
+import { notifyPendingMediaChanged } from '@/shared/lib/pendingMedia'
+import { localDateString } from '@/shared/lib/checklist/missedStreak'
 import { ReportPipelineTracker } from '@/features/reports/components/ReportPipelineTracker'
 import { ReportFactsGrid } from '@/features/reports/components/ReportFactsGrid'
 import { LegalActionModal } from '@/features/reports/components/LegalActionModal'
@@ -126,6 +129,13 @@ export function ReportDetailScreen() {
       ? `${report.location_area || ''} (near ${report.location_landmark})`.trim()
       : report.location_area || undefined
 
+    const attendedDate = report.stage_attended_at
+      ? new Date(report.stage_attended_at)
+      : new Date()
+    const intakeDate = localDateString(attendedDate)
+    const intakeTime = `${String(attendedDate.getHours()).padStart(2, '0')}:${String(attendedDate.getMinutes()).padStart(2, '0')}`
+    const arrivalTimestamp = attendedDate.toISOString()
+
     const animal = await createAnimal(db, {
       orgId,
       prefix,
@@ -133,29 +143,37 @@ export function ReportDetailScreen() {
       statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
       notes: notesText,
       markings: markingsText,
-      intakeDate: new Date().toISOString().slice(0, 10),
+      intakeDate,
+      intakeTime,
+      arrivalTimestamp,
     })
 
-    // Transfer report photos to animal photos table
+    // Transfer report photos to animal photos table and local cache
     try {
       const reportPhotos = await getPhotosForReport(db, report.id)
       const now = new Date().toISOString()
       for (const p of reportPhotos) {
+        const animalPhotoId = crypto.randomUUID()
+        const localBlob = await getLocalPhoto(p.id)
+        if (localBlob) {
+          await storeLocalPhoto(animalPhotoId, localBlob)
+        }
         await db.execute(
           `INSERT INTO photos (id, org_id, animal_id, r2_key, local_only, upload_state, capture_source, verified, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`,
           [
-            crypto.randomUUID(),
+            animalPhotoId,
             orgId,
             animal.id,
-            p.r2_key,
-            p.local_only,
-            p.upload_state,
+            p.r2_key ?? null,
+            p.r2_key ? 0 : 1,
+            p.r2_key ? (p.upload_state || 'uploaded') : 'pending',
             'upload',
             p.created_at || now,
           ],
         )
       }
+      notifyPendingMediaChanged()
     } catch (photoErr) {
       console.warn('Could not copy report photos to animal', photoErr)
     }
@@ -192,7 +210,9 @@ export function ReportDetailScreen() {
             statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
             notes: `${notesText}\nCompanion #${i + 1} of ${allAnimals.length} in batch intake`,
             markings: markingsText,
-            intakeDate: new Date().toISOString().slice(0, 10),
+            intakeDate,
+            intakeTime,
+            arrivalTimestamp,
           })
           await linkAnimals(db, {
             orgId,
@@ -224,7 +244,9 @@ export function ReportDetailScreen() {
               statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
               notes: `${notesText}\nCompanion #${i} of ${count} in batch litter/group admission`,
               markings: markingsText,
-              intakeDate: new Date().toISOString().slice(0, 10),
+              intakeDate,
+              intakeTime,
+              arrivalTimestamp,
             })
             await linkAnimals(db, {
               orgId,

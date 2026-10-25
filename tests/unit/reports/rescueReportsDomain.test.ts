@@ -7,6 +7,7 @@ import {
   getRescueReports,
   getRescueReportById,
   updateReportLegalNotes,
+  archiveRescueReport,
   deduplicateReportNumbers,
   type CreateRescueReportInput,
 } from '@/features/reports/domain/rescueReports'
@@ -343,4 +344,49 @@ describe('rescueReports domain', () => {
       expect(executeCalls).toHaveLength(0)
     })
   })
+
+  describe('archiveRescueReport and filtering', () => {
+    it('sets archived = 1 and updates timestamp', async () => {
+      const executeCalls: { sql: string; params?: any[] }[] = []
+      const mockDb = {
+        getAll: async () => [
+          { name: 'life_stage' },
+          { name: 'intake_source' },
+          { name: 'animal_count' },
+          { name: 'group_breakdown' },
+          { name: 'archived' },
+        ],
+        execute: async (sql: string, params?: any[]) => {
+          executeCalls.push({ sql, params })
+        },
+      } as any
+
+      await archiveRescueReport(mockDb, 'rep-123')
+      const updateCall = executeCalls.find((c) => c.sql.includes('UPDATE rescue_reports SET archived = 1'))
+      expect(updateCall).toBeDefined()
+      expect(updateCall?.params?.[1]).toBe('rep-123')
+    })
+
+    it('filters out archived reports in getRescueReports and getRescueReportById', async () => {
+      let capturedGetAllSql = ''
+      let capturedGetOptionalSql = ''
+      const mockDb = {
+        getAll: async (sql: string) => {
+          capturedGetAllSql = sql
+          return []
+        },
+        getOptional: async (sql: string) => {
+          capturedGetOptionalSql = sql
+          return null
+        },
+      } as any
+
+      await getRescueReports(mockDb, 'org-1')
+      expect(capturedGetAllSql).toContain('(archived IS NULL OR archived = 0)')
+
+      await getRescueReportById(mockDb, 'rep-123')
+      expect(capturedGetOptionalSql).toContain('(archived IS NULL OR archived = 0)')
+    })
+  })
 })
+

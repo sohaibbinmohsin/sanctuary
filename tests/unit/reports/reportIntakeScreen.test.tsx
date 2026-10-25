@@ -275,6 +275,7 @@ describe('ReportIntakeScreen', () => {
       stage_accepted_at: null,
       stage_dispatched_at: null,
       stage_attended_at: null,
+      archived: 0,
       created_at: '2026-10-22T10:00:00Z',
       updated_at: '2026-10-22T10:00:00Z',
     })

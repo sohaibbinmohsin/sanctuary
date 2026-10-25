@@ -20,6 +20,7 @@ import {
   addReportPhoto,
   getPhotosForReport,
   deleteReportPhoto,
+  archiveRescueReport,
   formatPhoneNumber,
   validatePhoneNumber,
   formatCnic,
@@ -37,7 +38,9 @@ import {
   type ReportPhoto,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
-import { getLocalPhoto } from '@/features/photos/domain/photos'
+import { getLocalPhoto, storeLocalPhoto } from '@/features/photos/domain/photos'
+import { notifyPendingMediaChanged } from '@/shared/lib/pendingMedia'
+import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other'] as const
@@ -102,7 +105,30 @@ export function ReportIntakeScreen() {
   const [legalNotes, setLegalNotes] = useState('')
   const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const confirm = useConfirm()
+
+  async function handleDeleteReport() {
+    if (!db || !id || deleting || submitting) return
+    const ok = await confirm({
+      title: 'Delete report?',
+      body: 'This report will be removed from your reports list.',
+      confirmLabel: 'Delete report',
+      tone: 'danger',
+    })
+    if (!ok) return
+    setDeleting(true)
+    setError(null)
+    try {
+      await archiveRescueReport(db, id)
+      navigate('/reports', { replace: true })
+    } catch (err) {
+      console.error('Failed to delete report', err)
+      setError(err instanceof Error ? err.message : 'Could not delete report. Try again.')
+      setDeleting(false)
+    }
+  }
 
 
   const orgId = member?.orgId ?? existingReport?.org_id ?? ''
@@ -396,11 +422,14 @@ export function ReportIntakeScreen() {
             })
             if (existingReport?.animal_id) {
               try {
+                const animalPhotoId = crypto.randomUUID()
+                await storeLocalPhoto(animalPhotoId, photo.blob)
                 await db.execute(
                   `INSERT INTO photos (id, org_id, animal_id, r2_key, local_only, upload_state, capture_source, verified, created_at)
                    VALUES (?, ?, ?, NULL, 1, 'pending', 'upload', 0, ?)`,
-                  [crypto.randomUUID(), orgId, existingReport.animal_id, now],
+                  [animalPhotoId, orgId, existingReport.animal_id, now],
                 )
+                notifyPendingMediaChanged()
               } catch (photoErr) {
                 console.warn('Could not mirror photo to animal', photoErr)
               }
@@ -1348,6 +1377,31 @@ export function ReportIntakeScreen() {
               onChange={(e) => setLegalNotes(e.target.value)}
               rows={4}
             />
+          </div>
+        )}
+
+        {/* 6. Danger Zone: Delete report in edit mode */}
+        {isEditMode && (
+          <div className="panel stack" style={{ border: '1px solid var(--color-danger-soft, #fca5a5)' }}>
+            <div>
+              <p className="section-label" style={{ color: 'var(--color-danger, #dc2626)', margin: 0 }}>
+                Danger Zone
+              </p>
+              <p className="field__hint" style={{ margin: 'var(--space-1) 0 var(--space-3)' }}>
+                Remove this report from active records. Use this if the report was created by mistake.
+              </p>
+            </div>
+            <div>
+              <Button
+                type="button"
+                variant="danger-outline"
+                disabled={submitting || deleting}
+                onClick={() => void handleDeleteReport()}
+              >
+                <Trash size={16} weight="bold" aria-hidden />
+                <span>{deleting ? 'Deleting…' : 'Delete report'}</span>
+              </Button>
+            </div>
           </div>
         )}
 
