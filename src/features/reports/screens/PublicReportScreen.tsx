@@ -55,10 +55,15 @@ export function PublicReportScreen() {
     }
     window.addEventListener('keydown', handleKeyDown)
     const prevOverflow = document.body.style.overflow
+    const prevOverflowX = document.documentElement.style.overflowX
     document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflowX = 'hidden'
+    window.scrollTo({ left: 0 })
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = prevOverflow
+      document.documentElement.style.overflowX = prevOverflowX
+      window.scrollTo({ left: 0 })
     }
   }, [handleClose])
 
