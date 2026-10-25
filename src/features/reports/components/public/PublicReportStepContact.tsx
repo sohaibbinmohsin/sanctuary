@@ -128,7 +128,7 @@ export function PublicReportStepContact({
           <span>Animal</span>
           <strong>
             {draft.speciesPreset === 'Other' ? draft.speciesOther : draft.speciesPreset}
-            {draft.avianSubtype ? ` (${draft.avianSubtype})` : ''} · {draft.animalCount} in care
+            {draft.avianSubtype ? ` (${draft.avianSubtype})` : ''} · {draft.animalCount}
           </strong>
         </div>
         <div className="public-report__summary-row">

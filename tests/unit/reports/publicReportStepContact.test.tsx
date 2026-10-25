@@ -337,7 +337,7 @@ describe('PublicReportStepContact', () => {
     )
 
     expect(screen.getByText('Report Summary')).toBeInTheDocument()
-    expect(screen.getByText('Cat · 3 in care')).toBeInTheDocument()
+    expect(screen.getByText('Cat · 3')).toBeInTheDocument()
     expect(screen.getByText('Fractured leg and dehydrated')).toBeInTheDocument()
     expect(screen.getByText('Clifton Block 4, Karachi (Near Boat Basin)')).toBeInTheDocument()
     expect(screen.getByText('2 attached')).toBeInTheDocument()
@@ -365,7 +365,7 @@ describe('PublicReportStepContact', () => {
         onSubmit={vi.fn()}
       />
     )
-    expect(screen.getByText('Bird (Black Kite) · 1 in care')).toBeInTheDocument()
+    expect(screen.getByText('Bird (Black Kite) · 1')).toBeInTheDocument()
 
     const otherDraft = {
       ...INITIAL_DRAFT,
@@ -388,7 +388,7 @@ describe('PublicReportStepContact', () => {
         onSubmit={vi.fn()}
       />
     )
-    expect(screen.getByText('Goat · 2 in care')).toBeInTheDocument()
+    expect(screen.getByText('Goat · 2')).toBeInTheDocument()
   })
 
   it('contains strictly zero em-dashes', () => {
