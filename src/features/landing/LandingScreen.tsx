@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   ArrowSquareOut,
 } from '@phosphor-icons/react'
+import { SanctuaryFooter } from '@/shared/ui/SanctuaryFooter'
 import './landing.css'
 
 export function LandingScreen() {
@@ -598,36 +599,7 @@ export function LandingScreen() {
         </div>
       </section>
 
-      <footer className="footer">
-        <div className="wrap">
-          <div className="footer__brand-lockup">
-            <img
-              className="footer__logo"
-              src="/sanctuary-logo-light.svg"
-              alt=""
-              width={36}
-              height={36}
-            />
-            <p className="footer__brand">Sanctuary</p>
-          </div>
-          <p className="footer__tag">
-            The animal welfare network connecting rescuers, shelters, clinics, and animal guardians.
-          </p>
-          <div className="footer__bottom">
-            <span>
-              A free software by{' '}
-              <a
-                href="https://themohsinproject.org/"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                The Mohsin Project
-              </a>
-            </span>
-            <a href="mailto:hello@themohsinproject.org">hello@themohsinproject.org</a>
-          </div>
-        </div>
-      </footer>
+      <SanctuaryFooter />
     </div>
   )
 }

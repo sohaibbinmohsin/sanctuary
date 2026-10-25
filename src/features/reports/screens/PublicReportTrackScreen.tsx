@@ -13,6 +13,7 @@ import { useDb } from '@/shared/hooks/useDb'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
 import { maskPhoneNumber, maskCnic } from '@/features/reports/domain/privacyMask'
 import { useReportTrackSeo } from '@/features/reports/domain/reportSeo'
+import { SanctuaryFooter } from '@/shared/ui/SanctuaryFooter'
 import '@/features/reports/publicReport.css'
 
 interface PipelineStageDef {
@@ -334,6 +335,7 @@ export function PublicReportTrackScreen() {
             </div>
           </div>
         </main>
+        <SanctuaryFooter />
       </div>
     )
   }
@@ -375,6 +377,7 @@ export function PublicReportTrackScreen() {
             </div>
           </div>
         </main>
+        <SanctuaryFooter />
       </div>
     )
   }
@@ -637,6 +640,7 @@ export function PublicReportTrackScreen() {
           </div>
         </div>
       </main>
+      <SanctuaryFooter />
     </div>
   )
 }
