@@ -31,6 +31,8 @@ body,
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
@@ -1090,6 +1092,24 @@ a.primary {
 }
 
 .login-screen__access a:hover {
+  color: var(--color-forest-hover);
+}
+
+.login-screen__demo {
+  margin: var(--space-2) 0 0;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.login-screen__demo a {
+  color: var(--color-forest);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.login-screen__demo a:hover {
   color: var(--color-forest-hover);
 }
 

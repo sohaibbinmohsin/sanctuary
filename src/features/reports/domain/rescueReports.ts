@@ -72,15 +72,22 @@ export async function generateReportNumber(
   db: SanctuaryDb,
   orgInitials: string,
 ): Promise<string> {
-  const prefix = orgInitials.trim().toUpperCase()
+  const isSanctuary = orgInitials.trim().toLowerCase() === 'sanctuary'
+  const prefix = isSanctuary ? 'Sanctuary' : orgInitials.trim().toUpperCase()
   try {
     if (typeof db.getAll === 'function') {
-      const rows = await db.getAll<{ report_number: string }>(
-        `SELECT report_number FROM rescue_reports WHERE report_number LIKE ?`,
-        [`${prefix}-R%`],
-      )
+      const rows = isSanctuary
+        ? await db.getAll<{ report_number: string }>(
+            `SELECT report_number FROM rescue_reports WHERE report_number LIKE 'Sanctuary-R%' OR report_number LIKE 'SANCTUARY-R%'`,
+          )
+        : await db.getAll<{ report_number: string }>(
+            `SELECT report_number FROM rescue_reports WHERE report_number LIKE ?`,
+            [`${prefix}-R%`],
+          )
       if (Array.isArray(rows)) {
-        const re = new RegExp(`^${prefix}-R(\\d+)$`, 'i')
+        const re = isSanctuary
+          ? /^SANCTUARY-R(\d+)$/i
+          : new RegExp(`^${prefix}-R(\\d+)$`, 'i')
         let max = 100
         for (const row of rows) {
           const m = row.report_number?.match(re)

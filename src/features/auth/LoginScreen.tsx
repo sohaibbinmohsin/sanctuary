@@ -67,7 +67,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             />
             <div className="login-screen__brand-text">
               <h1 className="brand">Sanctuary</h1>
-              <p className="subheading">Animal welfare platform</p>
+              <p className="subheading">Animal welfare network</p>
             </div>
           </div>
           <p className="lede">
@@ -122,6 +122,18 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               Request access
             </a>
           </p>
+          <p className="login-screen__demo">
+            Want to explore first?{' '}
+            <a
+              href="/playground"
+              onClick={(e) => {
+                e.preventDefault()
+                window.location.assign('/playground')
+              }}
+            >
+              Try interactive demo
+            </a>
+          </p>
         </div>
 
         <footer className="login-screen__foot">
@@ -131,7 +143,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             target="_blank"
             rel="noopener noreferrer"
           >
-            <span>Free software by</span>
+            <span>A free software by</span>
             <span className="mohsin-credit__name">The Mohsin Project</span>
             <img
               src="/mohsin-project-logo.svg"

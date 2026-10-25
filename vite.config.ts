@@ -99,7 +99,7 @@ export default defineConfig({
         name: 'Sanctuary',
         short_name: 'Sanctuary',
         description:
-          'Offline-first shelter management for animal rescues. Track animals, care, photos, and money, even without signal.',
+          'A shared digital backbone for rescuers, shelters, veterinarians, and animal guardians.',
         theme_color: '#2F5D3A',
         background_color: '#2F5D3A',
         display: 'standalone',
