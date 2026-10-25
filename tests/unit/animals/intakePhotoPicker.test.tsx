@@ -36,8 +36,27 @@ describe('IntakePhotoPicker', () => {
     global.URL.revokeObjectURL = vi.fn()
   })
 
-  it('in desktop mode, clicking add directly triggers file input without menu', () => {
-    vi.spyOn(canTakeModule, 'useCanTakePhoto').mockReturnValue(false)
+  it('clicking add opens menu with Take photo and From gallery options', () => {
+    const onAddPhotos = vi.fn()
+    const onRemovePhoto = vi.fn()
+
+    render(
+      <IntakePhotoPicker
+        photos={[]}
+        onAddPhotos={onAddPhotos}
+        onRemovePhoto={onRemovePhoto}
+      />,
+    )
+
+    const addBtn = screen.getByRole('button', { name: 'Add photo' })
+    fireEvent.click(addBtn)
+
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /take photo/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /from gallery/i })).toBeInTheDocument()
+  })
+
+  it('selecting From gallery triggers file input', () => {
     const onAddPhotos = vi.fn()
     const onRemovePhoto = vi.fn()
 
@@ -56,31 +75,10 @@ describe('IntakePhotoPicker', () => {
     const addBtn = screen.getByRole('button', { name: 'Add photo' })
     fireEvent.click(addBtn)
 
-    // Should not show popup menu
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-    // Should have triggered file input directly
+    const galleryItem = screen.getByRole('menuitem', { name: /from gallery/i })
+    fireEvent.click(galleryItem)
+
     expect(clickSpy).toHaveBeenCalledTimes(1)
-  })
-
-  it('in mobile mode, clicking add opens menu with Take photo and From gallery', () => {
-    vi.spyOn(canTakeModule, 'useCanTakePhoto').mockReturnValue(true)
-    const onAddPhotos = vi.fn()
-    const onRemovePhoto = vi.fn()
-
-    render(
-      <IntakePhotoPicker
-        photos={[]}
-        onAddPhotos={onAddPhotos}
-        onRemovePhoto={onRemovePhoto}
-      />,
-    )
-
-    const addBtn = screen.getByRole('button', { name: 'Add photo' })
-    fireEvent.click(addBtn)
-
-    expect(screen.getByRole('menu')).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /take photo/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /from gallery/i })).toBeInTheDocument()
   })
 
   it('in mobile mode, selecting Take photo launches InAppCamera and captures photo', () => {

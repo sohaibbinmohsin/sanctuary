@@ -138,7 +138,8 @@ export async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
       cols.has('life_stage') &&
       cols.has('intake_source') &&
       cols.has('animal_count') &&
-      cols.has('group_breakdown')
+      cols.has('group_breakdown') &&
+      cols.has('archived')
     ) {
       return
     }
@@ -157,6 +158,7 @@ export async function ensureReportColumns(db: SanctuaryDb): Promise<void> {
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN intake_source TEXT`).catch(() => {})
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN animal_count INTEGER`).catch(() => {})
         await db.execute(`ALTER TABLE rescue_reports ADD COLUMN group_breakdown TEXT`).catch(() => {})
+        await db.execute(`ALTER TABLE rescue_reports ADD COLUMN archived INTEGER DEFAULT 0`).catch(() => {})
       }
     }
   } catch (err) {
@@ -192,7 +194,7 @@ export async function searchFrequentCallers(
           location_area as area, 
           COUNT(*) as count
         FROM rescue_reports
-        WHERE org_id = ? AND reporter_name IS NOT NULL AND reporter_name != ''
+        WHERE org_id = ? AND (archived IS NULL OR archived = 0) AND reporter_name IS NOT NULL AND reporter_name != ''
       `
       const params: any[] = [orgId]
 
@@ -254,6 +256,7 @@ export async function createRescueReport(
     intake_source: input.intakeSource || 'citizen',
     animal_count: input.animalCount && input.animalCount > 0 ? input.animalCount : 1,
     group_breakdown: input.groupBreakdown ?? null,
+    archived: 0,
     stage_logged_at: now,
     stage_accepted_at: null,
     stage_dispatched_at: null,
@@ -287,6 +290,7 @@ export async function createRescueReport(
     intake_source: report.intake_source,
     animal_count: report.animal_count,
     group_breakdown: report.group_breakdown,
+    archived: report.archived,
     stage_logged_at: report.stage_logged_at,
     stage_accepted_at: report.stage_accepted_at,
     stage_dispatched_at: report.stage_dispatched_at,
@@ -460,7 +464,7 @@ export async function getRescueReports(
     filterClause = ` AND status IN ('attended', 'cancelled')`
   }
 
-  const sql = `SELECT * FROM rescue_reports WHERE org_id = ?${filterClause} ORDER BY created_at DESC`
+  const sql = `SELECT * FROM rescue_reports WHERE org_id = ? AND (archived IS NULL OR archived = 0)${filterClause} ORDER BY created_at DESC`
   return db.getAll<RescueReport>(sql, [orgId])
 }
 
@@ -472,8 +476,23 @@ export async function getRescueReportById(
   reportId: string,
 ): Promise<RescueReport | null> {
   return db.getOptional<RescueReport>(
-    `SELECT * FROM rescue_reports WHERE id = ?`,
+    `SELECT * FROM rescue_reports WHERE id = ? AND (archived IS NULL OR archived = 0)`,
     [reportId],
+  )
+}
+
+/**
+ * Soft-deletes a rescue report by marking it archived.
+ */
+export async function archiveRescueReport(
+  db: SanctuaryDb,
+  reportId: string,
+): Promise<void> {
+  await ensureReportColumns(db)
+  const now = new Date().toISOString()
+  await db.execute(
+    `UPDATE rescue_reports SET archived = 1, updated_at = ? WHERE id = ?`,
+    [now, reportId],
   )
 }
 
@@ -684,7 +703,7 @@ export async function getRescueOperationsSummary(
       rows = await db.getAll<{ status: string; count: number }>(
         `SELECT status, COUNT(*) as count
          FROM rescue_reports
-         WHERE org_id = ?
+         WHERE org_id = ? AND (archived IS NULL OR archived = 0)
          GROUP BY status`,
         [orgId],
       )
@@ -718,7 +737,7 @@ export async function getRescueCategoryBreakdown(
   const catRows = await db.getAll<{ category: string; count: number }>(
     `SELECT category, COUNT(*) as count
      FROM rescue_reports
-     WHERE org_id = ?
+     WHERE org_id = ? AND (archived IS NULL OR archived = 0)
      GROUP BY category`,
     [orgId],
   ).catch(() => [])
@@ -734,7 +753,7 @@ export async function getRescueCategoryBreakdown(
   const legalRows = await db.getAll<{ count: number }>(
     `SELECT COUNT(*) as count
      FROM rescue_reports
-     WHERE org_id = ? AND category = 'cruelty' AND legal_notes IS NOT NULL AND legal_notes != ''`,
+     WHERE org_id = ? AND (archived IS NULL OR archived = 0) AND category = 'cruelty' AND legal_notes IS NOT NULL AND legal_notes != ''`,
     [orgId],
   ).catch(() => [])
   const crueltyLegalNotice = Number(legalRows[0]?.count) || 0
@@ -742,7 +761,7 @@ export async function getRescueCategoryBreakdown(
   const dismissedRows = await db.getAll<{ count: number }>(
     `SELECT COUNT(*) as count
      FROM rescue_reports
-     WHERE org_id = ? AND category = 'cruelty' AND dismissal_reason IS NOT NULL AND dismissal_reason != ''`,
+     WHERE org_id = ? AND (archived IS NULL OR archived = 0) AND category = 'cruelty' AND dismissal_reason IS NOT NULL AND dismissal_reason != ''`,
     [orgId],
   ).catch(() => [])
   const crueltyDismissed = Number(dismissedRows[0]?.count) || 0
@@ -770,7 +789,7 @@ export async function getRescueSpeciesBreakdown(
        SUM(CASE WHEN life_stage = 'child' THEN ${countExpr} ELSE 0 END) as child_count,
        SUM(CASE WHEN life_stage != 'child' OR life_stage IS NULL THEN ${countExpr} ELSE 0 END) as adult_count
      FROM rescue_reports
-     WHERE org_id = ?
+     WHERE org_id = ? AND (archived IS NULL OR archived = 0)
      GROUP BY species
      ORDER BY count DESC`,
     [orgId],
@@ -792,7 +811,7 @@ export async function getRescueHotspots(
   const rows = await db.getAll<{ location_area: string; city: string | null; count: number }>(
     `SELECT location_area, city, COUNT(*) as count
      FROM rescue_reports
-     WHERE org_id = ? AND location_area IS NOT NULL AND location_area != ''
+     WHERE org_id = ? AND (archived IS NULL OR archived = 0) AND location_area IS NOT NULL AND location_area != ''
      GROUP BY location_area, city
      ORDER BY count DESC
      LIMIT ?`,
@@ -827,7 +846,7 @@ export async function getRescueMonthlyTrend(
   const rows = await db.getAll<{ month: string; count: number }>(
     `SELECT substr(created_at, 1, 7) as month, COUNT(*) as count
      FROM rescue_reports
-     WHERE org_id = ? AND created_at >= ? AND created_at <= ?
+     WHERE org_id = ? AND (archived IS NULL OR archived = 0) AND created_at >= ? AND created_at <= ?
      GROUP BY month`,
     [orgId, from, `${to}T23:59:59.999Z`],
   ).catch(() => [])

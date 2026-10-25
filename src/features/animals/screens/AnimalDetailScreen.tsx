@@ -58,7 +58,12 @@ import {
   deletePhoto,
   deletePhotosForAnimal,
   getLocalPhoto,
+  queuePhoto,
 } from '@/features/photos/domain/photos'
+import {
+  IntakePhotoPicker,
+  type StagedPhoto,
+} from '@/features/animals/components/IntakePhotoPicker'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
 import { StatusSingleSelect } from '@/features/animals/components/StatusSingleSelect'
@@ -179,6 +184,8 @@ export function AnimalDetailScreen() {
     toDatetimeLocalValue(new Date().toISOString()),
   )
   const [statusNotes, setStatusNotes] = useState('')
+  const [statusPhotos, setStatusPhotos] = useState<StagedPhoto[]>([])
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [clinicName, setClinicName] = useState('')
   const [attendingVet, setAttendingVet] = useState('')
   const [partnerName, setPartnerName] = useState('')
@@ -514,6 +521,10 @@ export function AnimalDetailScreen() {
     setAttendingVet('')
     setPartnerName('')
     setPartnerContact('')
+    setStatusPhotos((current) => {
+      current.forEach((p) => URL.revokeObjectURL(p.previewUrl))
+      return []
+    })
     setError(null)
   }
 
@@ -564,18 +575,43 @@ export function AnimalDetailScreen() {
         fullNotes = fullNotes ? `${extraParts.join(' · ')}\n${fullNotes}` : extraParts.join(' · ')
       }
 
+      let fullNotesWithPhotos = fullNotes
+      if (statusPhotos.length > 0) {
+        const photoIds: string[] = []
+        for (const photo of statusPhotos) {
+          try {
+            const photoRecord = await queuePhoto(db, {
+              orgId: member.orgId,
+              animalId: id,
+              blob: photo.blob,
+              captureSource: photo.captureSource,
+              verified: photo.captureSource === 'camera',
+            })
+            photoIds.push(photoRecord.id)
+          } catch (photoErr) {
+            console.warn('Could not queue status photo', photoErr)
+          }
+        }
+        if (photoIds.length > 0) {
+          const photoTokens = photoIds.map((pid) => `[photo:${pid}]`).join(' ')
+          fullNotesWithPhotos = fullNotesWithPhotos
+            ? `${fullNotesWithPhotos}\n${photoTokens}`
+            : photoTokens
+        }
+      }
+
       await setSingleStatusAssignment(db, {
         orgId: member.orgId,
         animalId: id,
         statusId,
         treatedAt: statusEffectiveAt,
-        notes: fullNotes || undefined,
+        notes: fullNotesWithPhotos || undefined,
       })
       await addTreatment(db, {
         orgId: member.orgId,
         animalId: id,
         treatmentType: 'status',
-        notes: fullNotes ? `${label} - ${fullNotes}` : label,
+        notes: fullNotesWithPhotos ? `${label} - ${fullNotesWithPhotos}` : label,
         treatedAt: effectiveIso,
       })
       setShowStatusModal(false)
@@ -584,6 +620,10 @@ export function AnimalDetailScreen() {
       setAttendingVet('')
       setPartnerName('')
       setPartnerContact('')
+      setStatusPhotos((current) => {
+        current.forEach((p) => URL.revokeObjectURL(p.previewUrl))
+        return []
+      })
       setToast('Status updated')
       await reload()
     } catch (err) {
@@ -1171,6 +1211,23 @@ export function AnimalDetailScreen() {
                 }
               }
 
+              // Extract any attached photos
+              const photoIdMatches = displayNotes
+                ? Array.from(displayNotes.matchAll(/\[photo:([a-zA-Z0-9_-]+)\]/g))
+                : []
+              const attachedPhotoIds = photoIdMatches.map((m) => m[1])
+              const cleanDisplayNotes = displayNotes
+                ? displayNotes.replace(/\[photo:[a-zA-Z0-9_-]+\]/g, '').trim() || null
+                : null
+
+              const attachedPhotoUrls = attachedPhotoIds
+                .map((pid) => {
+                  const pItem = photos.find((p) => p.photo.id === pid)
+                  const url = pItem?.url || null
+                  return { photoId: pid, url }
+                })
+                .filter((item): item is { photoId: string; url: string } => Boolean(item.url))
+
               return (
                 <div className="timeline-entry" key={t.id}>
                   <div className="timeline-track">
@@ -1185,8 +1242,23 @@ export function AnimalDetailScreen() {
                         ? formatCareTimestamp(t.treated_at)
                         : 'Unknown date'}
                     </div>
-                    {displayNotes ? (
-                      <div className="timeline-item__notes">{displayNotes}</div>
+                    {cleanDisplayNotes ? (
+                      <div className="timeline-item__notes">{cleanDisplayNotes}</div>
+                    ) : null}
+                    {attachedPhotoUrls.length > 0 ? (
+                      <div className="timeline-item__photos">
+                        {attachedPhotoUrls.map(({ photoId, url }) => (
+                          <button
+                            key={photoId}
+                            type="button"
+                            className="timeline-photo-square pressable"
+                            onClick={() => setLightboxUrl(url)}
+                            aria-label="View status photo"
+                          >
+                            <img src={url} alt="Status photo" />
+                          </button>
+                        ))}
+                      </div>
                     ) : null}
                   </div>
                 </div>
@@ -1610,6 +1682,25 @@ export function AnimalDetailScreen() {
             onChange={(e) => setStatusNotes(e.target.value)}
             placeholder="e.g. Cleared quarantine, moved to foster..."
           />
+          <div className="stack stack--tight">
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <span className="field__label">Photo</span>
+              <span className="field__hint">optional</span>
+            </div>
+            <IntakePhotoPicker
+              photos={statusPhotos}
+              onAddPhotos={(newPhotos) =>
+                setStatusPhotos((current) => [...current, ...newPhotos])
+              }
+              onRemovePhoto={(photoId) => {
+                setStatusPhotos((current) => {
+                  const target = current.find((p) => p.id === photoId)
+                  if (target) URL.revokeObjectURL(target.previewUrl)
+                  return current.filter((p) => p.id !== photoId)
+                })
+              }}
+            />
+          </div>
           {error ? <p className="form-error">{error}</p> : null}
           <div className="responsive-modal__actions">
             <Button type="submit" variant="primary" disabled={!statusId}>
@@ -1872,6 +1963,31 @@ export function AnimalDetailScreen() {
           </div>
         </form>
       </ResponsiveSheetModal>
+
+      {lightboxUrl ? (
+        <div
+          className="proof-viewer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Photo preview"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            type="button"
+            className="proof-viewer__close"
+            aria-label="Close"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <X size={22} weight="bold" aria-hidden />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Status photo preview"
+            className="proof-viewer__img"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      ) : null}
     </section>
   )
 }
