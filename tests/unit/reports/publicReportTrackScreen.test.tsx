@@ -22,7 +22,14 @@ const mockReport = {
 vi.mock('@/shared/hooks/useDb', () => ({
   useDb: () => ({
     getOptional: vi.fn().mockImplementation(async (_sql: string, params: any[]) => {
-      if (params?.includes('SANCTUARY-0142') || params?.includes('Sanctuary-0142')) return mockReport
+      if (
+        params?.includes('SANCTUARY-0142') ||
+        params?.includes('Sanctuary-0142') ||
+        params?.includes('Sanctuary-R0142') ||
+        params?.includes('SANCTUARY-R0142')
+      ) {
+        return mockReport
+      }
       return null
     }),
     getAll: vi.fn().mockResolvedValue([]),
@@ -36,7 +43,7 @@ describe('PublicReportTrackScreen', () => {
     vi.clearAllMocks()
   })
 
-  it('renders case number in sentence case and pipeline status with date and time', async () => {
+  it('renders case number as a heading with pure numbers and pipeline status', async () => {
     render(
       <MemoryRouter initialEntries={['/report/track/SANCTUARY-0142']}>
         <Routes>
@@ -44,10 +51,82 @@ describe('PublicReportTrackScreen', () => {
         </Routes>
       </MemoryRouter>
     )
-    expect(await screen.findByText('Case #Sanctuary-0142')).toBeInTheDocument()
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Case #0142' })
+    expect(heading).toBeInTheDocument()
     expect(screen.getAllByText(/Logged/i)[0]).toBeInTheDocument()
     expect(screen.getByText(/Dispatched/i)).toBeInTheDocument()
     expect(screen.getByText('Oct 23')).toBeInTheDocument()
+  })
+
+  it('renders thank you message, reality check, and legal advocacy context', async () => {
+    render(
+      <MemoryRouter initialEntries={['/report/track/SANCTUARY-0142']}>
+        <Routes>
+          <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await screen.findByRole('heading', { level: 1, name: 'Case #0142' })
+    // The report was created in the past (> 12 hours ago), so extended delay + legal advocacy copy is displayed
+    expect(screen.getByText(/Still awaiting an available rescue unit/i)).toBeInTheDocument()
+    expect(screen.getByText(/Your report is already making a difference/i)).toBeInTheDocument()
+    expect(screen.getByText(/animal rights lawyers and policy advocates/i)).toBeInTheDocument()
+  })
+
+  it('renders rescuing partner or network dispatch card with marketing visibility', async () => {
+    render(
+      <MemoryRouter initialEntries={['/report/track/SANCTUARY-0142']}>
+        <Routes>
+          <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await screen.findByRole('heading', { level: 1, name: 'Case #0142' })
+    // In logged state with Lahore city, displays Network Dispatch
+    expect(screen.getByText(/Network Dispatch Active/i)).toBeInTheDocument()
+    expect(screen.getByText(/Broadcasting across verified partner rescue units and institutions in Lahore/i)).toBeInTheDocument()
+  })
+
+  it('renders assigned partner with logo, name, and social follow button when accepted', async () => {
+    localStorage.setItem(
+      'sanctuary_public_reports_v1',
+      JSON.stringify({
+        'PARC-R200': {
+          ...mockReport,
+          report_number: 'PARC-R200',
+          status: 'accepted',
+          city: 'Islamabad',
+        },
+      })
+    )
+    render(
+      <MemoryRouter initialEntries={['/report/track/PARC-R200']}>
+        <Routes>
+          <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await screen.findByRole('heading', { level: 1, name: 'Case #200' })
+    expect(screen.getByText('Police Animal Rescue Center')).toBeInTheDocument()
+    expect(screen.getByText(/Assigned Responding Unit/i)).toBeInTheDocument()
+    const followLink = screen.getByRole('link', { name: /Support and follow their work/i })
+    expect(followLink).toHaveAttribute('href', 'https://www.instagram.com/parcpoliceanimalrescuecentre/')
+  })
+
+  it('collapses case details into expandable details element', async () => {
+    render(
+      <MemoryRouter initialEntries={['/report/track/SANCTUARY-0142']}>
+        <Routes>
+          <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await screen.findByRole('heading', { level: 1, name: 'Case #0142' })
+    expect(screen.getByText(/View submitted report details/i)).toBeInTheDocument()
+    expect(screen.getByText('Chief Complaint')).toBeInTheDocument()
+    expect(screen.getByText('Animal Details')).toBeInTheDocument()
+    expect(screen.getByText('Rescue Location')).toBeInTheDocument()
+    expect(screen.getByText('Reporter Details')).toBeInTheDocument()
   })
 
   it('masks reporter personal contact data', async () => {
@@ -58,7 +137,8 @@ describe('PublicReportTrackScreen', () => {
         </Routes>
       </MemoryRouter>
     )
-    expect(await screen.findByText('0300 ···· 567')).toBeInTheDocument()
+    await screen.findByRole('heading', { level: 1, name: 'Case #0142' })
+    expect(screen.getByText('0300 ···· 567')).toBeInTheDocument()
     expect(screen.getByText('42101-·······-1')).toBeInTheDocument()
     expect(screen.queryByText('03001234567')).toBeNull()
   })
@@ -71,7 +151,7 @@ describe('PublicReportTrackScreen', () => {
         </Routes>
       </MemoryRouter>
     )
-    await screen.findByText(/SANCTUARY-0142/i)
+    await screen.findByRole('heading', { level: 1, name: 'Case #0142' })
     expect(screen.queryByRole('button', { name: /Edit/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /Dismiss/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /Delete/i })).toBeNull()
@@ -95,7 +175,7 @@ describe('PublicReportTrackScreen', () => {
         </Routes>
       </MemoryRouter>
     )
-    expect(await screen.findByText(/SANCTUARY-R555/i)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Case #555' })).toBeInTheDocument()
     expect(screen.getByText('Saved in localStorage')).toBeInTheDocument()
   })
 
@@ -117,7 +197,7 @@ describe('PublicReportTrackScreen', () => {
         </Routes>
       </MemoryRouter>
     )
-    expect(await screen.findByText(/SANCTUARY-R777/i)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Case #777' })).toBeInTheDocument()
     expect(screen.getByText('Array storage format')).toBeInTheDocument()
   })
 
@@ -148,7 +228,7 @@ describe('PublicReportTrackScreen', () => {
         </Routes>
       </MemoryRouter>
     )
-    await screen.findByText(/SANCTUARY-0142/i)
+    await screen.findByRole('heading', { level: 1, name: 'Case #0142' })
     const copyBtn = screen.getByRole('button', { name: /Copy tracking link/i })
     fireEvent.click(copyBtn)
 
@@ -178,7 +258,7 @@ describe('PublicReportTrackScreen', () => {
         </Routes>
       </MemoryRouter>
     )
-    expect(await screen.findByText(/SANCTUARY-R777/i)).toBeInTheDocument()
+    await screen.findByRole('heading', { level: 1, name: 'Case #777' })
     expect(screen.getByText('Case Photos')).toBeInTheDocument()
     const img = screen.getByAltText('Case photo 1')
     expect(img).toHaveAttribute('src', 'https://images.example.com/rescue-dog.jpg')
@@ -192,7 +272,7 @@ describe('PublicReportTrackScreen', () => {
         </Routes>
       </MemoryRouter>
     )
-    await screen.findByText(/SANCTUARY-0142/i)
+    await screen.findByRole('heading', { level: 1, name: 'Case #0142' })
     expect(container.textContent).not.toContain('\u2014')
     expect(container.textContent).not.toContain('--')
   })

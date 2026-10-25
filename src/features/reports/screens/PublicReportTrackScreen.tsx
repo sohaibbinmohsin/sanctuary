@@ -8,11 +8,23 @@ import {
   Clock,
   MapPin,
   ShieldCheck,
+  Heart,
+  Scales,
+  Broadcast,
+  FileText,
+  CaretDown,
+  Sparkle,
+  ArrowSquareOut,
 } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
 import { maskPhoneNumber, maskCnic } from '@/features/reports/domain/privacyMask'
 import { useReportTrackSeo } from '@/features/reports/domain/reportSeo'
+import {
+  extractCaseNumber,
+  resolveRescuingPartner,
+  getTrackingNotice,
+} from '@/features/reports/domain/partners'
 import { SanctuaryFooter } from '@/shared/ui/SanctuaryFooter'
 import '@/features/reports/publicReport.css'
 
@@ -36,24 +48,6 @@ const STAGE_ORDER: Record<string, number> = {
   dispatched: 2,
   attended: 3,
   resolved: 4,
-}
-
-function getStatusBanner(status?: string | null): string {
-  const s = (status || '').toLowerCase()
-  switch (s) {
-    case 'logged':
-      return 'Report received by the rescue network. Responders are reviewing the details.'
-    case 'accepted':
-      return 'Report accepted by responders. Field team is preparing for dispatch.'
-    case 'dispatched':
-      return "Rescue unit has been dispatched to the animal's location."
-    case 'attended':
-      return 'Responders are currently on scene attending to the animal.'
-    case 'resolved':
-      return 'Rescue completed. Case has been resolved.'
-    default:
-      return 'Case update in progress.'
-  }
 }
 
 function getStatusBadgeText(status?: string | null): string {
@@ -156,6 +150,9 @@ export function PublicReportTrackScreen() {
       let fetchedPhotos: any[] = []
 
       const searchKey = (reportNumber || '').trim()
+      const digits = searchKey.replace(/\D+/g, '')
+      const sanctuaryKey = digits ? `Sanctuary-R${digits}` : searchKey
+      const upperSanctuaryKey = digits ? `SANCTUARY-R${digits}` : searchKey
       const altKey = /^sanctuary-/i.test(searchKey)
         ? (searchKey.startsWith('Sanctuary-')
             ? 'SANCTUARY-' + searchKey.slice('Sanctuary-'.length)
@@ -167,13 +164,13 @@ export function PublicReportTrackScreen() {
         try {
           if (typeof db.getOptional === 'function') {
             fetchedReport = await db.getOptional(
-              'SELECT * FROM rescue_reports WHERE report_number = ? OR report_number = ?',
-              [searchKey, altKey]
+              'SELECT * FROM rescue_reports WHERE report_number = ? OR report_number = ? OR report_number = ? OR report_number = ?',
+              [searchKey, altKey, sanctuaryKey, upperSanctuaryKey]
             )
           } else if (typeof db.getAll === 'function') {
             const rows = await db.getAll(
-              'SELECT * FROM rescue_reports WHERE report_number = ? OR report_number = ?',
-              [searchKey, altKey]
+              'SELECT * FROM rescue_reports WHERE report_number = ? OR report_number = ? OR report_number = ? OR report_number = ?',
+              [searchKey, altKey, sanctuaryKey, upperSanctuaryKey]
             )
             fetchedReport = rows?.[0] || null
           }
@@ -216,11 +213,19 @@ export function PublicReportTrackScreen() {
                     item &&
                     (item.report_number === searchKey ||
                       item.report_number === altKey ||
+                      item.report_number === sanctuaryKey ||
+                      item.report_number === upperSanctuaryKey ||
                       item.reportNumber === searchKey ||
-                      item.reportNumber === altKey)
+                      item.reportNumber === altKey ||
+                      (digits && String(item.report_number || '').replace(/\D+/g, '') === digits))
                 ) || null
             } else if (parsed && typeof parsed === 'object') {
-              fetchedReport = parsed[searchKey] || parsed[altKey] || null
+              fetchedReport =
+                parsed[searchKey] ||
+                parsed[altKey] ||
+                parsed[sanctuaryKey] ||
+                parsed[upperSanctuaryKey] ||
+                null
             }
           }
         } catch {
@@ -231,7 +236,10 @@ export function PublicReportTrackScreen() {
       // 3. Demo fallback for Sanctuary-R101 / Sanctuary-R000
       if (
         !fetchedReport &&
-        (searchKey.toLowerCase() === 'sanctuary-r101' || searchKey.toLowerCase() === 'sanctuary-r000')
+        (searchKey.toLowerCase() === 'sanctuary-r101' ||
+          searchKey.toLowerCase() === 'sanctuary-r000' ||
+          digits === '101' ||
+          digits === '000')
       ) {
         fetchedReport = {
           id: 'demo-r101',
@@ -391,7 +399,6 @@ export function PublicReportTrackScreen() {
   const activeStageIndex = isResolved ? 4 : (STAGE_ORDER[normalizedStatus] ?? 0)
 
   const statusBadgeText = getStatusBadgeText(report.status)
-  const statusBannerText = getStatusBanner(report.status)
   const maskedPhone = maskPhoneNumber(report.reporter_phone)
   const maskedCnic = maskCnic(report.reporter_cnic)
   const animalCount = Number(report.animal_count) || 1
@@ -400,7 +407,9 @@ export function PublicReportTrackScreen() {
     ? report.life_stage.charAt(0).toUpperCase() + report.life_stage.slice(1)
     : 'Not specified'
 
-  const formattedCaseNumber = formatReportNumber(report.report_number || reportNumber)
+  const caseNumber = extractCaseNumber(report.report_number || reportNumber)
+  const notice = getTrackingNotice(report)
+  const partner = resolveRescuingPartner(report)
 
   const coordinatesText =
     typeof report.latitude === 'number' && typeof report.longitude === 'number'
@@ -429,19 +438,15 @@ export function PublicReportTrackScreen() {
           <div className="public-track-card">
             <div className="public-track">
               <div className="public-track__header-row">
-                <span className="public-track__case-pill">
-                  Case #{formattedCaseNumber}
-                </span>
+                <div className="public-track__heading-group">
+                  <span className="public-track__case-label">Rescue Report</span>
+                  <h1 className="public-track__case-heading">Case #{caseNumber}</h1>
+                </div>
                 <span
                   className={`public-track__status-badge public-track__status-badge--${normalizedStatus}`}
                 >
                   {statusBadgeText}
                 </span>
-              </div>
-
-              <div className="public-track__banner">
-                <Clock size={20} weight="bold" className="public-track__banner-icon" aria-hidden />
-                <span>{statusBannerText}</span>
               </div>
 
               <div className="public-track__pipeline">
@@ -494,125 +499,214 @@ export function PublicReportTrackScreen() {
                 </ol>
               </div>
 
-              <div className="public-track__section">
-                <h3 className="public-track__section-title">Chief Complaint</h3>
-                <p className="public-track__complaint-text">
-                  {report.chief_complaint || 'No description provided'}
-                </p>
+              <div className={`public-track__notice public-track__notice--${notice.type}`}>
+                <div className="public-track__notice-header">
+                  {notice.type === 'resolved' ? (
+                    <Check size={18} weight="bold" className="public-track__notice-header-icon" aria-hidden />
+                  ) : notice.type === 'active' ? (
+                    <Heart size={18} weight="fill" className="public-track__notice-header-icon" aria-hidden />
+                  ) : notice.type === 'queued' ? (
+                    <Clock size={18} weight="bold" className="public-track__notice-header-icon" aria-hidden />
+                  ) : notice.type === 'extended' ? (
+                    <Scales size={18} weight="bold" className="public-track__notice-header-icon" aria-hidden />
+                  ) : (
+                    <Sparkle size={18} weight="fill" className="public-track__notice-header-icon" aria-hidden />
+                  )}
+                  <h2 className="public-track__notice-title">{notice.headline}</h2>
+                </div>
+                <p className="public-track__notice-body">{notice.body}</p>
+                {notice.subtext && (
+                  <p className="public-track__notice-subtext">{notice.subtext}</p>
+                )}
+                {notice.advocacyNote && (
+                  <div className="public-track__notice-advocacy">
+                    <Scales size={18} weight="bold" className="public-track__notice-advocacy-icon" aria-hidden />
+                    <span>{notice.advocacyNote}</span>
+                  </div>
+                )}
               </div>
 
-              <div className="public-track__section">
-                <h3 className="public-track__section-title">Animal Details</h3>
-                <div className="public-track__grid">
-                  <div className="public-track__item">
-                    <span className="public-track__item-label">Species</span>
-                    <span className="public-track__item-value">{report.species || 'Animal'}</span>
+              <div className="public-track__rescuer-card">
+                {partner ? (
+                  <div className="public-track__rescuer-content">
+                    <div className="public-track__rescuer-header">
+                      <img
+                        src={partner.logoUrl}
+                        alt={`${partner.name} logo`}
+                        className="public-track__rescuer-logo"
+                        width={52}
+                        height={52}
+                      />
+                      <div className="public-track__rescuer-meta">
+                        <div className="public-track__rescuer-badge">
+                          <ShieldCheck size={14} weight="bold" aria-hidden />
+                          <span>Assigned Responding Unit</span>
+                        </div>
+                        <h3 className="public-track__rescuer-name">{partner.name}</h3>
+                        <span className="public-track__rescuer-region">{partner.region}</span>
+                      </div>
+                    </div>
+                    <p className="public-track__rescuer-desc">{partner.description}</p>
+                    <div className="public-track__rescuer-actions">
+                      <a
+                        href={partner.socialUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="public-track__rescuer-btn"
+                      >
+                        <span>Support and follow their work</span>
+                        <ArrowSquareOut size={13} weight="bold" aria-hidden />
+                      </a>
+                    </div>
                   </div>
-                  <div className="public-track__item">
-                    <span className="public-track__item-label">Animal count</span>
-                    <span className="public-track__item-value">{countText}</span>
+                ) : (
+                  <div className="public-track__rescuer-dispatch">
+                    <div className="public-track__rescuer-dispatch-header">
+                      <Broadcast size={20} weight="bold" className="public-track__rescuer-dispatch-icon" aria-hidden />
+                      <div>
+                        <h3 className="public-track__rescuer-name">Network Dispatch Active</h3>
+                        <span className="public-track__rescuer-region">
+                          Broadcasting across verified partner rescue units and institutions in {report.city || 'Punjab'}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="public-track__rescuer-dispatch-note">
+                      Responders monitor the live network intake queue and claim cases based on emergency triage and vehicle availability.
+                    </p>
                   </div>
-                  <div className="public-track__item">
-                    <span className="public-track__item-label">Life stage</span>
-                    <span className="public-track__item-value">{lifeStageText}</span>
+                )}
+              </div>
+
+              <details className="public-track__details">
+                <summary className="public-track__details-summary">
+                  <div className="public-track__details-title">
+                    <FileText size={18} weight="bold" aria-hidden />
+                    <span>View submitted report details</span>
                   </div>
-                  {report.group_breakdown && (
-                    <div className="public-track__item">
-                      <span className="public-track__item-label">Breakdown</span>
-                      <span className="public-track__item-value">{report.group_breakdown}</span>
+                  <CaretDown size={16} weight="bold" className="public-track__details-chevron" aria-hidden />
+                </summary>
+                <div className="public-track__details-content">
+                  <div className="public-track__section">
+                    <h3 className="public-track__section-title">Chief Complaint</h3>
+                    <p className="public-track__complaint-text">
+                      {report.chief_complaint || 'No description provided'}
+                    </p>
+                  </div>
+
+                  <div className="public-track__section">
+                    <h3 className="public-track__section-title">Animal Details</h3>
+                    <div className="public-track__grid">
+                      <div className="public-track__item">
+                        <span className="public-track__item-label">Species</span>
+                        <span className="public-track__item-value">{report.species || 'Animal'}</span>
+                      </div>
+                      <div className="public-track__item">
+                        <span className="public-track__item-label">Animal count</span>
+                        <span className="public-track__item-value">{countText}</span>
+                      </div>
+                      <div className="public-track__item">
+                        <span className="public-track__item-label">Life stage</span>
+                        <span className="public-track__item-value">{lifeStageText}</span>
+                      </div>
+                      {report.group_breakdown && (
+                        <div className="public-track__item">
+                          <span className="public-track__item-label">Breakdown</span>
+                          <span className="public-track__item-value">{report.group_breakdown}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="public-track__section">
+                    <h3 className="public-track__section-title">
+                      <MapPin size={16} aria-hidden />
+                      <span>Rescue Location</span>
+                    </h3>
+                    <div className="public-track__grid">
+                      <div className="public-track__item">
+                        <span className="public-track__item-label">Area</span>
+                        <span className="public-track__item-value">
+                          {report.location_area || 'Not specified'}
+                        </span>
+                      </div>
+                      <div className="public-track__item">
+                        <span className="public-track__item-label">City</span>
+                        <span className="public-track__item-value">{report.city || 'Not specified'}</span>
+                      </div>
+                      <div className="public-track__item">
+                        <span className="public-track__item-label">Landmark</span>
+                        <span className="public-track__item-value">
+                          {report.location_landmark || 'None'}
+                        </span>
+                      </div>
+                      {coordinatesText && (
+                        <div className="public-track__item">
+                          <span className="public-track__item-label">Coordinates</span>
+                          <span className="public-track__item-value">{coordinatesText}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {photos && photos.length > 0 && (
+                    <div className="public-track__section">
+                      <h3 className="public-track__section-title">Case Photos</h3>
+                      <div className="public-track__photos-gallery">
+                        {photos.map((photo: any, idx: number) => {
+                          const src =
+                            typeof photo === 'string'
+                              ? photo
+                              : photo?.url ||
+                                photo?.data_url ||
+                                (photo?.r2_key ? `/api/photos/${photo.r2_key}` : '')
+                          if (!src) return null
+                          return (
+                            <img
+                              key={photo.id || idx}
+                              src={src}
+                              alt={`Case photo ${idx + 1}`}
+                              className="public-track__photo-img"
+                            />
+                          )
+                        })}
+                      </div>
                     </div>
                   )}
-                </div>
-              </div>
 
-              <div className="public-track__section">
-                <h3 className="public-track__section-title">
-                  <MapPin size={16} aria-hidden />
-                  <span>Rescue Location</span>
-                </h3>
-                <div className="public-track__grid">
-                  <div className="public-track__item">
-                    <span className="public-track__item-label">Area</span>
-                    <span className="public-track__item-value">
-                      {report.location_area || 'Not specified'}
-                    </span>
-                  </div>
-                  <div className="public-track__item">
-                    <span className="public-track__item-label">City</span>
-                    <span className="public-track__item-value">{report.city || 'Not specified'}</span>
-                  </div>
-                  <div className="public-track__item">
-                    <span className="public-track__item-label">Landmark</span>
-                    <span className="public-track__item-value">
-                      {report.location_landmark || 'None'}
-                    </span>
-                  </div>
-                  {coordinatesText && (
-                    <div className="public-track__item">
-                      <span className="public-track__item-label">Coordinates</span>
-                      <span className="public-track__item-value">{coordinatesText}</span>
+                  <div className="public-track__section">
+                    <div className="public-track__section-header">
+                      <h3 className="public-track__section-title">
+                        <ShieldCheck size={16} aria-hidden />
+                        <span>Reporter Details</span>
+                      </h3>
+                      <span className="public-track__protected-pill">
+                        <ShieldCheck size={13} weight="bold" aria-hidden />
+                        <span>Protected</span>
+                      </span>
                     </div>
-                  )}
-                </div>
-              </div>
-
-              {photos && photos.length > 0 && (
-                <div className="public-track__section">
-                  <h3 className="public-track__section-title">Case Photos</h3>
-                  <div className="public-track__photos-gallery">
-                    {photos.map((photo: any, idx: number) => {
-                      const src =
-                        typeof photo === 'string'
-                          ? photo
-                          : photo?.url ||
-                            photo?.data_url ||
-                            (photo?.r2_key ? `/api/photos/${photo.r2_key}` : '')
-                      if (!src) return null
-                      return (
-                        <img
-                          key={photo.id || idx}
-                          src={src}
-                          alt={`Case photo ${idx + 1}`}
-                          className="public-track__photo-img"
-                        />
-                      )
-                    })}
+                    <div className="public-track__grid">
+                      <div className="public-track__item">
+                        <span className="public-track__item-label">Reporter name</span>
+                        <span className="public-track__item-value">
+                          {report.reporter_name || 'Anonymous'}
+                        </span>
+                      </div>
+                      <div className="public-track__item">
+                        <span className="public-track__item-label">Phone number</span>
+                        <span className="public-track__item-value">
+                          {maskedPhone || 'Not provided'}
+                        </span>
+                      </div>
+                      <div className="public-track__item">
+                        <span className="public-track__item-label">CNIC number</span>
+                        <span className="public-track__item-value">
+                          {maskedCnic || 'Not provided'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
-
-              <div className="public-track__section">
-                <div className="public-track__section-header">
-                  <h3 className="public-track__section-title">
-                    <ShieldCheck size={16} aria-hidden />
-                    <span>Reporter Details</span>
-                  </h3>
-                  <span className="public-track__protected-pill">
-                    <ShieldCheck size={13} weight="bold" aria-hidden />
-                    <span>Protected</span>
-                  </span>
-                </div>
-                <div className="public-track__grid">
-                  <div className="public-track__item">
-                    <span className="public-track__item-label">Reporter name</span>
-                    <span className="public-track__item-value">
-                      {report.reporter_name || 'Anonymous'}
-                    </span>
-                  </div>
-                  <div className="public-track__item">
-                    <span className="public-track__item-label">Phone number</span>
-                    <span className="public-track__item-value">
-                      {maskedPhone || 'Not provided'}
-                    </span>
-                  </div>
-                  <div className="public-track__item">
-                    <span className="public-track__item-label">CNIC number</span>
-                    <span className="public-track__item-value">
-                      {maskedCnic || 'Not provided'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+              </details>
             </div>
           </div>
 
