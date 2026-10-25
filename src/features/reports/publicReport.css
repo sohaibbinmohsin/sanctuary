@@ -1059,7 +1059,7 @@ input#report-area::-webkit-calendar-picker-indicator {
     padding: var(--space-4) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
   }
 
-  /* Full row in-flow buttons on mobile */
+  /* One full-row button per row on mobile */
   .public-report__actions {
     position: static;
     margin-top: var(--space-6);
@@ -1069,24 +1069,24 @@ input#report-area::-webkit-calendar-picker-indicator {
     box-shadow: none;
     width: 100%;
     display: flex;
+    flex-direction: column-reverse;
     gap: var(--space-3);
   }
 
-  .public-report__actions:not(.public-report__actions--split) .public-report__btn {
+  .public-report__actions .public-report__btn {
     width: 100%;
     min-height: 48px;
   }
 
   .public-report__actions--split {
     display: flex;
+    flex-direction: column-reverse;
     width: 100%;
     gap: var(--space-3);
   }
 
   .public-report__actions--split .public-report__btn {
-    flex: 1;
     width: 100%;
-    min-width: 0;
     min-height: 48px;
   }
 }
