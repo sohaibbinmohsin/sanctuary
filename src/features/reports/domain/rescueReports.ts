@@ -5,7 +5,8 @@ import {
   type ReportPhotoRecord,
 } from '@/features/sync/powersync/schema'
 import { compressImage } from '@/shared/lib/r2/upload'
-import { storeLocalPhoto } from '@/features/photos/domain/photos'
+import { storeLocalPhoto, getLocalPhoto } from '@/features/photos/domain/photos'
+import { notifyPendingMediaChanged } from '@/shared/lib/pendingMedia'
 
 export type RescueReportStage =
   | 'logged'
@@ -541,6 +542,195 @@ export async function getPhotosForReport(
     `SELECT * FROM report_photos WHERE report_id = ? ORDER BY created_at ASC`,
     [reportId],
   )
+}
+
+/**
+ * Deterministically generates a valid UUID v5-compatible string from namespace and name.
+ */
+export async function deterministicUuid(namespace: string, name: string): Promise<string> {
+  const enc = new TextEncoder()
+  const data = enc.encode(`${namespace}:${name}`)
+  let hashBuffer: ArrayBuffer
+  if (typeof crypto !== 'undefined' && crypto?.subtle) {
+    hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  } else {
+    const { createHash } = await import('crypto')
+    const h = createHash('sha256').update(data).digest()
+    hashBuffer = h.buffer.slice(h.byteOffset, h.byteOffset + h.byteLength)
+  }
+  const bytes = new Uint8Array(hashBuffer).slice(0, 16)
+  bytes[6] = (bytes[6] & 0x0f) | 0x50 // version 5
+  bytes[8] = (bytes[8] & 0x3f) | 0x80 // variant
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
+}
+
+/**
+ * Synchronizes report photos to the animal's photos table idempotently.
+ * Strictly enforces valid Postgres check constraints (capture_source = 'gallery', upload_state = 'pending' | 'uploaded').
+ */
+export async function syncReportPhotosToAnimal(
+  db: SanctuaryDb,
+  reportId: string,
+  animalId: string,
+  orgId: string,
+): Promise<void> {
+  if (!db || !reportId || !animalId || !orgId) return
+
+  const reportPhotos = await getPhotosForReport(db, reportId)
+  if (!reportPhotos || reportPhotos.length === 0) return
+
+  const now = new Date().toISOString()
+  const existingPhotos = await db.getAll<{ id: string; r2_key: string | null }>(
+    `SELECT id, r2_key FROM photos WHERE animal_id = ?`,
+    [animalId],
+  ).catch(() => [])
+
+  const existingKeys = new Set(
+    existingPhotos.map((p) => p.r2_key).filter((k): k is string => Boolean(k)),
+  )
+
+  for (const rp of reportPhotos) {
+    const animalPhotoId = await deterministicUuid(animalId, rp.id)
+    const alreadyExists =
+      existingPhotos.some((p) => p.id === animalPhotoId) ||
+      (rp.r2_key && existingKeys.has(rp.r2_key))
+
+    if (alreadyExists) {
+      if (rp.r2_key) {
+        await db.execute(
+          `UPDATE photos SET r2_key = ?, local_only = 0, upload_state = 'uploaded' WHERE id = ? AND (r2_key IS NULL OR upload_state != 'uploaded')`,
+          [rp.r2_key, animalPhotoId],
+        ).catch(() => {})
+      }
+      continue
+    }
+
+    try {
+      const blob = await getLocalPhoto(rp.id)
+      if (blob) {
+        await storeLocalPhoto(animalPhotoId, blob)
+      }
+    } catch {
+      // Non-fatal if local cache copy fails
+    }
+
+    const hasR2 = Boolean(rp.r2_key)
+    const uploadState = hasR2 ? (rp.upload_state === 'failed' ? 'failed' : 'uploaded') : 'pending'
+
+    await db.execute(
+      `INSERT INTO photos (id, org_id, animal_id, r2_key, local_only, upload_state, capture_source, verified, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        animalPhotoId,
+        orgId,
+        animalId,
+        rp.r2_key ?? null,
+        hasR2 ? 0 : 1,
+        uploadState,
+        'gallery',
+        0,
+        rp.created_at || now,
+      ],
+    ).catch((err) => {
+      console.warn('Could not insert mirrored animal photo', err)
+    })
+  }
+
+  notifyPendingMediaChanged()
+}
+
+let reportPhotoQueueRunning: Promise<{ uploaded: number; failed: number }> | null = null
+
+/**
+ * Uploads pending report photos to cloud storage (R2).
+ */
+export async function processReportPhotoQueue(
+  db: SanctuaryDb,
+): Promise<{ uploaded: number; failed: number }> {
+  if (reportPhotoQueueRunning) return reportPhotoQueueRunning
+
+  reportPhotoQueueRunning = (async () => {
+    const { requestSignedUpload } = await import('@/shared/lib/r2/upload')
+    const pending = await db.getAll<ReportPhotoRecord>(
+      `SELECT * FROM report_photos WHERE upload_state IN ('pending', 'failed') ORDER BY created_at ASC LIMIT 10`,
+    ).catch(() => [])
+
+    let uploaded = 0
+    let failed = 0
+
+    for (const photo of pending) {
+      try {
+        const blob = await getLocalPhoto(photo.id)
+        if (!blob) {
+          if (photo.r2_key) {
+            await db.execute(
+              `UPDATE report_photos SET upload_state = 'uploaded', local_only = 0 WHERE id = ?`,
+              [photo.id],
+            )
+            uploaded += 1
+          }
+          continue
+        }
+
+        await db.execute(
+          `UPDATE report_photos SET upload_state = 'uploading' WHERE id = ?`,
+          [photo.id],
+        )
+
+        const key = `${photo.org_id}/reports/${photo.report_id}/${photo.id}.jpg`
+        const { uploadUrl, publicUrl } = await requestSignedUpload(key)
+
+        if (!uploadUrl.includes('mock=upload')) {
+          const put = await fetch(uploadUrl, {
+            method: 'PUT',
+            body: blob,
+          })
+          if (!put.ok) {
+            const detail = (await put.text().catch(() => '')).slice(0, 200)
+            throw new Error(`R2 upload failed: ${put.status}${detail ? ` ${detail}` : ''}`)
+          }
+        }
+
+        const finalKey = publicUrl || key
+        await db.execute(
+          `UPDATE report_photos SET r2_key = ?, local_only = 0, upload_state = 'uploaded' WHERE id = ?`,
+          [finalKey, photo.id],
+        )
+
+        // Mirror R2 key to animal photo if report has an associated animal
+        const reportRow = await db.getOptional<{ animal_id: string | null }>(
+          `SELECT animal_id FROM rescue_reports WHERE id = ?`,
+          [photo.report_id],
+        ).catch(() => null)
+        if (reportRow?.animal_id) {
+          const detId = await deterministicUuid(reportRow.animal_id, photo.id)
+          await db.execute(
+            `UPDATE photos SET r2_key = ?, local_only = 0, upload_state = 'uploaded' WHERE id = ? AND (r2_key IS NULL OR upload_state != 'uploaded')`,
+            [finalKey, detId],
+          ).catch(() => {})
+        }
+
+        uploaded += 1
+      } catch (err) {
+        console.warn('Report photo upload failed:', err)
+        await db.execute(
+          `UPDATE report_photos SET upload_state = 'failed' WHERE id = ?`,
+          [photo.id],
+        ).catch(() => {})
+        failed += 1
+      }
+    }
+
+    return { uploaded, failed }
+  })()
+
+  try {
+    return await reportPhotoQueueRunning
+  } finally {
+    reportPhotoQueueRunning = null
+    notifyPendingMediaChanged()
+  }
 }
 
 export type UpdateRescueReportInput = {

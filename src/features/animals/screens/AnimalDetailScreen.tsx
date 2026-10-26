@@ -51,8 +51,8 @@ import { AutocompleteField } from '@/shared/ui/AutocompleteField'
 import {
   PRESET_VET_CLINICS,
   PRESET_PARTNER_ORGS,
-  normalizeEntitySlug,
 } from '@/features/reports/domain/partnerDirectory'
+import { syncReportPhotosToAnimal } from '@/features/reports/domain/rescueReports'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import {
   deletePhoto,
@@ -429,6 +429,18 @@ export function AnimalDetailScreen() {
       const onList = await isAnimalOnChecklist(db, member.orgId, id)
       if (!isMountedRef.current) return
       setOnChecklist(onList)
+
+      try {
+        const reportRow = await db.getOptional<{ id: string }>(
+          `SELECT id FROM rescue_reports WHERE animal_id = ?`,
+          [id],
+        )
+        if (reportRow?.id) {
+          await syncReportPhotosToAnimal(db, reportRow.id, id, member.orgId)
+        }
+      } catch {
+        // Non-fatal if sync report photos encounters an issue
+      }
     }
   }
 
@@ -554,16 +566,14 @@ export function AnimalDetailScreen() {
       const extraParts: string[] = []
       if (isTreatmentOrCritical) {
         if (clinicName.trim()) {
-          const slug = normalizeEntitySlug(clinicName)
-          extraParts.push(`Clinic: ${clinicName.trim()} [${slug}]`)
+          extraParts.push(`Clinic: ${clinicName.trim()}`)
         }
         if (attendingVet.trim()) {
           extraParts.push(`Attending Vet: ${attendingVet.trim()}`)
         }
       } else if (isTransferred) {
         if (partnerName.trim()) {
-          const slug = normalizeEntitySlug(partnerName)
-          extraParts.push(`Transferred to: ${partnerName.trim()} [${slug}]`)
+          extraParts.push(`Transferred to: ${partnerName.trim()}`)
         }
         if (partnerContact.trim()) {
           extraParts.push(`Contact: ${partnerContact.trim()}`)
@@ -1217,7 +1227,10 @@ export function AnimalDetailScreen() {
                 : []
               const attachedPhotoIds = photoIdMatches.map((m) => m[1])
               const cleanDisplayNotes = displayNotes
-                ? displayNotes.replace(/\[photo:[a-zA-Z0-9_-]+\]/g, '').trim() || null
+                ? displayNotes
+                    .replace(/\[photo:[a-zA-Z0-9_-]+\]/g, '')
+                    .replace(/\s*\[[a-zA-Z0-9_-]+\]/g, '')
+                    .trim() || null
                 : null
 
               const attachedPhotoUrls = attachedPhotoIds

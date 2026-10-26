@@ -21,6 +21,7 @@ import {
   getPhotosForReport,
   deleteReportPhoto,
   archiveRescueReport,
+  syncReportPhotosToAnimal,
   formatPhoneNumber,
   validatePhoneNumber,
   formatCnic,
@@ -38,8 +39,7 @@ import {
   type ReportPhoto,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
-import { getLocalPhoto, storeLocalPhoto } from '@/features/photos/domain/photos'
-import { notifyPendingMediaChanged } from '@/shared/lib/pendingMedia'
+import { getLocalPhoto } from '@/features/photos/domain/photos'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 
@@ -413,26 +413,18 @@ export function ReportIntakeScreen() {
 
         // Add any newly staged photos
         if (stagedPhotos.length > 0) {
-          const now = new Date().toISOString()
           for (const photo of stagedPhotos) {
             await addReportPhoto(db, {
               orgId,
               reportId: id,
               blob: photo.blob,
             })
-            if (existingReport?.animal_id) {
-              try {
-                const animalPhotoId = crypto.randomUUID()
-                await storeLocalPhoto(animalPhotoId, photo.blob)
-                await db.execute(
-                  `INSERT INTO photos (id, org_id, animal_id, r2_key, local_only, upload_state, capture_source, verified, created_at)
-                   VALUES (?, ?, ?, NULL, 1, 'pending', 'upload', 0, ?)`,
-                  [animalPhotoId, orgId, existingReport.animal_id, now],
-                )
-                notifyPendingMediaChanged()
-              } catch (photoErr) {
-                console.warn('Could not mirror photo to animal', photoErr)
-              }
+          }
+          if (existingReport?.animal_id) {
+            try {
+              await syncReportPhotosToAnimal(db, id, existingReport.animal_id, orgId)
+            } catch (photoErr) {
+              console.warn('Could not mirror photos to animal', photoErr)
             }
           }
         }

@@ -36,10 +36,25 @@ const mockGetOptional = vi.fn().mockResolvedValue({
   created_at: '2026-10-06T00:00:00Z',
   updated_at: '2026-10-06T00:00:00Z',
 })
-const mockGetAll = vi.fn().mockResolvedValue([
-  { id: 'st-1', org_id: 'org-1', label: 'Intake', sort_order: 1, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
-  { id: 'st-2', org_id: 'org-1', label: 'Quarantine', sort_order: 2, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
-])
+const mockGetAll = vi.fn().mockImplementation(async (sql: string) => {
+  if (sql.includes('treatments')) {
+    return [
+      {
+        id: 'treat-1',
+        org_id: 'org-1',
+        animal_id: 'anim-1',
+        treatment_type: 'status',
+        notes: 'Under Treatment - Clinic: UVAS Small Animal Hospital [uvas-small-animal-hospital]\nPatient is doing well',
+        treated_at: '2026-10-07T12:00:00Z',
+        created_at: '2026-10-07T12:00:00Z',
+      },
+    ]
+  }
+  return [
+    { id: 'st-1', org_id: 'org-1', label: 'Intake', sort_order: 1, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+    { id: 'st-2', org_id: 'org-1', label: 'Quarantine', sort_order: 2, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+  ]
+})
 
 vi.mock('@/shared/hooks/useDb', () => ({
   useDb: () => ({
@@ -124,5 +139,24 @@ describe('AnimalDetailScreen status moved inside Timeline tab', () => {
       expect.stringContaining('UPDATE animals SET status_id = ?'),
       expect.arrayContaining(['st-2', 'anim-1']),
     )
+  })
+
+  it('hides unique id slugs from timeline notes on the frontend', async () => {
+    render(
+      <MemoryRouter initialEntries={['/animals/anim-1']}>
+        <Routes>
+          <Route path="/animals/:id" element={<AnimalDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Switch to Timeline tab
+    const timelineTab = await screen.findByRole('tab', { name: /Timeline/i })
+    fireEvent.click(timelineTab)
+
+    // Clinic name should be visible
+    expect(await screen.findByText(/Clinic: UVAS Small Animal Hospital/i)).toBeInTheDocument()
+    // Slug should NOT be visible on frontend
+    expect(screen.queryByText(/uvas-small-animal-hospital/i)).toBeNull()
   })
 })
