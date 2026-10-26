@@ -21,15 +21,13 @@ import {
   getRescueReportById,
   updateReportStage,
   completeReportWithDisposition,
-  getPhotosForReport,
   updateReportLegalNotes,
+  syncReportPhotosToAnimal,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
 import { createAnimal } from '@/features/animals/domain/animals'
 import { linkAnimals } from '@/features/animals/domain/relationships'
 import { listStatuses } from '@/features/statuses/domain/statuses'
-import { getLocalPhoto, storeLocalPhoto } from '@/features/photos/domain/photos'
-import { notifyPendingMediaChanged } from '@/shared/lib/pendingMedia'
 import { localDateString } from '@/shared/lib/checklist/missedStreak'
 import { ReportPipelineTracker } from '@/features/reports/components/ReportPipelineTracker'
 import { ReportFactsGrid } from '@/features/reports/components/ReportFactsGrid'
@@ -72,6 +70,12 @@ export function ReportDetailScreen() {
   useEffect(() => {
     loadReport(true)
   }, [loadReport])
+
+  // Ensure report photos are synced to linked animal record
+  useEffect(() => {
+    if (!db || !report?.id || !report?.animal_id || !member?.orgId) return
+    void syncReportPhotosToAnimal(db, report.id, report.animal_id, member.orgId)
+  }, [db, report?.id, report?.animal_id, member?.orgId])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -150,30 +154,7 @@ export function ReportDetailScreen() {
 
     // Transfer report photos to animal photos table and local cache
     try {
-      const reportPhotos = await getPhotosForReport(db, report.id)
-      const now = new Date().toISOString()
-      for (const p of reportPhotos) {
-        const animalPhotoId = crypto.randomUUID()
-        const localBlob = await getLocalPhoto(p.id)
-        if (localBlob) {
-          await storeLocalPhoto(animalPhotoId, localBlob)
-        }
-        await db.execute(
-          `INSERT INTO photos (id, org_id, animal_id, r2_key, local_only, upload_state, capture_source, verified, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`,
-          [
-            animalPhotoId,
-            orgId,
-            animal.id,
-            p.r2_key ?? null,
-            p.r2_key ? 0 : 1,
-            p.r2_key ? (p.upload_state || 'uploaded') : 'pending',
-            'upload',
-            p.created_at || now,
-          ],
-        )
-      }
-      notifyPendingMediaChanged()
+      await syncReportPhotosToAnimal(db, report.id, animal.id, orgId)
     } catch (photoErr) {
       console.warn('Could not copy report photos to animal', photoErr)
     }
