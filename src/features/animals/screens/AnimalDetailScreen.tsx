@@ -180,6 +180,7 @@ export function AnimalDetailScreen() {
   const [checklistBusy, setChecklistBusy] = useState(false)
   const [showAddStatusModal, setShowAddStatusModal] = useState(false)
   const [showStatusModal, setShowStatusModal] = useState(false)
+  const [isReIntakeModal, setIsReIntakeModal] = useState(false)
   const [statusEffectiveAt, setStatusEffectiveAt] = useState(() =>
     toDatetimeLocalValue(new Date().toISOString()),
   )
@@ -517,7 +518,24 @@ export function AnimalDetailScreen() {
     setShowCareForm(true)
   }
 
+  const currentStatus = statuses.find(
+    (s) =>
+      s.id === animal?.status_id ||
+      (s.label &&
+        animal?.status_label &&
+        s.label.trim().toLowerCase() === animal.status_label.trim().toLowerCase()),
+  )
+  const isOutOfCare = currentStatus
+    ? currentStatus.counts_as_in_care === 0
+    : Boolean(
+        animal?.status_label &&
+          ['transferred', 'adopted', 'released', 'deceased'].includes(
+            animal.status_label.trim().toLowerCase(),
+          ),
+      )
+
   function openStatusModal() {
+    setIsReIntakeModal(false)
     setStatusEffectiveAt(toDatetimeLocalValue(new Date().toISOString()))
     setStatusNotes('')
     setStatusId(null)
@@ -533,8 +551,29 @@ export function AnimalDetailScreen() {
     setShowStatusModal(true)
   }
 
+  function openReIntakeModal() {
+    const intakeStatus = statuses.find(
+      (s) => s.label?.trim().toLowerCase() === 'intake',
+    )
+    setIsReIntakeModal(true)
+    setStatusEffectiveAt(toDatetimeLocalValue(new Date().toISOString()))
+    setStatusNotes('')
+    setStatusId(intakeStatus?.id ?? null)
+    setClinicName('')
+    setAttendingVet('')
+    setPartnerName('')
+    setPartnerContact('')
+    setStatusPhotos((current) => {
+      current.forEach((p) => URL.revokeObjectURL(p.previewUrl))
+      return []
+    })
+    setError(null)
+    setShowStatusModal(true)
+  }
+
   function closeStatusModal() {
     setShowStatusModal(false)
+    setIsReIntakeModal(false)
     setStatusNotes('')
     setStatusId(null)
     setClinicName('')
@@ -633,6 +672,7 @@ export function AnimalDetailScreen() {
         treatedAt: effectiveIso,
       })
       setShowStatusModal(false)
+      setIsReIntakeModal(false)
       setStatusNotes('')
       setClinicName('')
       setAttendingVet('')
@@ -642,7 +682,7 @@ export function AnimalDetailScreen() {
         current.forEach((p) => URL.revokeObjectURL(p.previewUrl))
         return []
       })
-      setToast('Status updated')
+      setToast(isReIntakeModal ? 'Animal re-intaken' : 'Status updated')
       await reload()
     } catch (err) {
       setError(
@@ -993,7 +1033,7 @@ export function AnimalDetailScreen() {
                 </h1>
               </div>
 
-              {member ? (
+              {member && !isOutOfCare ? (
                 <button
                   type="button"
                   className={`animal-daily-care-btn${onChecklist ? ' is-active' : ''}`}
@@ -1191,13 +1231,23 @@ export function AnimalDetailScreen() {
             }}
           >
             <h2 style={{ margin: 0 }}>Status timeline</h2>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={openStatusModal}
-            >
-              Update status
-            </Button>
+            {isOutOfCare ? (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={openReIntakeModal}
+              >
+                Re-intake
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={openStatusModal}
+              >
+                Update status
+              </Button>
+            )}
           </div>
 
           <div className="timeline-feed" style={{ marginTop: '0.5rem' }}>
@@ -1604,26 +1654,49 @@ export function AnimalDetailScreen() {
       <ResponsiveSheetModal
         isOpen={showStatusModal}
         onClose={closeStatusModal}
-        title="Update status"
+        title={isReIntakeModal ? 'Re-intake animal' : 'Update status'}
       >
         <form className="stack" onSubmit={onSaveStatusForm}>
-          <p className="section-label" style={{ margin: 0 }}>
-            Select new status
-          </p>
-          <StatusSingleSelect
-            statuses={statuses.filter(
-              (s) =>
-                s.id !== animal?.status_id &&
-                s.label?.trim().toLowerCase() !==
-                  animal?.status_label?.trim().toLowerCase(),
-            )}
-            value={statusId}
-            onChange={(nextId) => {
-              setStatusId(nextId)
-              setError(null)
-            }}
-            onAddStatus={() => setShowAddStatusModal(true)}
-          />
+          {isReIntakeModal ? (
+            <div
+              className="panel"
+              style={{
+                background: 'var(--color-surface)',
+                padding: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+              }}
+            >
+              <span className="section-label" style={{ margin: 0 }}>
+                Status on return
+              </span>
+              <div>
+                <StatusBadge label="Intake" tone="forest" />
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="section-label" style={{ margin: 0 }}>
+                Select new status
+              </p>
+              <StatusSingleSelect
+                statuses={statuses.filter(
+                  (s) =>
+                    s.id !== animal?.status_id &&
+                    s.label?.trim().toLowerCase() !==
+                      animal?.status_label?.trim().toLowerCase() &&
+                    s.label?.trim().toLowerCase() !== 'intake',
+                )}
+                value={statusId}
+                onChange={(nextId) => {
+                  setStatusId(nextId)
+                  setError(null)
+                }}
+                onAddStatus={() => setShowAddStatusModal(true)}
+              />
+            </>
+          )}
 
           {(() => {
             const selectedStatus = statuses.find((s) => s.id === statusId)
@@ -1725,7 +1798,7 @@ export function AnimalDetailScreen() {
           {error ? <p className="form-error">{error}</p> : null}
           <div className="responsive-modal__actions">
             <Button type="submit" variant="primary" disabled={!statusId}>
-              Save status
+              {isReIntakeModal ? 'Re-intake' : 'Save status'}
             </Button>
             <Button type="button" variant="secondary" onClick={closeStatusModal}>
               Cancel

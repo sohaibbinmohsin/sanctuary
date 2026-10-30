@@ -64,6 +64,7 @@ const mockGetAll = vi.fn().mockImplementation(async (sql: string) => {
   return [
     { id: 'st-1', org_id: 'org-1', label: 'Intake', sort_order: 1, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
     { id: 'st-2', org_id: 'org-1', label: 'Quarantine', sort_order: 2, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+    { id: 'st-3', org_id: 'org-1', label: 'Transferred', sort_order: 3, counts_as_in_care: 0, archived: 0, created_at: '', updated_at: '' },
   ]
 })
 
@@ -235,6 +236,85 @@ describe('AnimalDetailScreen status moved inside Timeline tab', () => {
         animalId: 'anim-1',
         captureSource: 'gallery',
       }),
+    )
+  })
+
+  it('when animal is out of care (transferred/adopted), hides Daily Care and replaces Update status with Re-intake button', async () => {
+    mockGetOptional.mockResolvedValueOnce({
+      id: 'anim-1',
+      org_id: 'org-1',
+      shelter_code: 'MS-0001',
+      name: 'Barnaby',
+      species: 'Dog',
+      intake_date: '2026-10-06',
+      status_id: 'st-3',
+      status_label: 'Transferred',
+      status_labels: ['Transferred'],
+      archived: 0,
+      created_at: '2026-10-06T00:00:00Z',
+      updated_at: '2026-10-06T00:00:00Z',
+    })
+
+    mockGetAll.mockImplementation(async (sql: string) => {
+      if (sql.includes('treatments')) {
+        return [
+          {
+            id: 'treat-1',
+            org_id: 'org-1',
+            animal_id: 'anim-1',
+            treatment_type: 'status',
+            notes: 'Transferred',
+            treated_at: '2026-10-07T12:00:00Z',
+            created_at: '2026-10-07T12:00:00Z',
+          },
+        ]
+      }
+      return [
+        { id: 'st-1', org_id: 'org-1', label: 'Intake', sort_order: 1, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+        { id: 'st-2', org_id: 'org-1', label: 'Quarantine', sort_order: 2, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+        { id: 'st-3', org_id: 'org-1', label: 'Transferred', sort_order: 3, counts_as_in_care: 0, archived: 0, created_at: '', updated_at: '' },
+      ]
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/animals/anim-1']}>
+        <Routes>
+          <Route path="/animals/:id" element={<AnimalDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Switch to Timeline tab
+    const timelineTab = await screen.findByRole('tab', { name: /Timeline/i })
+    fireEvent.click(timelineTab)
+
+    // "Re-intake" should appear and "Update status" should NOT be present
+    const reIntakeBtn = await screen.findByRole('button', { name: /Re-intake/i })
+    expect(reIntakeBtn).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Update status/i })).toBeNull()
+
+    // Daily care button should NOT be rendered when out of care
+    expect(screen.queryByRole('button', { name: /Daily Care/i })).toBeNull()
+
+    // Clicking Re-intake opens modal with Intake status pre-assigned
+    fireEvent.click(reIntakeBtn)
+    const modal = screen.getByRole('dialog')
+    expect(modal).toBeInTheDocument()
+    expect(within(modal).getByRole('heading', { name: /Re-intake animal/i })).toBeInTheDocument()
+    expect(within(modal).getByText(/Status on return/i)).toBeInTheDocument()
+
+    // Save Re-intake
+    const submitBtn = within(modal).getByRole('button', { name: 'Re-intake' })
+    fireEvent.click(submitBtn)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    // Verify it saved status assignment with intake status id 'st-1'
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE animals SET status_id = ?'),
+      expect.arrayContaining(['st-1']),
     )
   })
 })

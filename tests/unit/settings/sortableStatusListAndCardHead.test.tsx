@@ -50,21 +50,21 @@ describe('SortableStatusList', () => {
     const inputs = screen.getAllByLabelText('Status name')
     expect(inputs).toHaveLength(3)
 
-    // Intake (default) is disabled
+    // Intake (required default) is disabled
     expect(inputs[0]).toBeDisabled()
     expect(inputs[0]).toHaveValue('Intake')
 
-    // Released (default) is disabled
-    expect(inputs[1]).toBeDisabled()
+    // Released (default, but non-intake) is now editable
+    expect(inputs[1]).not.toBeDisabled()
     expect(inputs[1]).toHaveValue('Released')
 
     // Custom status is editable
     expect(inputs[2]).not.toBeDisabled()
     expect(inputs[2]).toHaveValue('Foster Trial')
 
-    // Only custom status has Hide button
+    // Both Released and custom status have Hide buttons (Intake does not)
     const hideButtons = screen.getAllByRole('button', { name: /hide/i })
-    expect(hideButtons).toHaveLength(1)
+    expect(hideButtons).toHaveLength(2)
   })
 })
 
