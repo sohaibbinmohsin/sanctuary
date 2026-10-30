@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AnimalDetailScreen } from '@/features/animals/screens/AnimalDetailScreen'
 
@@ -7,7 +7,20 @@ vi.mock('@/shared/ui/ConfirmDialog', () => ({
   useConfirm: () => vi.fn().mockResolvedValue(true),
 }))
 
+const mockExecute = vi.fn().mockResolvedValue(undefined)
+const mockQueuePhoto = vi.fn().mockResolvedValue({ id: 'photo-1', created_at: '2026-10-30T00:00:00Z' })
+
+vi.mock('@/features/photos/domain/photos', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/photos/domain/photos')>()
+  return {
+    ...actual,
+    queuePhoto: (...args: any[]) => mockQueuePhoto(...args),
+  }
+})
+
 beforeEach(() => {
+  mockExecute.mockClear()
+  mockQueuePhoto.mockClear()
   if (typeof globalThis.caches === 'undefined') {
     vi.stubGlobal('caches', {
       open: vi.fn().mockResolvedValue({
@@ -19,8 +32,6 @@ beforeEach(() => {
     })
   }
 })
-
-const mockExecute = vi.fn().mockResolvedValue(undefined)
 const mockWriteTx = vi.fn().mockImplementation(async (cb) => cb({ execute: mockExecute }))
 const mockGetOptional = vi.fn().mockResolvedValue({
   id: 'anim-1',
@@ -158,5 +169,72 @@ describe('AnimalDetailScreen status moved inside Timeline tab', () => {
     expect(await screen.findByText(/Clinic: UVAS Small Animal Hospital/i)).toBeInTheDocument()
     // Slug should NOT be visible on frontend
     expect(screen.queryByText(/uvas-small-animal-hospital/i)).toBeNull()
+  })
+
+  it('allows attaching a photo in the status update modal via photo picker menu', async () => {
+    global.URL.createObjectURL = vi.fn(() => 'blob:mock-status-photo')
+    global.URL.revokeObjectURL = vi.fn()
+
+    render(
+      <MemoryRouter initialEntries={['/animals/anim-1']}>
+        <Routes>
+          <Route path="/animals/:id" element={<AnimalDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Switch to Timeline tab and open status modal
+    const timelineTab = await screen.findByRole('tab', { name: /Timeline/i })
+    fireEvent.click(timelineTab)
+
+    const updateBtn = await screen.findByRole('button', { name: /Update status/i })
+    fireEvent.click(updateBtn)
+
+    const modal = screen.getByRole('dialog')
+    expect(modal).toBeInTheDocument()
+
+    // Find and click the Add photo (+) button inside the modal
+    const addPhotoBtn = within(modal).getByRole('button', { name: 'Add photo' })
+    expect(addPhotoBtn).toBeInTheDocument()
+    fireEvent.click(addPhotoBtn)
+
+    // Verify photo menu opens with both options
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /take photo/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /from gallery/i })).toBeInTheDocument()
+
+    // Find the gallery file input within modal and upload a photo
+    const fileInputs = modal.querySelectorAll('input[type="file"]')
+    const galleryInput = Array.from(fileInputs).find(
+      (input) => !input.hasAttribute('capture'),
+    ) as HTMLInputElement
+    expect(galleryInput).toBeTruthy()
+
+    const testFile = new File(['status-test'], 'status.jpg', { type: 'image/jpeg' })
+    fireEvent.change(galleryInput, { target: { files: [testFile] } })
+
+    // Verify preview thumbnail is rendered in the modal
+    expect(await screen.findByLabelText('Photo preview')).toBeInTheDocument()
+
+    // Select status and submit
+    const quarantinePill = await screen.findByRole('button', { name: /Quarantine/i })
+    fireEvent.click(quarantinePill)
+
+    const saveBtn = screen.getByRole('button', { name: /Save status/i })
+    fireEvent.click(saveBtn)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    // Verify photo was queued for the animal
+    expect(mockQueuePhoto).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        orgId: 'org-1',
+        animalId: 'anim-1',
+        captureSource: 'gallery',
+      }),
+    )
   })
 })

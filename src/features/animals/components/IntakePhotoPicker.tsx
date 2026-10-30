@@ -45,12 +45,15 @@ export function IntakePhotoPicker({
       return
     }
     const rect = buttonRef.current.getBoundingClientRect()
-    const menuHeight = 90
-    const top =
-      rect.bottom + menuHeight > window.innerHeight && rect.top > menuHeight
-        ? rect.top - menuHeight
-        : rect.bottom + 6
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - 170))
+    const menuHeight = 96
+    const menuWidth = 160
+    let top = rect.bottom + 6
+    if (rect.bottom + menuHeight > window.innerHeight && rect.top > menuHeight) {
+      top = rect.top - menuHeight
+    } else if (top + menuHeight > window.innerHeight) {
+      top = Math.max(8, window.innerHeight - menuHeight - 8)
+    }
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8))
     setMenuPos({ top, left })
   }, [menuOpen])
 
@@ -206,19 +209,18 @@ export function IntakePhotoPicker({
         ref={cameraInputRef}
         type="file"
         accept="image/*"
-        multiple
         capture="environment"
         hidden
         onChange={(e) => {
-          const files = Array.from(e.target.files || [])
-          if (files.length > 0) {
-            const newPhotos: StagedPhoto[] = files.map((file) => ({
+          const file = e.target.files?.[0]
+          if (file) {
+            const photo: StagedPhoto = {
               id: crypto.randomUUID(),
               blob: file,
               previewUrl: URL.createObjectURL(file),
               captureSource: 'camera',
-            }))
-            onAddPhotos(newPhotos)
+            }
+            onAddPhotos([photo])
           }
           e.target.value = ''
         }}

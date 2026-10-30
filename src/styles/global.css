@@ -3896,7 +3896,7 @@ a.primary {
 .proof-viewer {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: var(--z-overlay, 20000);
   display: grid;
   place-items: center;
   gap: var(--space-3);
@@ -4912,7 +4912,7 @@ a.primary {
 
 .photo-strip__menu {
   position: fixed;
-  z-index: calc(var(--z-modal, 1000) + 50);
+  z-index: var(--z-popover, 15000);
   display: flex;
   flex-direction: column;
   min-width: 9.5rem;
@@ -4959,7 +4959,7 @@ a.primary {
 .camera-overlay {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--z-modal, 1000) + 100);
+  z-index: var(--z-overlay, 20000);
   display: flex;
   flex-direction: column;
   align-items: center;

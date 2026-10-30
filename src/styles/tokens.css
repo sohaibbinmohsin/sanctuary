@@ -82,4 +82,7 @@
   --z-nav: 30;
   --z-toast: 40;
   --z-banner: 35;
+  --z-modal: 10000;
+  --z-popover: 15000;
+  --z-overlay: 20000;
 }

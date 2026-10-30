@@ -521,6 +521,14 @@ export function AnimalDetailScreen() {
     setStatusEffectiveAt(toDatetimeLocalValue(new Date().toISOString()))
     setStatusNotes('')
     setStatusId(null)
+    setClinicName('')
+    setAttendingVet('')
+    setPartnerName('')
+    setPartnerContact('')
+    setStatusPhotos((current) => {
+      current.forEach((p) => URL.revokeObjectURL(p.previewUrl))
+      return []
+    })
     setError(null)
     setShowStatusModal(true)
   }
