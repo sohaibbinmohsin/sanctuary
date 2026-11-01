@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AnimalDetailScreen } from '@/features/animals/screens/AnimalDetailScreen'
 
@@ -7,7 +7,20 @@ vi.mock('@/shared/ui/ConfirmDialog', () => ({
   useConfirm: () => vi.fn().mockResolvedValue(true),
 }))
 
+const mockExecute = vi.fn().mockResolvedValue(undefined)
+const mockQueuePhoto = vi.fn().mockResolvedValue({ id: 'photo-1', created_at: '2026-10-30T00:00:00Z' })
+
+vi.mock('@/features/photos/domain/photos', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/photos/domain/photos')>()
+  return {
+    ...actual,
+    queuePhoto: (...args: any[]) => mockQueuePhoto(...args),
+  }
+})
+
 beforeEach(() => {
+  mockExecute.mockClear()
+  mockQueuePhoto.mockClear()
   if (typeof globalThis.caches === 'undefined') {
     vi.stubGlobal('caches', {
       open: vi.fn().mockResolvedValue({
@@ -19,8 +32,6 @@ beforeEach(() => {
     })
   }
 })
-
-const mockExecute = vi.fn().mockResolvedValue(undefined)
 const mockWriteTx = vi.fn().mockImplementation(async (cb) => cb({ execute: mockExecute }))
 const mockGetOptional = vi.fn().mockResolvedValue({
   id: 'anim-1',
@@ -36,10 +47,26 @@ const mockGetOptional = vi.fn().mockResolvedValue({
   created_at: '2026-10-06T00:00:00Z',
   updated_at: '2026-10-06T00:00:00Z',
 })
-const mockGetAll = vi.fn().mockResolvedValue([
-  { id: 'st-1', org_id: 'org-1', label: 'Intake', sort_order: 1, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
-  { id: 'st-2', org_id: 'org-1', label: 'Quarantine', sort_order: 2, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
-])
+const mockGetAll = vi.fn().mockImplementation(async (sql: string) => {
+  if (sql.includes('treatments')) {
+    return [
+      {
+        id: 'treat-1',
+        org_id: 'org-1',
+        animal_id: 'anim-1',
+        treatment_type: 'status',
+        notes: 'Under Treatment - Clinic: UVAS Small Animal Hospital [uvas-small-animal-hospital]\nPatient is doing well',
+        treated_at: '2026-10-07T12:00:00Z',
+        created_at: '2026-10-07T12:00:00Z',
+      },
+    ]
+  }
+  return [
+    { id: 'st-1', org_id: 'org-1', label: 'Intake', sort_order: 1, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+    { id: 'st-2', org_id: 'org-1', label: 'Quarantine', sort_order: 2, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+    { id: 'st-3', org_id: 'org-1', label: 'Transferred', sort_order: 3, counts_as_in_care: 0, archived: 0, created_at: '', updated_at: '' },
+  ]
+})
 
 vi.mock('@/shared/hooks/useDb', () => ({
   useDb: () => ({
@@ -124,5 +151,241 @@ describe('AnimalDetailScreen status moved inside Timeline tab', () => {
       expect.stringContaining('UPDATE animals SET status_id = ?'),
       expect.arrayContaining(['st-2', 'anim-1']),
     )
+  })
+
+  it('hides unique id slugs from timeline notes on the frontend', async () => {
+    render(
+      <MemoryRouter initialEntries={['/animals/anim-1']}>
+        <Routes>
+          <Route path="/animals/:id" element={<AnimalDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Switch to Timeline tab
+    const timelineTab = await screen.findByRole('tab', { name: /Timeline/i })
+    fireEvent.click(timelineTab)
+
+    // Clinic name should be visible
+    expect(await screen.findByText(/Clinic: UVAS Small Animal Hospital/i)).toBeInTheDocument()
+    // Slug should NOT be visible on frontend
+    expect(screen.queryByText(/uvas-small-animal-hospital/i)).toBeNull()
+  })
+
+  it('allows attaching a photo in the status update modal via photo picker menu', async () => {
+    global.URL.createObjectURL = vi.fn(() => 'blob:mock-status-photo')
+    global.URL.revokeObjectURL = vi.fn()
+
+    render(
+      <MemoryRouter initialEntries={['/animals/anim-1']}>
+        <Routes>
+          <Route path="/animals/:id" element={<AnimalDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Switch to Timeline tab and open status modal
+    const timelineTab = await screen.findByRole('tab', { name: /Timeline/i })
+    fireEvent.click(timelineTab)
+
+    const updateBtn = await screen.findByRole('button', { name: /Update status/i })
+    fireEvent.click(updateBtn)
+
+    const modal = screen.getByRole('dialog')
+    expect(modal).toBeInTheDocument()
+
+    // Find and click the Add photo (+) button inside the modal
+    const addPhotoBtn = within(modal).getByRole('button', { name: 'Add photo' })
+    expect(addPhotoBtn).toBeInTheDocument()
+    fireEvent.click(addPhotoBtn)
+
+    // Verify photo menu opens with both options
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /take photo/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /from gallery/i })).toBeInTheDocument()
+
+    // Find the gallery file input within modal and upload a photo
+    const fileInputs = modal.querySelectorAll('input[type="file"]')
+    const galleryInput = Array.from(fileInputs).find(
+      (input) => !input.hasAttribute('capture'),
+    ) as HTMLInputElement
+    expect(galleryInput).toBeTruthy()
+
+    const testFile = new File(['status-test'], 'status.jpg', { type: 'image/jpeg' })
+    fireEvent.change(galleryInput, { target: { files: [testFile] } })
+
+    // Verify preview thumbnail is rendered in the modal
+    expect(await screen.findByLabelText('Photo preview')).toBeInTheDocument()
+
+    // Select status and submit
+    const quarantinePill = await screen.findByRole('button', { name: /Quarantine/i })
+    fireEvent.click(quarantinePill)
+
+    const saveBtn = screen.getByRole('button', { name: /Save status/i })
+    fireEvent.click(saveBtn)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    // Verify photo was queued for the animal
+    expect(mockQueuePhoto).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        orgId: 'org-1',
+        animalId: 'anim-1',
+        captureSource: 'gallery',
+      }),
+    )
+  })
+
+  it('when animal is out of care (transferred/adopted), hides Daily Care and replaces Update status with Re-intake button', async () => {
+    mockGetOptional.mockResolvedValueOnce({
+      id: 'anim-1',
+      org_id: 'org-1',
+      shelter_code: 'MS-0001',
+      name: 'Barnaby',
+      species: 'Dog',
+      intake_date: '2026-10-06',
+      status_id: 'st-3',
+      status_label: 'Transferred',
+      status_labels: ['Transferred'],
+      archived: 0,
+      created_at: '2026-10-06T00:00:00Z',
+      updated_at: '2026-10-06T00:00:00Z',
+    })
+
+    mockGetAll.mockImplementation(async (sql: string) => {
+      if (sql.includes('treatments')) {
+        return [
+          {
+            id: 'treat-1',
+            org_id: 'org-1',
+            animal_id: 'anim-1',
+            treatment_type: 'status',
+            notes: 'Transferred',
+            treated_at: '2026-10-07T12:00:00Z',
+            created_at: '2026-10-07T12:00:00Z',
+          },
+        ]
+      }
+      return [
+        { id: 'st-1', org_id: 'org-1', label: 'Intake', sort_order: 1, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+        { id: 'st-2', org_id: 'org-1', label: 'Quarantine', sort_order: 2, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+        { id: 'st-3', org_id: 'org-1', label: 'Transferred', sort_order: 3, counts_as_in_care: 0, archived: 0, created_at: '', updated_at: '' },
+      ]
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/animals/anim-1']}>
+        <Routes>
+          <Route path="/animals/:id" element={<AnimalDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Switch to Timeline tab
+    const timelineTab = await screen.findByRole('tab', { name: /Timeline/i })
+    fireEvent.click(timelineTab)
+
+    // "Re-intake" should appear and "Update status" should NOT be present
+    const reIntakeBtn = await screen.findByRole('button', { name: /Re-intake/i })
+    expect(reIntakeBtn).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Update status/i })).toBeNull()
+
+    // Daily care button should NOT be rendered when out of care
+    expect(screen.queryByRole('button', { name: /Daily Care/i })).toBeNull()
+
+    // Clicking Re-intake opens modal with Intake status pre-assigned
+    fireEvent.click(reIntakeBtn)
+    const modal = screen.getByRole('dialog')
+    expect(modal).toBeInTheDocument()
+    expect(within(modal).getByRole('heading', { name: /Re-intake animal/i })).toBeInTheDocument()
+    expect(within(modal).getByText(/Status on return/i)).toBeInTheDocument()
+
+    // Save Re-intake
+    const submitBtn = within(modal).getByRole('button', { name: 'Re-intake' })
+    fireEvent.click(submitBtn)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    // Verify it saved status assignment with intake status id 'st-1'
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE animals SET status_id = ?'),
+      expect.arrayContaining(['st-1']),
+    )
+  })
+
+  it('displays re-intake status in timeline alongside initial arrival', async () => {
+    mockGetOptional.mockResolvedValue({
+      id: 'anim-1',
+      org_id: 'org-1',
+      shelter_code: 'MS-0001',
+      name: 'Barnaby',
+      species: 'Dog',
+      intake_date: '2026-11-01',
+      status_id: 'st-1',
+      status_label: 'Intake',
+      status_labels: ['Intake'],
+      archived: 0,
+      created_at: '2026-11-01T08:00:00Z',
+      updated_at: '2026-11-01T15:00:00Z',
+    })
+
+    mockGetAll.mockImplementation(async (sql: string) => {
+      if (sql.includes('treatments')) {
+        return [
+          {
+            id: 'treat-reintake',
+            org_id: 'org-1',
+            animal_id: 'anim-1',
+            treatment_type: 'status',
+            notes: 'Intake - Returned from foster',
+            treated_at: '2026-11-01T15:00:00Z',
+            created_at: '2026-11-01T15:00:00Z',
+          },
+          {
+            id: 'treat-transfer',
+            org_id: 'org-1',
+            animal_id: 'anim-1',
+            treatment_type: 'status',
+            notes: 'Transferred',
+            treated_at: '2026-11-01T11:00:00Z',
+            created_at: '2026-11-01T11:00:00Z',
+          },
+          {
+            id: 'treat-arrival',
+            org_id: 'org-1',
+            animal_id: 'anim-1',
+            treatment_type: 'arrived',
+            notes: 'Initial arrival',
+            treated_at: '2026-11-01T08:00:00Z',
+            created_at: '2026-11-01T08:00:00Z',
+          },
+        ]
+      }
+      return [
+        { id: 'st-1', org_id: 'org-1', label: 'Intake', sort_order: 1, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+        { id: 'st-2', org_id: 'org-1', label: 'Quarantine', sort_order: 2, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+        { id: 'st-3', org_id: 'org-1', label: 'Transferred', sort_order: 3, counts_as_in_care: 0, archived: 0, created_at: '', updated_at: '' },
+      ]
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/animals/anim-1']}>
+        <Routes>
+          <Route path="/animals/:id" element={<AnimalDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const timelineTab = await screen.findByRole('tab', { name: /Timeline/i })
+    fireEvent.click(timelineTab)
+
+    // Re-intake notes and Transferred notes should both be visible in the timeline
+    expect(await screen.findByText(/Returned from foster/i)).toBeInTheDocument()
+    expect(screen.getByText('Transferred')).toBeInTheDocument()
   })
 })

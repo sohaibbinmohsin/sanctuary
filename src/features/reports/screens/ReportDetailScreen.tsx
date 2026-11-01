@@ -21,13 +21,15 @@ import {
   getRescueReportById,
   updateReportStage,
   completeReportWithDisposition,
-  getPhotosForReport,
   updateReportLegalNotes,
+  syncReportPhotosToAnimal,
+  createAnimalFromRescueReport,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
-import { createAnimal } from '@/features/animals/domain/animals'
-import { linkAnimals } from '@/features/animals/domain/relationships'
-import { listStatuses } from '@/features/statuses/domain/statuses'
+import {
+  getReportCompletionStatus,
+  type ReportCompletionResult,
+} from '@/features/reports/domain/reportOutcomes'
 import { ReportPipelineTracker } from '@/features/reports/components/ReportPipelineTracker'
 import { ReportFactsGrid } from '@/features/reports/components/ReportFactsGrid'
 import { LegalActionModal } from '@/features/reports/components/LegalActionModal'
@@ -41,6 +43,7 @@ export function ReportDetailScreen() {
   const { member } = useCurrentMember()
 
   const [report, setReport] = useState<RescueReport | null>(null)
+  const [outcomeStatus, setOutcomeStatus] = useState<ReportCompletionResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -58,6 +61,14 @@ export function ReportDetailScreen() {
     try {
       const data = await getRescueReportById(db, id)
       setReport(data)
+      if (data) {
+        try {
+          const outcome = await getReportCompletionStatus(db, data)
+          setOutcomeStatus(outcome)
+        } catch (err) {
+          console.error('Failed to load report outcome status', err)
+        }
+      }
     } catch (err) {
       console.error('Failed to load rescue report', err)
       setError(err instanceof Error ? err.message : 'Failed to load report')
@@ -69,6 +80,12 @@ export function ReportDetailScreen() {
   useEffect(() => {
     loadReport(true)
   }, [loadReport])
+
+  // Ensure report photos are synced to linked animal record
+  useEffect(() => {
+    if (!db || !report?.id || !report?.animal_id || !member?.orgId) return
+    void syncReportPhotosToAnimal(db, report.id, report.animal_id, member.orgId)
+  }, [db, report?.id, report?.animal_id, member?.orgId])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -84,164 +101,6 @@ export function ReportDetailScreen() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isDropdownOpen])
-
-  async function createAnimalFromReport(
-    disposition: 'spot_released' | 'admitted_shelter',
-  ): Promise<string> {
-    if (!db || !report) throw new Error('Database or report not available')
-
-    const orgId = report.org_id || member?.orgId
-    if (!orgId) throw new Error('Organization ID is missing')
-
-    const prefix = member?.orgInitials || report.report_number?.split('-')[0] || 'MS'
-    let targetStatusId: string | null = null
-
-    try {
-      const statuses = await listStatuses(db, orgId)
-      if (disposition === 'spot_released') {
-        const released = statuses.find((s) => s.label.toLowerCase() === 'released')
-        targetStatusId = released?.id ?? statuses[0]?.id ?? null
-      } else {
-        const intake =
-          statuses.find((s) => !s.archived && s.label.trim().toLowerCase() === 'intake') ??
-          statuses.find((s) => !s.archived && s.counts_as_in_care === 1) ??
-          statuses[0]
-        targetStatusId = intake?.id ?? null
-      }
-    } catch (err) {
-      console.warn('Could not load statuses for report animal intake', err)
-    }
-
-    const notesText = [
-      `Rescue report: ${report.report_number || ''}`,
-      report.chief_complaint ? `Complaint: ${report.chief_complaint}` : null,
-      report.reporter_name
-        ? `Reporter: ${report.reporter_name}${report.reporter_phone ? ` (${report.reporter_phone})` : ''}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join('\n')
-
-    const markingsText = report.location_landmark
-      ? `${report.location_area || ''} (near ${report.location_landmark})`.trim()
-      : report.location_area || undefined
-
-    const animal = await createAnimal(db, {
-      orgId,
-      prefix,
-      species: report.species || 'other',
-      statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
-      notes: notesText,
-      markings: markingsText,
-      intakeDate: new Date().toISOString().slice(0, 10),
-    })
-
-    // Transfer report photos to animal photos table
-    try {
-      const reportPhotos = await getPhotosForReport(db, report.id)
-      const now = new Date().toISOString()
-      for (const p of reportPhotos) {
-        await db.execute(
-          `INSERT INTO photos (id, org_id, animal_id, r2_key, local_only, upload_state, capture_source, verified, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`,
-          [
-            crypto.randomUUID(),
-            orgId,
-            animal.id,
-            p.r2_key,
-            p.local_only,
-            p.upload_state,
-            'upload',
-            p.created_at || now,
-          ],
-        )
-      }
-    } catch (photoErr) {
-      console.warn('Could not copy report photos to animal', photoErr)
-    }
-
-    // Multi-animal / litter intake support (Gap 1 & Item 5)
-    let parsedGroup: Array<{ count: number; species: string; lifeStage?: string; avianSubtype?: string }> = []
-    if (report.group_breakdown) {
-      try {
-        const parsed = JSON.parse(report.group_breakdown)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          parsedGroup = parsed
-        }
-      } catch (err) {
-        console.warn('Failed to parse group_breakdown', err)
-      }
-    }
-
-    if (parsedGroup.length > 0) {
-      const allAnimals = parsedGroup.flatMap((item) =>
-        Array.from({ length: Math.max(1, item.count) }, () => ({
-          species: item.avianSubtype || item.species || report.species || 'other',
-          lifeStage: item.lifeStage as 'adult' | 'child' | undefined,
-        })),
-      )
-
-      for (let i = 1; i < allAnimals.length; i++) {
-        const spec = allAnimals[i]
-        try {
-          const companion = await createAnimal(db, {
-            orgId,
-            prefix,
-            species: spec.species.toLowerCase(),
-            lifeStage: spec.lifeStage || (report.life_stage === 'adult' ? 'child' : undefined),
-            statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
-            notes: `${notesText}\nCompanion #${i + 1} of ${allAnimals.length} in batch intake`,
-            markings: markingsText,
-            intakeDate: new Date().toISOString().slice(0, 10),
-          })
-          await linkAnimals(db, {
-            orgId,
-            animalId: animal.id,
-            relatedAnimalId: companion.id,
-            relationshipType:
-              spec.lifeStage === 'child' && animal.life_stage === 'adult' ? 'child' : 'sibling',
-            notes: `Auto-linked from rescue report ${report.report_number || ''}`,
-          })
-        } catch (compErr) {
-          console.warn('Could not create companion animal for group', compErr)
-        }
-      }
-    } else {
-      const count = report.animal_count && report.animal_count > 1 ? report.animal_count : 1
-      if (count > 1) {
-        for (let i = 2; i <= count; i++) {
-          try {
-            const companion = await createAnimal(db, {
-              orgId,
-              prefix,
-              species: report.species || 'other',
-              lifeStage:
-                report.life_stage === 'adult'
-                  ? 'child'
-                  : report.life_stage === 'child'
-                    ? 'child'
-                    : undefined,
-              statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
-              notes: `${notesText}\nCompanion #${i} of ${count} in batch litter/group admission`,
-              markings: markingsText,
-              intakeDate: new Date().toISOString().slice(0, 10),
-            })
-            await linkAnimals(db, {
-              orgId,
-              animalId: animal.id,
-              relatedAnimalId: companion.id,
-              relationshipType: report.life_stage === 'adult' ? 'child' : 'sibling',
-              notes: `Auto-linked from rescue report ${report.report_number || ''}`,
-            })
-          } catch (compErr) {
-            console.warn('Could not create companion animal for litter', compErr)
-          }
-        }
-      }
-    }
-
-    return animal.id
-  }
 
   async function handleMarkDOA() {
     if (!db || !report) return
@@ -269,7 +128,11 @@ export function ReportDetailScreen() {
         let animalId = report.animal_id
         if (!animalId) {
           try {
-            animalId = await createAnimalFromReport('admitted_shelter')
+            animalId = await createAnimalFromRescueReport(db, report, {
+              orgId: report.org_id || member?.orgId,
+              orgInitials: member?.orgInitials,
+              disposition: 'admitted_shelter',
+            })
           } catch (animalErr) {
             console.error('Failed to automatically create animal record', animalErr)
           }
@@ -342,6 +205,11 @@ export function ReportDetailScreen() {
   const status = report.status ?? 'logged'
   const disp = report.disposition_type
   const isCruelty = report.category === 'cruelty'
+  const isGroup = Boolean(
+    (report.animal_count && report.animal_count > 1) ||
+    (outcomeStatus && (outcomeStatus.activeCount + outcomeStatus.completedCount) > 1) ||
+    report.group_breakdown,
+  )
 
   // Status badge styling and text
   let statusBadgeLabel = isCruelty
@@ -364,17 +232,24 @@ export function ReportDetailScreen() {
       statusBadgeClass = 'status-badge-clean active'
     }
   } else if (status === 'attended') {
-    if (disp === 'spot_released') {
-      statusBadgeLabel = isCruelty ? 'Resolved On-Site' : 'Spot Released (TNR)'
-      statusBadgeClass = 'status-badge-clean shelter'
-    } else if (disp === 'admitted_shelter') {
-      statusBadgeLabel = isCruelty ? 'In Shelter Custody' : 'In Shelter Care'
-      statusBadgeClass = 'status-badge-clean shelter'
-    } else if (disp === 'deceased_doa') {
+    if (disp === 'deceased_doa') {
       statusBadgeLabel = 'Dead on Arrival (DOA)'
       statusBadgeClass = 'status-badge-clean declined'
+    } else if (outcomeStatus?.isCompleted) {
+      if (disp === 'spot_released') {
+        statusBadgeLabel = isCruelty ? 'Resolved On-Site' : 'Spot Released (TNR)'
+      } else {
+        statusBadgeLabel = outcomeStatus.outcomeLabel || 'Completed'
+      }
+      statusBadgeClass = 'status-badge-clean completed'
+    } else if (disp === 'spot_released') {
+      statusBadgeLabel = isCruelty ? 'Resolved On-Site' : 'Spot Released (TNR)'
+      statusBadgeClass = 'status-badge-clean completed'
+    } else if (disp === 'admitted_shelter') {
+      statusBadgeLabel = isCruelty ? 'In Custody' : 'In Care'
+      statusBadgeClass = 'status-badge-clean shelter'
     } else {
-      statusBadgeLabel = isCruelty ? 'In Custody' : 'Attended'
+      statusBadgeLabel = isCruelty ? 'In Custody' : 'In Care'
       statusBadgeClass = 'status-badge-clean shelter'
     }
   } else if (status === 'cancelled') {
@@ -689,20 +564,38 @@ export function ReportDetailScreen() {
             ) : status === 'attended' ? (
               <div className="split-btn-group">
                 {report.animal_id ? (
-                  <Link
-                    to={`/animals/${report.animal_id}`}
-                    className="btn-brand-amber btn-main pressable"
-                    style={{
-                      textDecoration: 'none',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    <HouseSimple size={16} weight="bold" aria-hidden />
-                    <span className="btn-text-full">Open Profile &rarr;</span>
-                    <span className="btn-text-mobile">Profile &rarr;</span>
-                  </Link>
+                  isGroup ? (
+                    <Link
+                      to={`/reports/${report.id}/animals`}
+                      className="btn-brand-amber btn-main pressable"
+                      style={{
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <HouseSimple size={16} weight="bold" aria-hidden />
+                      <span className="btn-text-full">Open Profiles &rarr;</span>
+                      <span className="btn-text-mobile">Profiles &rarr;</span>
+                    </Link>
+                  ) : (
+                    <Link
+                      to={`/animals/${report.animal_id}`}
+                      state={{ backTo: `/reports/${report.id}`, backLabel: report.report_number || 'Report' }}
+                      className="btn-brand-amber btn-main pressable"
+                      style={{
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <HouseSimple size={16} weight="bold" aria-hidden />
+                      <span className="btn-text-full">Open Profile &rarr;</span>
+                      <span className="btn-text-mobile">Profile &rarr;</span>
+                    </Link>
+                  )
                 ) : (
                   <div
                     className="btn-brand-amber btn-main"
@@ -738,7 +631,11 @@ export function ReportDetailScreen() {
                           setIsDropdownOpen(false)
                           setActionLoading(true)
                           try {
-                            const animalId = await createAnimalFromReport('admitted_shelter')
+                            const animalId = await createAnimalFromRescueReport(db, report, {
+                              orgId: report.org_id || member?.orgId,
+                              orgInitials: member?.orgInitials,
+                              disposition: 'admitted_shelter',
+                            })
                             await completeReportWithDisposition(
                               db,
                               report.id,
@@ -841,9 +738,10 @@ export function ReportDetailScreen() {
           <span className={statusBadgeClass}>{statusBadgeLabel}</span>
         </div>
 
-        {/* 4-Stage Lifecycle Stepper */}
+        {/* Lifecycle Stepper */}
         <ReportPipelineTracker
           report={report}
+          outcomeStatus={outcomeStatus}
           onStepClick={(stepNumber) => {
             if (isCruelty && status === 'accepted' && stepNumber === 3) {
               setIsLegalEditingOnly(false)

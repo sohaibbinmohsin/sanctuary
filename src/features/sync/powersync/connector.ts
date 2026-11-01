@@ -23,6 +23,7 @@ const TABLE_BOOLEAN_COLUMNS: Record<string, readonly string[]> = {
   photos: ['local_only', 'verified'],
   ledger_attachments: ['local_only'],
   report_photos: ['local_only'],
+  rescue_reports: ['archived'],
 }
 
 export function sanitizeForPostgres(
@@ -77,17 +78,18 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     try {
       for (const op of transaction.crud) {
         lastOp = op
+        if (op.table === 'org_members') {
+          // org_members is read-only on client; bootstrap writes to local SQLite
+          // must not be synced back upstream to Supabase.
+          continue
+        }
         const table = supabase.from(op.table)
         let result: PostgrestSingleResponse<null>
         switch (op.op) {
           case UpdateType.PUT: {
             const rawRecord = { ...(op.opData ?? {}), id: op.id }
             const record = sanitizeForPostgres(op.table, rawRecord)
-            if (op.table === 'org_members') {
-              result = await table.upsert(record, { onConflict: 'org_id, user_id' })
-            } else {
-              result = await table.upsert(record)
-            }
+            result = await table.upsert(record)
             break
           }
           case UpdateType.PATCH: {

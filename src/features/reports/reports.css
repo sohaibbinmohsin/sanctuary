@@ -370,6 +370,12 @@
   border-color: var(--color-border);
 }
 
+.status-badge-clean.completed {
+  background: var(--color-forest-soft);
+  color: var(--color-forest);
+  border-color: color-mix(in srgb, var(--color-forest) 25%, transparent);
+}
+
 /* Empty state */
 .reports-empty-state {
   text-align: center;
@@ -527,12 +533,14 @@
   font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 600;
+  text-decoration: none;
   cursor: pointer;
   transition: filter var(--duration) var(--ease-out);
 }
 
 .split-btn-group .btn-main:hover:not(:disabled) {
   filter: brightness(0.92);
+  text-decoration: none;
 }
 
 .split-btn-group .btn-main:disabled {
@@ -608,6 +616,7 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--color-ink);
+  text-decoration: none;
   background: transparent;
   border: none;
   text-align: left;
@@ -622,6 +631,7 @@
 
 .dropdown-item:hover {
   background: var(--color-mist);
+  text-decoration: none;
 }
 
 .dropdown-item.danger {
@@ -1082,6 +1092,202 @@
 .quick-call-mini-btn:hover {
   background: var(--color-forest);
   color: var(--color-white);
+}
+
+/* Location Map in Report Facts */
+.location-coordinates-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.location-coordinates-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.location-coordinates-text-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coord-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration) var(--ease-out), background-color var(--duration) var(--ease-out);
+}
+
+.coord-copy-btn:hover {
+  color: var(--color-ink);
+  background: var(--color-surface-hover);
+}
+
+.coord-copied-badge {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-forest);
+  background: var(--color-forest-soft);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+}
+
+.location-map-container {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-hover);
+  cursor: pointer;
+  transition: border-color var(--duration) var(--ease-out);
+}
+
+.location-map-container:hover {
+  border-color: var(--color-ink-muted);
+}
+
+.location-map-expand-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(4px);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.map-centroid-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, #e03131 12%, transparent);
+  color: #b91c1c;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid color-mix(in srgb, #e03131 25%, transparent);
+}
+
+.location-map-canvas {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* Lightbox Modal for Location Map */
+.map-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 10000);
+  background: color-mix(in srgb, var(--color-ink, #0f172a) 75%, transparent);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4, 16px);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.map-lightbox-modal {
+  position: relative;
+  width: min(94vw, 920px);
+  height: min(85vh, 680px);
+  background: var(--color-surface, #ffffff);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.map-lightbox-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--color-surface, #ffffff);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.map-lightbox-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.map-lightbox-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.map-lightbox-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-lightbox-close {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-hover);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.map-lightbox-body {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 350px;
+  background: var(--color-surface-hover);
+}
+
+.map-lightbox-canvas {
+  width: 100%;
+  height: 100%;
 }
 
 /* Disposition Modal */

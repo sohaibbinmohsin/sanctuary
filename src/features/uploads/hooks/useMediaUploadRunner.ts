@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { processPhotoQueue } from '@/features/photos/domain/photos'
 import { processLedgerAttachmentQueue } from '@/features/ledger/domain/attachments'
+import { processReportPhotoQueue } from '@/features/reports/domain/rescueReports'
 import { isPlaygroundMode } from '@/features/playground/mode'
 import type { SanctuaryDb } from '@/shared/lib/db'
 import { notifyPendingMediaChanged } from '@/shared/lib/pendingMedia'
@@ -15,6 +16,7 @@ export async function runMediaQueues(db: SanctuaryDb): Promise<void> {
   }
   await processPhotoQueue(db)
   await processLedgerAttachmentQueue(db)
+  await processReportPhotoQueue(db)
   notifyPendingMediaChanged()
 }
 

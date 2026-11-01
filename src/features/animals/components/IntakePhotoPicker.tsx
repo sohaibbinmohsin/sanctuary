@@ -6,8 +6,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { Camera, ImageSquare, Plus, X } from '@phosphor-icons/react'
-import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
-import { useIsMobile } from '@/shared/hooks/useIsMobile'
+import { supportsCameraCapture } from '@/shared/hooks/useCanTakePhoto'
 import { InAppCamera } from '@/features/animals/components/InAppCamera'
 
 export type StagedPhoto = {
@@ -32,8 +31,6 @@ export function IntakePhotoPicker({
   onRemovePhoto,
   disabled = false,
 }: IntakePhotoPickerProps) {
-  const canTakePhoto = useCanTakePhoto()
-  const isMobile = useIsMobile()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
@@ -48,10 +45,16 @@ export function IntakePhotoPicker({
       return
     }
     const rect = buttonRef.current.getBoundingClientRect()
-    setMenuPos({
-      top: rect.bottom + 6,
-      left: rect.left,
-    })
+    const menuHeight = 96
+    const menuWidth = 160
+    let top = rect.bottom + 6
+    if (rect.bottom + menuHeight > window.innerHeight && rect.top > menuHeight) {
+      top = rect.top - menuHeight
+    } else if (top + menuHeight > window.innerHeight) {
+      top = Math.max(8, window.innerHeight - menuHeight - 8)
+    }
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8))
+    setMenuPos({ top, left })
   }, [menuOpen])
 
   useEffect(() => {
@@ -78,11 +81,7 @@ export function IntakePhotoPicker({
 
   function onPlusClick() {
     if (disabled || showCamera) return
-    if (canTakePhoto) {
-      setMenuOpen((open) => !open)
-      return
-    }
-    galleryRef.current?.click()
+    setMenuOpen((open) => !open)
   }
 
   function onFiles(files: FileList | null) {
@@ -133,8 +132,8 @@ export function IntakePhotoPicker({
                   ? `Add photo, ${photos.length} attached`
                   : 'Add photo'
             }
-            aria-expanded={canTakePhoto ? menuOpen : undefined}
-            aria-haspopup={canTakePhoto ? 'menu' : undefined}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
             title="Add photo"
             onClick={onPlusClick}
           >
@@ -180,10 +179,10 @@ export function IntakePhotoPicker({
                 role="menuitem"
                 onClick={() => {
                   setMenuOpen(false)
-                  if (!isMobile) {
-                    setShowCamera(true)
-                  } else {
+                  if (supportsCameraCapture()) {
                     cameraInputRef.current?.click()
+                  } else {
+                    setShowCamera(true)
                   }
                 }}
               >
@@ -210,19 +209,18 @@ export function IntakePhotoPicker({
         ref={cameraInputRef}
         type="file"
         accept="image/*"
-        multiple
         capture="environment"
         hidden
         onChange={(e) => {
-          const files = Array.from(e.target.files || [])
-          if (files.length > 0) {
-            const newPhotos: StagedPhoto[] = files.map((file) => ({
+          const file = e.target.files?.[0]
+          if (file) {
+            const photo: StagedPhoto = {
               id: crypto.randomUUID(),
               blob: file,
               previewUrl: URL.createObjectURL(file),
               captureSource: 'camera',
-            }))
-            onAddPhotos(newPhotos)
+            }
+            onAddPhotos([photo])
           }
           e.target.value = ''
         }}

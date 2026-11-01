@@ -15,7 +15,8 @@ export function PwaUpdatePill() {
       aria-label="Update available. Click to view details."
     >
       <span className="pwa-update-pill__dot" aria-hidden="true" />
-      <span>Update available</span>
+      <span className="pwa-update-pill__text-desktop">Update</span>
+      <span className="pwa-update-pill__text-mobile">Update available</span>
     </button>
   )
 }

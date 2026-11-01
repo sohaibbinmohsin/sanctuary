@@ -130,7 +130,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        clientsClaim: true,
+        clientsClaim: false,
         skipWaiting: false,
         // Checklist Web Push: push + notificationclick live in public/push-sw.js
         importScripts: ['/push-sw.js'],

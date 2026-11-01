@@ -27,6 +27,8 @@ type AnimalCardProps = {
   /** True when at least one photo was taken with a verified camera session. */
   hasVerifiedPhoto?: boolean
   variant?: 'grid' | 'list'
+  to?: string
+  linkState?: unknown
 }
 
 export function AnimalCard({
@@ -34,6 +36,8 @@ export function AnimalCard({
   photoUrl,
   hasVerifiedPhoto = false,
   variant = 'grid',
+  to,
+  linkState,
 }: AnimalCardProps) {
   const primaryStatus =
     animal.status_label ||
@@ -46,10 +50,11 @@ export function AnimalCard({
   const lifeStage = animal.lifeStage || animal.life_stage || null
   const resolvedPhotoUrl =
     photoUrl ?? animal.primaryPhotoUrl ?? animal.primary_photo_url ?? null
+  const targetTo = to || `/animals/${animal.id}`
 
   if (isList) {
     return (
-      <Link className="animal-card animal-card--list" to={`/animals/${animal.id}`}>
+      <Link className="animal-card animal-card--list" to={targetTo} state={linkState}>
         <div
           className="animal-card__photo"
           style={resolvedPhotoUrl ? { backgroundImage: `url(${resolvedPhotoUrl})` } : undefined}
@@ -89,7 +94,8 @@ export function AnimalCard({
   return (
     <Link
       className={`animal-card animal-card--full-bleed${!resolvedPhotoUrl ? ' animal-card--no-photo' : ''}`}
-      to={`/animals/${animal.id}`}
+      to={targetTo}
+      state={linkState}
       style={resolvedPhotoUrl ? { backgroundImage: `url(${resolvedPhotoUrl})` } : undefined}
       role="img"
       aria-label={`Photo card for ${displayName}`}

@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Check, X, Camera, Crosshair, MapPin, Compass, CircleNotch, Trash } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
@@ -20,6 +20,10 @@ import {
   addReportPhoto,
   getPhotosForReport,
   deleteReportPhoto,
+  archiveRescueReport,
+  syncReportPhotosToAnimal,
+  createAnimalFromRescueReport,
+  toDatetimeLocalValue,
   formatPhoneNumber,
   validatePhoneNumber,
   formatCnic,
@@ -29,30 +33,37 @@ import {
   requestCurrentPosition,
   parseCoordinates,
   searchFrequentCallers,
-  PAKISTAN_CITIES,
   getAreasForCity,
+  filterAreas,
+  reverseGeocodeCoordinates,
+  getAreaCentroid,
+  getAllSupportedCities,
   AVIAN_PRESETS,
   type IntakeSource,
   type FrequentCaller,
   type ReportPhoto,
   type RescueReport,
+  type CreateRescueReportInput,
 } from '@/features/reports/domain/rescueReports'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
+import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other'] as const
 
 const CATEGORY_OPTIONS = [
-  { value: 'emergency', label: 'Medical emergency' },
+  { value: 'emergency', label: 'Injured/sick animal' },
   { value: 'cruelty', label: 'Animal cruelty' },
 ] as const
 
 const INTAKE_SOURCES: { value: IntakeSource; label: string }[] = [
   { value: 'citizen', label: 'Citizen Call' },
+  { value: 'walk_in', label: 'Walk-in / Direct' },
   { value: 'rescue_1122', label: 'Rescue 1122' },
   { value: 'field_patrol', label: 'Field Patrol (Self)' },
   { value: 'partner_transfer', label: 'Partner Transfer' },
 ]
+
 
 export function ReportIntakeScreen() {
   const db = useDb()
@@ -60,8 +71,20 @@ export function ReportIntakeScreen() {
   const { id } = useParams<{ id: string }>()
   const isEditMode = Boolean(id)
   const { member } = useCurrentMember()
+  const [searchParams] = useSearchParams()
+  const isWalkInParam = searchParams.get('type') === 'walk-in' || searchParams.get('type') === 'walkin'
 
   const [existingReport, setExistingReport] = useState<RescueReport | null>(null)
+  const [intakeSource, setIntakeSource] = useState<IntakeSource>(() => (isWalkInParam ? 'walk_in' : 'citizen'))
+
+  const isWalkIn =
+    isWalkInParam ||
+    intakeSource === 'walk_in' ||
+    intakeSource === 'direct_intake' ||
+    existingReport?.intake_source === 'walk_in' ||
+    existingReport?.intake_source === 'direct_intake'
+
+  const [reportDateTime, setReportDateTime] = useState<string>(() => toDatetimeLocalValue(new Date()))
   const [existingPhotos, setExistingPhotos] = useState<ReportPhoto[]>([])
   const [existingPhotoUrls, setExistingPhotoUrls] = useState<Record<string, string>>({})
   const [photosToDelete, setPhotosToDelete] = useState<string[]>([])
@@ -93,7 +116,31 @@ export function ReportIntakeScreen() {
   const [locationLinkInput, setLocationLinkInput] = useState('')
   const [detectingLocation, setDetectingLocation] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
-  const [intakeSource, setIntakeSource] = useState<IntakeSource>('citizen')
+  const [geoNotice, setGeoNotice] = useState<string | null>(null)
+  const [isCentroidPin, setIsCentroidPin] = useState(false)
+
+  function handleApplyCoordinates(lat: number, lng: number, source: 'gps' | 'link' | 'centroid') {
+    setLatitude(lat)
+    setLongitude(lng)
+    setIsCentroidPin(source === 'centroid')
+    setLocationError(null)
+
+    if (source !== 'centroid') {
+      const match = reverseGeocodeCoordinates(
+        { latitude: lat, longitude: lng },
+        source === 'gps' ? undefined : { city }
+      )
+      if (match) {
+        if (!locationArea || locationArea.trim() === '' || source === 'gps') {
+          setLocationArea(match.areaName)
+        }
+        if (!city || city.trim() === '' || source === 'gps') {
+          setCity(match.cityName)
+        }
+        setGeoNotice(`Auto-resolved to ${match.areaName}, ${match.cityName} (${match.distanceKm} km away)`)
+      }
+    }
+  }
   const [reporterName, setReporterName] = useState('')
   const [reporterPhone, setReporterPhone] = useState('')
   const [reporterCnic, setReporterCnic] = useState('')
@@ -102,7 +149,36 @@ export function ReportIntakeScreen() {
   const [legalNotes, setLegalNotes] = useState('')
   const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const confirm = useConfirm()
+
+  useEffect(() => {
+    if (!isEditMode && isWalkInParam) {
+      setIntakeSource('walk_in')
+    }
+  }, [isEditMode, isWalkInParam])
+
+  async function handleDeleteReport() {
+    if (!db || !id || deleting || submitting) return
+    const ok = await confirm({
+      title: 'Delete report?',
+      body: 'This report will be removed from your reports list.',
+      confirmLabel: 'Delete report',
+      tone: 'danger',
+    })
+    if (!ok) return
+    setDeleting(true)
+    setError(null)
+    try {
+      await archiveRescueReport(db, id)
+      navigate('/reports', { replace: true })
+    } catch (err) {
+      console.error('Failed to delete report', err)
+      setError(err instanceof Error ? err.message : 'Could not delete report. Try again.')
+      setDeleting(false)
+    }
+  }
 
 
   const orgId = member?.orgId ?? existingReport?.org_id ?? ''
@@ -116,6 +192,7 @@ export function ReportIntakeScreen() {
         const report = await getRescueReportById(db, id!)
         if (cancelled || !report) return
         setExistingReport(report)
+        setReportDateTime(toDatetimeLocalValue(report.created_at || report.stage_logged_at))
         setCategory(report.category || 'emergency')
         setIntakeSource((report.intake_source as IntakeSource) || 'citizen')
         setAnimalCount(report.animal_count && report.animal_count > 0 ? report.animal_count : 1)
@@ -275,9 +352,16 @@ export function ReportIntakeScreen() {
       return
     }
 
+    const reportDateTimeISO = reportDateTime
+      ? Number.isNaN(new Date(reportDateTime).getTime())
+        ? new Date().toISOString()
+        : new Date(reportDateTime).toISOString()
+      : new Date().toISOString()
+
     const complaintTrimmed = chiefComplaint.trim()
     const cityTrimmed = city.trim() || 'Lahore'
-    const areaTrimmed = locationArea.trim()
+    const isDirectWalkIn = isWalkIn
+    const areaTrimmed = locationArea.trim() || (isDirectWalkIn ? 'Clinic / Shelter' : '')
 
     if (!complaintTrimmed) {
       setError('Please provide a chief complaint or injury description.')
@@ -358,6 +442,7 @@ export function ReportIntakeScreen() {
       if (isEditMode && id) {
         // Update details ONLY - preserve timeline milestones, stage, and disposition
         await updateRescueReport(db, id, {
+          createdAt: reportDateTimeISO,
           category,
           species: calculatedSpecies.toLowerCase(),
           lifeStage: effectiveLifeStage,
@@ -387,23 +472,18 @@ export function ReportIntakeScreen() {
 
         // Add any newly staged photos
         if (stagedPhotos.length > 0) {
-          const now = new Date().toISOString()
           for (const photo of stagedPhotos) {
             await addReportPhoto(db, {
               orgId,
               reportId: id,
               blob: photo.blob,
             })
-            if (existingReport?.animal_id) {
-              try {
-                await db.execute(
-                  `INSERT INTO photos (id, org_id, animal_id, r2_key, local_only, upload_state, capture_source, verified, created_at)
-                   VALUES (?, ?, ?, NULL, 1, 'pending', 'upload', 0, ?)`,
-                  [crypto.randomUUID(), orgId, existingReport.animal_id, now],
-                )
-              } catch (photoErr) {
-                console.warn('Could not mirror photo to animal', photoErr)
-              }
+          }
+          if (existingReport?.animal_id) {
+            try {
+              await syncReportPhotosToAnimal(db, id, existingReport.animal_id, orgId)
+            } catch (photoErr) {
+              console.warn('Could not mirror photos to animal', photoErr)
             }
           }
         }
@@ -411,7 +491,13 @@ export function ReportIntakeScreen() {
         navigate(`/reports/${id}`, { replace: true })
       } else {
         const reportNumber = await generateReportNumber(db, orgInitials)
-        const report = await createRescueReport(db, {
+        const effectiveIntakeSource: IntakeSource = isDirectWalkIn
+          ? intakeSource === 'citizen'
+            ? 'walk_in'
+            : intakeSource
+          : intakeSource
+
+        const createInput: CreateRescueReportInput = {
           orgId,
           reportNumber,
           category,
@@ -426,14 +512,23 @@ export function ReportIntakeScreen() {
           reporterName: reporterName.trim() || null,
           reporterPhone: reporterPhone.trim() ? formatPhoneNumber(reporterPhone) : null,
           reporterCnic: reporterCnic.trim()
-            ? intakeSource === 'citizen' || intakeSource === 'field_patrol'
+            ? effectiveIntakeSource === 'citizen' || effectiveIntakeSource === 'field_patrol'
               ? formatCnic(reporterCnic)
               : reporterCnic.trim()
             : null,
-          intakeSource,
+          intakeSource: effectiveIntakeSource,
           animalCount: Math.max(1, effectiveCount),
           groupBreakdown: groupBreakdownJson,
-        })
+          createdAt: reportDateTimeISO,
+        }
+
+        if (isDirectWalkIn) {
+          createInput.status = 'attended'
+          createInput.stageAttendedAt = reportDateTimeISO
+          createInput.dispositionType = 'admitted_shelter'
+        }
+
+        const report = await createRescueReport(db, createInput)
 
         // Attach any staged photos to this report
         if (stagedPhotos.length > 0) {
@@ -446,12 +541,30 @@ export function ReportIntakeScreen() {
           }
         }
 
+        if (isDirectWalkIn) {
+          try {
+            const animalId = await createAnimalFromRescueReport(db, report, {
+              orgId,
+              orgInitials,
+              disposition: 'admitted_shelter',
+              attendedDate: new Date(reportDateTimeISO),
+            })
+            if (animalId) {
+              await updateRescueReport(db, report.id, { animalId })
+              report.animal_id = animalId
+            }
+          } catch (createErr) {
+            console.error('Failed to auto-create animal record for walk-in intake', createErr)
+          }
+        }
+
         navigate(`/reports/${report.id}`, { replace: true })
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save rescue report.')
       setSubmitting(false)
     }
+
   }
 
   function handleAddPhotos(newPhotos: StagedPhoto[]) {
@@ -489,19 +602,122 @@ export function ReportIntakeScreen() {
             ? existingReport?.report_number
               ? `Edit Report ${existingReport.report_number}`
               : 'Edit rescue report'
-            : 'Log a rescue report'
+            : isWalkIn
+              ? 'Log Walk-in Intake'
+              : 'Log a rescue report'
         }
         subtitle={
           isEditMode
             ? 'Update report details, location, or attach proof photos.'
-            : 'Record incoming emergency and dispatch rescue team.'
+            : isWalkIn
+              ? 'Record an animal brought directly to the rescuer or clinic'
+              : 'Record incoming emergency and dispatch rescue team.'
         }
       />
 
       <form className="stack stack--loose" onSubmit={handleSubmit}>
+        {/* Date & Time Picker */}
+        <div className="panel stack">
+          <TextField
+            label={isWalkIn ? 'Intake Date & Time' : 'Report Date & Time'}
+            type="datetime-local"
+            id="report-datetime-input"
+            value={reportDateTime}
+            onChange={(e) => setReportDateTime(e.target.value)}
+            required
+          />
+        </div>
+
+        {/* Photos & Proof (Directly after Date & Time) */}
+        <div className="panel stack">
+          <div className="stack stack--tight">
+            <p className="section-label">Photos &amp; Proof</p>
+            <span className="field__hint">Optional</span>
+          </div>
+
+          {/* Existing Photos in Edit Mode */}
+          {isEditMode && existingPhotos.length > 0 && (
+            <div className="stack stack--tight" style={{ marginBottom: '8px' }}>
+              <span className="field__hint" style={{ fontWeight: 600 }}>
+                Existing photos:
+              </span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {existingPhotos
+                  .filter((p) => !photosToDelete.includes(p.id))
+                  .map((p) => (
+                    <div
+                      key={p.id}
+                      style={{
+                        position: 'relative',
+                        width: '4.5rem',
+                        height: '4.5rem',
+                        borderRadius: 'var(--radius-md)',
+                        overflow: 'hidden',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    >
+                      {existingPhotoUrls[p.id] ? (
+                        <img
+                          src={existingPhotoUrls[p.id]}
+                          alt="Report proof"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: 'var(--color-surface)',
+                          }}
+                        >
+                          <Camera size={20} color="var(--color-ink-muted)" />
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className="pressable"
+                        onClick={() => setPhotosToDelete((prev) => [...prev, p.id])}
+                        title="Remove photo"
+                        aria-label="Remove photo"
+                        style={{
+                          position: 'absolute',
+                          top: '3px',
+                          right: '3px',
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          background: 'rgba(0,0,0,0.65)',
+                          color: '#fff',
+                          border: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <X size={12} weight="bold" />
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          <IntakePhotoPicker
+            photos={stagedPhotos}
+            onAddPhotos={handleAddPhotos}
+            onRemovePhoto={handleRemovePhoto}
+            disabled={submitting}
+          />
+        </div>
+
         {/* 1. Animal Category & Species */}
         <div className="panel stack">
           <p className="section-label">Report Category &amp; Animal</p>
+
 
           <div className="field">
             <span>Category</span>
@@ -1094,7 +1310,7 @@ export function ReportIntakeScreen() {
               setCity(val)
               if (error) setError(null)
             }}
-            suggestions={PAKISTAN_CITIES}
+            suggestions={getAllSupportedCities()}
             required
           />
 
@@ -1109,9 +1325,18 @@ export function ReportIntakeScreen() {
             onChange={(val) => {
               setLocationArea(val)
               if (error) setError(null)
+              if (latitude == null || isCentroidPin) {
+                const centroid = getAreaCentroid(val, city)
+                if (centroid) {
+                  setLatitude(centroid.latitude)
+                  setLongitude(centroid.longitude)
+                  setIsCentroidPin(true)
+                }
+              }
             }}
             suggestions={getAreasForCity(city)}
-            required
+            filterFn={(q) => filterAreas(city, q)}
+            required={!isWalkIn}
           />
 
           <TextField
@@ -1147,6 +1372,19 @@ export function ReportIntakeScreen() {
                   <span className="font-mono font-medium" style={{ fontSize: '0.875rem' }}>
                     {formatCoordinates(latitude, longitude)}
                   </span>
+                  {isCentroidPin && (
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        padding: '2px 6px',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--color-surface-hover)',
+                        color: 'var(--color-ink-muted)',
+                      }}
+                    >
+                      Area Centroid
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <a
@@ -1165,8 +1403,10 @@ export function ReportIntakeScreen() {
                     onClick={() => {
                       setLatitude(null)
                       setLongitude(null)
+                      setIsCentroidPin(false)
                       setLocationLinkInput('')
                       setLocationError(null)
+                      setGeoNotice(null)
                     }}
                     className="pressable"
                     title="Clear coordinates"
@@ -1198,8 +1438,7 @@ export function ReportIntakeScreen() {
                     setDetectingLocation(true)
                     try {
                       const pos = await requestCurrentPosition()
-                      setLatitude(pos.latitude)
-                      setLongitude(pos.longitude)
+                      handleApplyCoordinates(pos.latitude, pos.longitude, 'gps')
                     } catch (err) {
                       setLocationError(err instanceof Error ? err.message : 'Unable to acquire location')
                     } finally {
@@ -1230,9 +1469,7 @@ export function ReportIntakeScreen() {
                     }
                     const parsed = parseCoordinates(val)
                     if (parsed) {
-                      setLatitude(parsed.latitude)
-                      setLongitude(parsed.longitude)
-                      setLocationError(null)
+                      handleApplyCoordinates(parsed.latitude, parsed.longitude, 'link')
                     } else if (val.includes('maps.app.goo.gl') || val.includes('goo.gl/maps')) {
                       setLocationError('Shortened links do not contain coordinates in the URL. Please open it in your browser and copy the coordinates or full URL.')
                     } else if (val.length > 15) {
@@ -1248,94 +1485,36 @@ export function ReportIntakeScreen() {
                 )}
               </div>
             )}
-          </div>
-        </div>
 
-        {/* 4. Photos & Proof (Optional) */}
-        <div className="panel stack">
-          <div className="stack stack--tight">
-            <p className="section-label">Photos &amp; Proof</p>
-            <span className="field__hint">Optional</span>
-          </div>
-
-          {/* Existing Photos in Edit Mode */}
-          {isEditMode && existingPhotos.length > 0 && (
-            <div className="stack stack--tight" style={{ marginBottom: '8px' }}>
-              <span className="field__hint" style={{ fontWeight: 600 }}>
-                Existing photos:
-              </span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {existingPhotos
-                  .filter((p) => !photosToDelete.includes(p.id))
-                  .map((p) => (
-                    <div
-                      key={p.id}
-                      style={{
-                        position: 'relative',
-                        width: '4.5rem',
-                        height: '4.5rem',
-                        borderRadius: 'var(--radius-md)',
-                        overflow: 'hidden',
-                        border: '1px solid var(--color-border)',
-                      }}
-                    >
-                      {existingPhotoUrls[p.id] ? (
-                        <img
-                          src={existingPhotoUrls[p.id]}
-                          alt="Report proof"
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'var(--color-surface)',
-                          }}
-                        >
-                          <Camera size={20} color="var(--color-ink-muted)" />
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        className="pressable"
-                        onClick={() => setPhotosToDelete((prev) => [...prev, p.id])}
-                        title="Remove photo"
-                        aria-label="Remove photo"
-                        style={{
-                          position: 'absolute',
-                          top: '3px',
-                          right: '3px',
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '50%',
-                          background: 'rgba(0,0,0,0.65)',
-                          color: '#fff',
-                          border: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <X size={12} weight="bold" />
-                      </button>
-                    </div>
-                  ))}
+            {geoNotice && (
+              <div
+                style={{
+                  fontSize: '0.8125rem',
+                  color: 'var(--color-forest, #2d6a4f)',
+                  background: 'var(--color-surface-variant, #edf6f2)',
+                  padding: '6px 10px',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '6px',
+                  marginTop: '4px',
+                }}
+              >
+                <span>{geoNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setGeoNotice(null)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'inherit' }}
+                  aria-label="Dismiss location notice"
+                >
+                  <X size={13} weight="bold" />
+                </button>
               </div>
-            </div>
-          )}
-
-          <IntakePhotoPicker
-            photos={stagedPhotos}
-            onAddPhotos={handleAddPhotos}
-            onRemovePhoto={handleRemovePhoto}
-            disabled={submitting}
-          />
+            )}
+          </div>
         </div>
+
 
         {/* 5. Legal Action & Notice (Extra card in edit mode) */}
         {isEditMode && (category === 'cruelty' || existingReport?.legal_notes) && (
@@ -1351,6 +1530,31 @@ export function ReportIntakeScreen() {
           </div>
         )}
 
+        {/* 6. Danger Zone: Delete report in edit mode */}
+        {isEditMode && (
+          <div className="panel report-danger-panel">
+            <div className="report-danger-panel__info">
+              <p className="section-label" style={{ color: 'var(--color-danger, #dc2626)', margin: 0 }}>
+                Danger Zone
+              </p>
+              <p className="field__hint" style={{ margin: 'var(--space-1) 0 0' }}>
+                Remove this report from active records. Use this if the report was created by mistake.
+              </p>
+            </div>
+            <div className="report-danger-panel__action">
+              <Button
+                type="button"
+                variant="danger-outline"
+                disabled={submitting || deleting}
+                onClick={() => void handleDeleteReport()}
+              >
+                <Trash size={16} weight="bold" aria-hidden />
+                <span>{deleting ? 'Deleting…' : 'Delete report'}</span>
+              </Button>
+            </div>
+          </div>
+        )}
+
         {error ? <p className="form-error">{error}</p> : null}
 
         <div className="sticky-actions">
@@ -1363,10 +1567,14 @@ export function ReportIntakeScreen() {
             {submitting
               ? isEditMode
                 ? 'Saving changes…'
-                : 'Logging report…'
+                : isWalkIn
+                  ? 'Logging walk-in intake…'
+                  : 'Logging report…'
               : isEditMode
                 ? 'Save changes'
-                : 'Log rescue report'}
+                : isWalkIn
+                  ? 'Log walk-in intake'
+                  : 'Log rescue report'}
           </Button>
         </div>
       </form>

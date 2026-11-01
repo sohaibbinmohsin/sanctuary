@@ -16,7 +16,6 @@ import {
 } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { useDb } from '@/shared/hooks/useDb'
-import { useCanTakePhoto } from '@/shared/hooks/useCanTakePhoto'
 import { useIsMobile } from '@/shared/hooks/useIsMobile'
 import { InAppCamera } from '@/features/animals/components/InAppCamera'
 import {
@@ -65,7 +64,6 @@ export function PhotoCapture({
   onError,
 }: PhotoCaptureProps) {
   const db = useDb()
-  const canTakePhoto = useCanTakePhoto()
   const isMobile = useIsMobile()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -112,10 +110,16 @@ export function PhotoCapture({
       return
     }
     const rect = buttonRef.current.getBoundingClientRect()
-    setMenuPos({
-      top: rect.bottom + 6,
-      left: rect.left,
-    })
+    const menuHeight = 96
+    const menuWidth = 160
+    let top = rect.bottom + 6
+    if (rect.bottom + menuHeight > window.innerHeight && rect.top > menuHeight) {
+      top = rect.top - menuHeight
+    } else if (top + menuHeight > window.innerHeight) {
+      top = Math.max(8, window.innerHeight - menuHeight - 8)
+    }
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8))
+    setMenuPos({ top, left })
   }, [menuOpen])
 
   useEffect(() => {
@@ -273,11 +277,7 @@ export function PhotoCapture({
 
   function onPlusClick() {
     if (cameraFlowActive) return
-    if (canTakePhoto || isPlaygroundMode()) {
-      setMenuOpen((open) => !open)
-      return
-    }
-    galleryRef.current?.click()
+    setMenuOpen((open) => !open)
   }
 
   function onCameraCaptureSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -377,8 +377,8 @@ export function PhotoCapture({
                 ? `Add photo, ${pending} waiting to upload`
                 : 'Add photo'
           }
-          aria-expanded={(canTakePhoto || isPlaygroundMode()) ? menuOpen : undefined}
-          aria-haspopup={(canTakePhoto || isPlaygroundMode()) ? 'menu' : undefined}
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
           title={
             pending > 0
               ? `${pending} waiting to upload`
