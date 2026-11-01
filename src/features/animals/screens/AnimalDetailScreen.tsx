@@ -831,8 +831,6 @@ export function AnimalDetailScreen() {
   const arrivalTreatments = treatments.filter(
     (t) => isArrivalTreatmentType(t.treatment_type),
   )
-  const arrivalDateOrTime =
-    arrivalTreatments[0]?.treated_at || animal.intake_date || ''
   const timelineTreatments = treatments.filter((t) => {
     if (t.treatment_type !== 'status') return false
     const trimmedNotes = t.notes?.trim()
@@ -841,12 +839,18 @@ export function AnimalDetailScreen() {
       (!trimmedNotes &&
         (animal.status_label || 'intake').toLowerCase() === 'intake')
 
-    // If arrival milestone already displays Intake, do not show duplicate Intake status entry on arrival date
+    // If arrival milestone already displays Intake, do not show duplicate Intake status entry matching arrival timestamp
     if (isIntakeStatus && (hasArrivalEntry || showLegacyArrival)) {
-      const tTime = t.treated_at ? t.treated_at.slice(0, 10) : ''
-      const aTime = arrivalDateOrTime ? arrivalDateOrTime.slice(0, 10) : ''
-      if (!tTime || !aTime || tTime === aTime) {
-        return false
+      if (arrivalTreatments.length > 0 && t.treated_at && arrivalTreatments[0]?.treated_at) {
+        const tTimeMs = new Date(t.treated_at).getTime()
+        const aTimeMs = new Date(arrivalTreatments[0].treated_at).getTime()
+        if (Math.abs(tTimeMs - aTimeMs) <= 1000) {
+          return false
+        }
+      } else if (showLegacyArrival && animal.intake_date && t.treated_at) {
+        if (t.treated_at === animal.intake_date) {
+          return false
+        }
       }
     }
     return true

@@ -596,7 +596,6 @@ export function ReportIntakeScreen() {
             id="report-datetime-input"
             value={reportDateTime}
             onChange={(e) => setReportDateTime(e.target.value)}
-            hint="Backdate if logging after occurrence"
             required
           />
         </div>

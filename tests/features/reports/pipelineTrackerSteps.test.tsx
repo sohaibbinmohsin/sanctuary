@@ -95,4 +95,28 @@ describe('ReportPipelineTracker', () => {
     expect(screen.getByText('Outcome & Placement')).toBeInTheDocument()
     expect(screen.getByText('Under Treatment')).toBeInTheDocument()
   })
+
+  it('reflects completed outcome status with timestamp on Step 5 and Walk-in Step 3', () => {
+    const report: Partial<RescueReport> = {
+      id: 'r5',
+      status: 'attended',
+      stage_attended_at: '2026-11-01T10:00:00.000Z',
+      intake_source: 'citizen',
+      created_at: '2026-11-01T09:00:00.000Z',
+    }
+    const outcomeStatus: ReportCompletionResult = {
+      isCompleted: true,
+      outcomeLabel: 'Transferred',
+      activeCount: 0,
+      completedCount: 1,
+      completedAt: '2026-11-01T14:30:00.000Z',
+    }
+    render(
+      <ReportPipelineTracker
+        report={report as RescueReport}
+        outcomeStatus={outcomeStatus}
+      />
+    )
+    expect(screen.getByText(/Transferred · /i)).toBeInTheDocument()
+  })
 })

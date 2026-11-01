@@ -317,4 +317,75 @@ describe('AnimalDetailScreen status moved inside Timeline tab', () => {
       expect.arrayContaining(['st-1']),
     )
   })
+
+  it('displays re-intake status in timeline alongside initial arrival', async () => {
+    mockGetOptional.mockResolvedValue({
+      id: 'anim-1',
+      org_id: 'org-1',
+      shelter_code: 'MS-0001',
+      name: 'Barnaby',
+      species: 'Dog',
+      intake_date: '2026-11-01',
+      status_id: 'st-1',
+      status_label: 'Intake',
+      status_labels: ['Intake'],
+      archived: 0,
+      created_at: '2026-11-01T08:00:00Z',
+      updated_at: '2026-11-01T15:00:00Z',
+    })
+
+    mockGetAll.mockImplementation(async (sql: string) => {
+      if (sql.includes('treatments')) {
+        return [
+          {
+            id: 'treat-reintake',
+            org_id: 'org-1',
+            animal_id: 'anim-1',
+            treatment_type: 'status',
+            notes: 'Intake - Returned from foster',
+            treated_at: '2026-11-01T15:00:00Z',
+            created_at: '2026-11-01T15:00:00Z',
+          },
+          {
+            id: 'treat-transfer',
+            org_id: 'org-1',
+            animal_id: 'anim-1',
+            treatment_type: 'status',
+            notes: 'Transferred',
+            treated_at: '2026-11-01T11:00:00Z',
+            created_at: '2026-11-01T11:00:00Z',
+          },
+          {
+            id: 'treat-arrival',
+            org_id: 'org-1',
+            animal_id: 'anim-1',
+            treatment_type: 'arrived',
+            notes: 'Initial arrival',
+            treated_at: '2026-11-01T08:00:00Z',
+            created_at: '2026-11-01T08:00:00Z',
+          },
+        ]
+      }
+      return [
+        { id: 'st-1', org_id: 'org-1', label: 'Intake', sort_order: 1, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+        { id: 'st-2', org_id: 'org-1', label: 'Quarantine', sort_order: 2, counts_as_in_care: 1, archived: 0, created_at: '', updated_at: '' },
+        { id: 'st-3', org_id: 'org-1', label: 'Transferred', sort_order: 3, counts_as_in_care: 0, archived: 0, created_at: '', updated_at: '' },
+      ]
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/animals/anim-1']}>
+        <Routes>
+          <Route path="/animals/:id" element={<AnimalDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const timelineTab = await screen.findByRole('tab', { name: /Timeline/i })
+    fireEvent.click(timelineTab)
+
+    // Re-intake notes and Transferred notes should both be visible in the timeline
+    expect(await screen.findByText(/Returned from foster/i)).toBeInTheDocument()
+    expect(screen.getByText('Transferred')).toBeInTheDocument()
+  })
 })

@@ -60,7 +60,7 @@ describe('ReportsListScreen Actions', () => {
     })
   })
 
-  it('renders split button with Log report and opens dropdown with Log walk-in', async () => {
+  it('renders single Log report action linking to /reports/new', async () => {
     render(
       <MemoryRouter>
         <ReportsListScreen />
@@ -70,27 +70,7 @@ describe('ReportsListScreen Actions', () => {
     const mainBtn = screen.getByRole('link', { name: /Log report/i })
     expect(mainBtn).toBeInTheDocument()
     expect(mainBtn).toHaveAttribute('href', '/reports/new')
-
-    const toggleBtn = screen.getByTitle(/More report actions/i)
-    expect(toggleBtn).toBeInTheDocument()
-
-    // Initially dropdown is closed
-    expect(screen.queryByRole('link', { name: /Log walk-in/i })).not.toBeInTheDocument()
-
-    // Click toggle to open
-    fireEvent.click(toggleBtn)
-    const walkInLink = screen.getByRole('link', { name: /Log walk-in/i })
-    expect(walkInLink).toBeInTheDocument()
-    expect(walkInLink).toHaveAttribute('href', '/reports/new?type=walk-in')
-
-    // Escape closes dropdown
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByRole('link', { name: /Log walk-in/i })).not.toBeInTheDocument()
-
-    // Reopen and test outside click
-    fireEvent.click(toggleBtn)
-    expect(screen.getByRole('link', { name: /Log walk-in/i })).toBeInTheDocument()
-    fireEvent.mouseDown(document.body)
+    expect(screen.queryByTitle(/More report actions/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Log walk-in/i })).not.toBeInTheDocument()
   })
 

@@ -533,12 +533,14 @@
   font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 600;
+  text-decoration: none;
   cursor: pointer;
   transition: filter var(--duration) var(--ease-out);
 }
 
 .split-btn-group .btn-main:hover:not(:disabled) {
   filter: brightness(0.92);
+  text-decoration: none;
 }
 
 .split-btn-group .btn-main:disabled {
@@ -614,6 +616,7 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--color-ink);
+  text-decoration: none;
   background: transparent;
   border: none;
   text-align: left;
@@ -628,6 +631,7 @@
 
 .dropdown-item:hover {
   background: var(--color-mist);
+  text-decoration: none;
 }
 
 .dropdown-item.danger {

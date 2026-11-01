@@ -6,12 +6,15 @@ export type ReportCompletionResult = {
   outcomeLabel: string
   activeCount: number
   completedCount: number
+  completedAt?: string | null
 }
 
 interface AnimalStatusRow {
   id: string
   counts_as_in_care: number
   status_label: string | null
+  status_timestamp?: string | null
+  updated_at?: string | null
 }
 
 /**
@@ -36,6 +39,7 @@ export async function getReportCompletionStatus(
       outcomeLabel: 'Cancelled',
       activeCount: 0,
       completedCount: 0,
+      completedAt: report.updated_at || report.stage_accepted_at || report.created_at,
     }
   }
 
@@ -45,6 +49,7 @@ export async function getReportCompletionStatus(
       outcomeLabel: 'Spot Released',
       activeCount: 0,
       completedCount: 1,
+      completedAt: report.stage_attended_at || report.updated_at,
     }
   }
 
@@ -54,6 +59,7 @@ export async function getReportCompletionStatus(
       outcomeLabel: 'Dead on Arrival (DOA)',
       activeCount: 0,
       completedCount: 1,
+      completedAt: report.stage_attended_at || report.updated_at,
     }
   }
 
@@ -67,7 +73,15 @@ export async function getReportCompletionStatus(
           `SELECT
              a.id,
              COALESCE(s.counts_as_in_care, 1) AS counts_as_in_care,
-             s.label AS status_label
+             s.label AS status_label,
+             (
+               SELECT treated_at
+               FROM treatments
+               WHERE animal_id = a.id AND treatment_type = 'status'
+               ORDER BY treated_at DESC
+               LIMIT 1
+             ) AS status_timestamp,
+             a.updated_at
            FROM animals a
            LEFT JOIN animal_statuses s ON s.id = a.status_id
            WHERE a.id = ?`,
@@ -85,7 +99,15 @@ export async function getReportCompletionStatus(
             `SELECT DISTINCT
                a.id,
                COALESCE(s.counts_as_in_care, 1) AS counts_as_in_care,
-               s.label AS status_label
+               s.label AS status_label,
+               (
+                 SELECT treated_at
+                 FROM treatments
+                 WHERE animal_id = a.id AND treatment_type = 'status'
+                 ORDER BY treated_at DESC
+                 LIMIT 1
+               ) AS status_timestamp,
+               a.updated_at
              FROM animal_relationships ar
              JOIN animals a ON a.id = ar.related_animal_id
              LEFT JOIN animal_statuses s ON s.id = a.status_id
@@ -123,11 +145,20 @@ export async function getReportCompletionStatus(
     const isCompleted = activeCount === 0 && completedCount > 0
 
     let outcomeLabel = ''
+    let completedAt: string | null = null
+
     if (isCompleted) {
       const uniqueExitLabels = Array.from(
         new Set(completedAnimals.map((a) => a.status_label?.trim()).filter(Boolean) as string[]),
       )
       outcomeLabel = uniqueExitLabels.length > 0 ? uniqueExitLabels.join(', ') : 'Completed'
+
+      for (const ca of completedAnimals) {
+        const ts = ca.status_timestamp || ca.updated_at
+        if (ts && (!completedAt || new Date(ts).getTime() > new Date(completedAt).getTime())) {
+          completedAt = ts
+        }
+      }
     } else {
       const uniqueActiveLabels = Array.from(
         new Set(activeAnimals.map((a) => a.status_label?.trim()).filter(Boolean) as string[]),
@@ -140,6 +171,7 @@ export async function getReportCompletionStatus(
       outcomeLabel,
       activeCount,
       completedCount,
+      completedAt: completedAt || (isCompleted ? report.updated_at : null),
     }
   }
 
@@ -149,6 +181,7 @@ export async function getReportCompletionStatus(
       outcomeLabel: 'Transferred',
       activeCount: 0,
       completedCount: 1,
+      completedAt: report.stage_attended_at || report.updated_at,
     }
   }
 

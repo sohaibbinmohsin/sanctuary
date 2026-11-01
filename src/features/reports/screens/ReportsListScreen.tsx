@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo, useCallback, useDeferredValue, useRef } from 'react'
-import { Link } from 'react-router-dom'
-import { Plus, MagnifyingGlass, X, MegaphoneSimple, CaretDown, SignIn } from '@phosphor-icons/react'
+import { Plus, MagnifyingGlass, X, MegaphoneSimple } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { useIncrementalList } from '@/shared/hooks/useIncrementalList'
 import { LoadMoreSentinel } from '@/shared/ui/LoadMoreSentinel'
@@ -66,33 +66,10 @@ export function ReportsListScreen() {
   const [searchQuery, setSearchQuery] = useState('')
   const deferredQuery = useDeferredValue(searchQuery)
   const [loading, setLoading] = useState(true)
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
   const scrollRestoredRef = useRef(false)
   const defaultSelectedRef = useRef(false)
 
   const orgId = member?.orgId ?? ''
-
-  // Close dropdown on outside click or Escape key
-  useEffect(() => {
-    if (!isDropdownOpen) return
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false)
-      }
-    }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isDropdownOpen])
 
   // Track scroll position while browsing reports
   useEffect(() => {
@@ -363,34 +340,10 @@ export function ReportsListScreen() {
         subtitle={subtitle}
         actions={
           loading || filteredReports.length > 0 ? (
-            <div className="split-btn-group" ref={dropdownRef}>
-              <Link to="/reports/new" className="btn-main pressable">
-                <Plus size={18} weight="bold" />
-                <span>Log report</span>
-              </Link>
-              <button
-                type="button"
-                className="btn-toggle pressable"
-                title="More report actions"
-                aria-label="More report actions"
-                aria-expanded={isDropdownOpen}
-                onClick={() => setIsDropdownOpen((prev) => !prev)}
-              >
-                <CaretDown size={14} weight="bold" />
-              </button>
-              {isDropdownOpen && (
-                <div className="dropdown-menu is-open">
-                  <Link
-                    to="/reports/new?type=walk-in"
-                    className="dropdown-item"
-                    onClick={() => setIsDropdownOpen(false)}
-                  >
-                    <SignIn size={15} weight="bold" aria-hidden />
-                    <span>Log walk-in</span>
-                  </Link>
-                </div>
-              )}
-            </div>
+            <Button to="/reports/new" variant="accent">
+              <Plus size={18} weight="bold" />
+              <span>Log report</span>
+            </Button>
           ) : undefined
         }
       />

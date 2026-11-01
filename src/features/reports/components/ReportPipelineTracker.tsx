@@ -118,18 +118,29 @@ export function ReportPipelineTracker({
           : !isCancelled && isAdmitted
             ? 'current'
             : 'upcoming',
-        timeText: isCancelled
-          ? '—'
-          : isStep3Completed
-            ? outcomeStatus?.outcomeLabel ||
+        timeText: (() => {
+          if (isCancelled) return '—'
+          if (isStep3Completed) {
+            const label =
+              outcomeStatus?.outcomeLabel ||
               (disp === 'spot_released'
                 ? 'Spot Released'
                 : disp === 'deceased_doa'
                   ? 'Dead on Arrival'
                   : 'Completed')
-            : !isCancelled && isAdmitted
-              ? outcomeStatus?.outcomeLabel || 'In Care'
-              : '—',
+            const timeIso =
+              outcomeStatus?.completedAt ||
+              (disp === 'spot_released' || disp === 'deceased_doa'
+                ? report.stage_attended_at
+                : report.updated_at)
+            const formatted = formatPipelineTime(timeIso)
+            return formatted && formatted !== '—' ? `${label} · ${formatted}` : label
+          }
+          if (!isCancelled && isAdmitted) {
+            return outcomeStatus?.outcomeLabel || 'In Care'
+          }
+          return '—'
+        })(),
       },
     ]
   } else if (isCruelty) {
@@ -259,18 +270,29 @@ export function ReportPipelineTracker({
           : !isCancelled && isAttended
             ? 'current'
             : 'upcoming',
-        timeText: isCancelled
-          ? '—'
-          : isStep5Completed
-            ? outcomeStatus?.outcomeLabel ||
+        timeText: (() => {
+          if (isCancelled) return '—'
+          if (isStep5Completed) {
+            const label =
+              outcomeStatus?.outcomeLabel ||
               (disp === 'spot_released'
                 ? 'Spot Released'
                 : disp === 'deceased_doa'
                   ? 'Dead on Arrival'
                   : 'Completed')
-            : !isCancelled && isAttended
-              ? outcomeStatus?.outcomeLabel || 'In Care'
-              : '—',
+            const timeIso =
+              outcomeStatus?.completedAt ||
+              (disp === 'spot_released' || disp === 'deceased_doa'
+                ? report.stage_attended_at
+                : report.updated_at)
+            const formatted = formatPipelineTime(timeIso)
+            return formatted && formatted !== '—' ? `${label} · ${formatted}` : label
+          }
+          if (!isCancelled && isAttended) {
+            return outcomeStatus?.outcomeLabel || 'In Care'
+          }
+          return '—'
+        })(),
       },
     ]
   }
