@@ -9,6 +9,7 @@ import {
   formatCnic,
   formatCoordinates,
   getNavigationUrl,
+  getMapEmbedUrl,
 } from '@/features/reports/domain/rescueReports'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
@@ -274,23 +275,31 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
               <span className="fact-value font-muted">No landmark provided</span>
             )}
           </div>
-          <div className="fact-row">
+          <div className="fact-row fact-row--coordinates">
             <span className="fact-label">Coordinates</span>
             {report.latitude != null && report.longitude != null ? (
-              <div className="caller-contact-actions">
+              <div className="location-coordinates-wrap">
                 <span className="fact-value font-mono font-medium">
                   {formatCoordinates(report.latitude, report.longitude)}
                 </span>
-                <a
-                  href={getNavigationUrl(report.latitude, report.longitude)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="quick-call-mini-btn"
-                  title="Open in Maps for free navigation"
-                >
-                  <Compass size={13} weight="bold" aria-hidden />
-                  <span>Navigate</span>
-                </a>
+                <div className="location-map-container">
+                  <iframe
+                    title="Rescue location map"
+                    src={getMapEmbedUrl(report.latitude, report.longitude)}
+                    className="location-map-frame"
+                    loading="lazy"
+                  />
+                  <a
+                    href={getNavigationUrl(report.latitude, report.longitude)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="quick-call-mini-btn location-map-navigate-btn"
+                    title="Open in Maps for free navigation"
+                  >
+                    <Compass size={13} weight="bold" aria-hidden />
+                    <span>Navigate</span>
+                  </a>
+                </div>
               </div>
             ) : (
               <span className="fact-value font-muted">No coordinates pinned</span>

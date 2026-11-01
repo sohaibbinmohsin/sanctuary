@@ -1569,6 +1569,7 @@ export {
   isValidLatLng,
   formatCoordinates,
   getNavigationUrl,
+  getMapEmbedUrl,
   requestCurrentPosition,
   type Coordinates,
 } from './coordinates'
