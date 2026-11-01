@@ -163,6 +163,8 @@ describe('ReportsListScreen', () => {
     vi.spyOn(domainModule, 'getRescueOperationsSummary').mockResolvedValue({
       total: 10,
       awaitingTriage: 3,
+      inProgress: 2,
+      resolved: 5,
       inField: 2,
       attended: 5,
       cancelled: 0,
@@ -211,6 +213,8 @@ describe('ReportsListScreen', () => {
     vi.spyOn(domainModule, 'getRescueOperationsSummary').mockResolvedValue({
       total: 10,
       awaitingTriage: 0,
+      inProgress: 4,
+      resolved: 6,
       inField: 4,
       attended: 6,
       cancelled: 0,
@@ -248,6 +252,45 @@ describe('ReportsListScreen', () => {
     // New reports chip has 0 count, so it should not render a counter badge
     const newChip = screen.getByRole('button', { name: /^New reports$/i })
     expect(newChip.querySelector('.chip-counter')).toBeNull()
+  })
+
+  it('selects In progress by default when awaiting triage is 0, inField is 0, but inProgress > 0 (attended in care)', async () => {
+    vi.spyOn(domainModule, 'getRescueOperationsSummary').mockResolvedValue({
+      total: 6,
+      awaitingTriage: 0,
+      inField: 0,
+      inProgress: 6,
+      resolved: 0,
+      attended: 6,
+      cancelled: 0,
+    })
+
+    const getRescueReportsSpy = vi.spyOn(domainModule, 'getRescueReports').mockResolvedValue(
+      Array.from({ length: 6 }, (_, i) => ({
+        id: `rep-care-${i + 1}`,
+        org_id: 'org-1',
+        report_number: `PARC-R30${i + 1}`,
+        species: 'cat',
+        chief_complaint: 'Under clinic care',
+        status: 'attended',
+        location_area: 'Model Town',
+        created_at: new Date().toISOString(),
+      })) as any,
+    )
+
+    render(
+      <MemoryRouter>
+        <ReportsListScreen />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(getRescueReportsSpy).toHaveBeenCalledWith(expect.anything(), 'org-1', 'in_progress')
+    })
+
+    const inProgressChip = screen.getByRole('button', { name: /In progress/i })
+    expect(inProgressChip).toHaveAttribute('aria-pressed', 'true')
+    expect(inProgressChip).toHaveTextContent('6')
   })
 })
 

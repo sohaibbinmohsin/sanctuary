@@ -103,7 +103,7 @@ export function ReportsListScreen() {
         setSummary(sum)
         if (sum.awaitingTriage > 0) {
           targetFilter = 'new'
-        } else if (sum.inField > 0) {
+        } else if ((sum.inProgress ?? sum.inField) > 0) {
           targetFilter = 'in_progress'
         } else {
           targetFilter = 'all'
@@ -378,8 +378,8 @@ export function ReportsListScreen() {
               ? (summary?.awaitingTriage ?? 0)
               : key === 'in_progress'
                 ? (activeFilter === 'in_progress'
-                    ? (!loading || reports.length > 0 ? reports.length : (inProgressCount ?? summary?.inField ?? 0))
-                    : (inProgressCount ?? summary?.inField ?? 0))
+                    ? (!loading || reports.length > 0 ? reports.length : (inProgressCount ?? summary?.inProgress ?? summary?.inField ?? 0))
+                    : (inProgressCount ?? summary?.inProgress ?? summary?.inField ?? 0))
                 : 0
 
           return (

@@ -12,6 +12,8 @@ export function RescueOperationsSummaryCard() {
   const [summary, setSummary] = useState<RescueOperationsSummary>({
     total: 0,
     awaitingTriage: 0,
+    inProgress: 0,
+    resolved: 0,
     inField: 0,
     attended: 0,
     cancelled: 0,
@@ -62,13 +64,13 @@ export function RescueOperationsSummaryCard() {
           </div>
           <div className="checklist-summary__metric">
             <p className="checklist-summary__value" style={{ color: 'var(--color-forest)' }}>
-              {summary.inField}
+              {summary.inProgress}
             </p>
-            <p className="checklist-summary__label">In field</p>
+            <p className="checklist-summary__label">In progress</p>
           </div>
           <div className="checklist-summary__metric">
             <p className="checklist-summary__value" style={{ color: 'var(--color-forest)' }}>
-              {summary.attended}
+              {summary.resolved}
             </p>
             <p className="checklist-summary__label">Attended / resolved</p>
           </div>
