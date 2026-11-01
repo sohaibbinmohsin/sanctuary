@@ -33,8 +33,11 @@ import {
   requestCurrentPosition,
   parseCoordinates,
   searchFrequentCallers,
-  PAKISTAN_CITIES,
   getAreasForCity,
+  filterAreas,
+  reverseGeocodeCoordinates,
+  getAreaCentroid,
+  getAllSupportedCities,
   AVIAN_PRESETS,
   type IntakeSource,
   type FrequentCaller,
@@ -113,6 +116,31 @@ export function ReportIntakeScreen() {
   const [locationLinkInput, setLocationLinkInput] = useState('')
   const [detectingLocation, setDetectingLocation] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
+  const [geoNotice, setGeoNotice] = useState<string | null>(null)
+  const [isCentroidPin, setIsCentroidPin] = useState(false)
+
+  function handleApplyCoordinates(lat: number, lng: number, source: 'gps' | 'link' | 'centroid') {
+    setLatitude(lat)
+    setLongitude(lng)
+    setIsCentroidPin(source === 'centroid')
+    setLocationError(null)
+
+    if (source !== 'centroid') {
+      const match = reverseGeocodeCoordinates(
+        { latitude: lat, longitude: lng },
+        source === 'gps' ? undefined : { city }
+      )
+      if (match) {
+        if (!locationArea || locationArea.trim() === '' || source === 'gps') {
+          setLocationArea(match.areaName)
+        }
+        if (!city || city.trim() === '' || source === 'gps') {
+          setCity(match.cityName)
+        }
+        setGeoNotice(`Auto-resolved to ${match.areaName}, ${match.cityName} (${match.distanceKm} km away)`)
+      }
+    }
+  }
   const [reporterName, setReporterName] = useState('')
   const [reporterPhone, setReporterPhone] = useState('')
   const [reporterCnic, setReporterCnic] = useState('')
@@ -1282,7 +1310,7 @@ export function ReportIntakeScreen() {
               setCity(val)
               if (error) setError(null)
             }}
-            suggestions={PAKISTAN_CITIES}
+            suggestions={getAllSupportedCities()}
             required
           />
 
@@ -1297,8 +1325,17 @@ export function ReportIntakeScreen() {
             onChange={(val) => {
               setLocationArea(val)
               if (error) setError(null)
+              if (latitude == null || isCentroidPin) {
+                const centroid = getAreaCentroid(val, city)
+                if (centroid) {
+                  setLatitude(centroid.latitude)
+                  setLongitude(centroid.longitude)
+                  setIsCentroidPin(true)
+                }
+              }
             }}
             suggestions={getAreasForCity(city)}
+            filterFn={(q) => filterAreas(city, q)}
             required={!isWalkIn}
           />
 
@@ -1335,6 +1372,19 @@ export function ReportIntakeScreen() {
                   <span className="font-mono font-medium" style={{ fontSize: '0.875rem' }}>
                     {formatCoordinates(latitude, longitude)}
                   </span>
+                  {isCentroidPin && (
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        padding: '2px 6px',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--color-surface-hover)',
+                        color: 'var(--color-ink-muted)',
+                      }}
+                    >
+                      Area Centroid
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <a
@@ -1353,8 +1403,10 @@ export function ReportIntakeScreen() {
                     onClick={() => {
                       setLatitude(null)
                       setLongitude(null)
+                      setIsCentroidPin(false)
                       setLocationLinkInput('')
                       setLocationError(null)
+                      setGeoNotice(null)
                     }}
                     className="pressable"
                     title="Clear coordinates"
@@ -1386,8 +1438,7 @@ export function ReportIntakeScreen() {
                     setDetectingLocation(true)
                     try {
                       const pos = await requestCurrentPosition()
-                      setLatitude(pos.latitude)
-                      setLongitude(pos.longitude)
+                      handleApplyCoordinates(pos.latitude, pos.longitude, 'gps')
                     } catch (err) {
                       setLocationError(err instanceof Error ? err.message : 'Unable to acquire location')
                     } finally {
@@ -1418,9 +1469,7 @@ export function ReportIntakeScreen() {
                     }
                     const parsed = parseCoordinates(val)
                     if (parsed) {
-                      setLatitude(parsed.latitude)
-                      setLongitude(parsed.longitude)
-                      setLocationError(null)
+                      handleApplyCoordinates(parsed.latitude, parsed.longitude, 'link')
                     } else if (val.includes('maps.app.goo.gl') || val.includes('goo.gl/maps')) {
                       setLocationError('Shortened links do not contain coordinates in the URL. Please open it in your browser and copy the coordinates or full URL.')
                     } else if (val.length > 15) {
@@ -1434,6 +1483,33 @@ export function ReportIntakeScreen() {
                     {locationError}
                   </span>
                 )}
+              </div>
+            )}
+
+            {geoNotice && (
+              <div
+                style={{
+                  fontSize: '0.8125rem',
+                  color: 'var(--color-forest, #2d6a4f)',
+                  background: 'var(--color-surface-variant, #edf6f2)',
+                  padding: '6px 10px',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '6px',
+                  marginTop: '4px',
+                }}
+              >
+                <span>{geoNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setGeoNotice(null)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'inherit' }}
+                  aria-label="Dismiss location notice"
+                >
+                  <X size={13} weight="bold" />
+                </button>
               </div>
             )}
           </div>

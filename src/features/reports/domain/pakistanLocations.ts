@@ -2,6 +2,20 @@
  * Curated list of Pakistan cities and comprehensive neighborhood/area directories.
  * Designed for offline-first autocomplete in rescue reports.
  */
+import {
+  getAllCities,
+  getCityById,
+  getAreasByCity,
+  searchAreas,
+  getNearestArea,
+  haversineDistanceKm,
+  type PakistanArea,
+  type PakistanCity,
+} from 'pak-geodata'
+
+export type { PakistanArea, PakistanCity }
+import { toSentenceCase } from '@/shared/lib/text'
+
 
 export const PAKISTAN_CITIES: readonly string[] = [
   'Lahore',
@@ -462,23 +476,144 @@ const CITY_AREAS_MAP: Record<string, readonly string[]> = {
 }
 
 /**
+ * Normalizes user input city string to canonical pak-geodata cityId.
+ */
+export function toCityId(cityName?: string | null): string | undefined {
+  if (!cityName) return undefined
+  const cleaned = cityName
+    .trim()
+    .toLowerCase()
+    .replace(/[\(\)]/g, '')
+    .replace(/\s+/g, '-')
+  const cities = getAllCities()
+  const found = cities.find(
+    (c) =>
+      c.id === cleaned ||
+      c.name.toLowerCase() === cityName.trim().toLowerCase() ||
+      c.district.toLowerCase() === cityName.trim().toLowerCase()
+  )
+  return found ? found.id : cleaned
+}
+
+export interface ReverseGeocodeResult {
+  areaName: string
+  cityName: string
+  provinceId?: string
+  distanceKm: number
+  coordinates: { latitude: number; longitude: number }
+}
+
+/**
+ * Resolves geographic coordinates (lat, lng) to the closest verified area and city in Pakistan.
+ * Uses offline spherical Haversine nearest neighbor calculations with zero network latency.
+ */
+export function reverseGeocodeCoordinates(
+  coords: { latitude: number; longitude: number },
+  options?: { maxDistanceKm?: number; city?: string | null }
+): ReverseGeocodeResult | null {
+  const cityId = toCityId(options?.city)
+  let nearest = getNearestArea(
+    { lat: coords.latitude, lng: coords.longitude },
+    { cityId, maxDistanceKm: options?.maxDistanceKm ?? 15 }
+  )
+  if (!nearest && cityId) {
+    nearest = getNearestArea(
+      { lat: coords.latitude, lng: coords.longitude },
+      { maxDistanceKm: options?.maxDistanceKm ?? 25 }
+    )
+  }
+  if (!nearest) return null
+
+  const cityObj = getCityById(nearest.cityId)
+  const cityName = cityObj ? cityObj.name : toSentenceCase(nearest.cityId)
+  const dist = haversineDistanceKm(
+    { lat: coords.latitude, lng: coords.longitude },
+    nearest.coordinates
+  )
+
+  return {
+    areaName: nearest.name,
+    cityName,
+    provinceId: nearest.provinceId,
+    distanceKm: Math.round(dist * 10) / 10,
+    coordinates: {
+      latitude: nearest.coordinates.lat,
+      longitude: nearest.coordinates.lng,
+    },
+  }
+}
+
+/**
+ * Searches Pakistan areas using structured multi-script matching and alias ranking.
+ * Supports colloquial aliases (e.g. "dha 5", "gulberg 3") and Urdu script.
+ */
+export function searchLocationAreas(
+  query: string,
+  options?: { city?: string | null; limit?: number }
+): PakistanArea[] {
+  const cityId = toCityId(options?.city)
+  return searchAreas(query, { cityId, limit: options?.limit ?? 25 })
+}
+
+/**
+ * Looks up the verified centroid GPS coordinates for a given area name or alias.
+ */
+export function getAreaCentroid(
+  areaName: string,
+  cityName?: string | null
+): { latitude: number; longitude: number } | null {
+  if (!areaName || !areaName.trim()) return null
+  const matches = searchLocationAreas(areaName, { city: cityName, limit: 1 })
+  if (matches.length > 0) {
+    const top = matches[0]
+    const qLower = areaName.trim().toLowerCase()
+    const isExact = top.name.toLowerCase() === qLower
+    const isAlias = top.aliases.some((a: string) => a.toLowerCase() === qLower)
+    const isPrefix = top.name.toLowerCase().startsWith(qLower) || qLower.startsWith(top.name.toLowerCase())
+    if (isExact || isAlias || isPrefix) {
+      return {
+        latitude: top.coordinates.lat,
+        longitude: top.coordinates.lng,
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Returns all verified cities in Pakistan from pak-geodata, merged with any preset cities.
+ */
+export function getAllSupportedCities(): readonly string[] {
+  const verifiedCities = getAllCities().map((c) => c.name)
+  return Array.from(new Set([...verifiedCities, ...PAKISTAN_CITIES]))
+}
+
+/**
  * Returns preset areas for a given city name (case-insensitive).
- * Defaults to Lahore areas if city is empty or not yet chosen.
+ * Combines pak-geodata verified areas with local directory lists.
  */
 export function getAreasForCity(cityName?: string | null): readonly string[] {
-  if (!cityName) return LAHORE_AREAS
-  const key = cityName.trim().toLowerCase()
-  return CITY_AREAS_MAP[key] || []
+  if (!cityName || !cityName.trim()) {
+    return LAHORE_AREAS
+  }
+  const cityId = toCityId(cityName)
+  const geodataAreas = cityId ? getAreasByCity(cityId).map((a) => a.name) : []
+  const legacyAreas = CITY_AREAS_MAP[cityName.trim().toLowerCase()] || []
+  return Array.from(new Set([...geodataAreas, ...legacyAreas]))
 }
 
 /**
  * Searches and filters areas for a city given a search query.
+ * Uses multi-tier alias & fuzzy ranking from pak-geodata with fallback to local directories.
  */
 export function filterAreas(cityName: string | undefined | null, query: string): string[] {
-  const areas = getAreasForCity(cityName)
-  const q = query.trim().toLowerCase()
-  if (!q) return areas.slice(0, 50)
-  return areas.filter((a) => a.toLowerCase().includes(q))
+  const q = query.trim()
+  if (!q) {
+    return [...getAreasForCity(cityName).slice(0, 50)]
+  }
+  const geoMatches = searchLocationAreas(q, { city: cityName, limit: 25 }).map((a) => a.name)
+  const legacyFallback = getAreasForCity(cityName).filter((a) => a.toLowerCase().includes(q.toLowerCase()))
+  return Array.from(new Set([...geoMatches, ...legacyFallback])).slice(0, 50)
 }
 
 /**
@@ -486,6 +621,7 @@ export function filterAreas(cityName: string | undefined | null, query: string):
  */
 export function filterCities(query: string): string[] {
   const q = query.trim().toLowerCase()
-  if (!q) return [...PAKISTAN_CITIES]
-  return PAKISTAN_CITIES.filter((c) => c.toLowerCase().includes(q))
+  const allCities = getAllSupportedCities()
+  if (!q) return [...allCities]
+  return allCities.filter((c) => c.toLowerCase().includes(q))
 }

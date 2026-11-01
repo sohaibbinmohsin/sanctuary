@@ -85,8 +85,8 @@ describe('ReportIntakeScreen', () => {
         city: 'Lahore',
         locationArea: 'Gulberg III',
         locationLandmark: 'Near Main Market',
-        latitude: null,
-        longitude: null,
+        latitude: 31.509,
+        longitude: 74.347,
         reporterName: 'Kamran',
         reporterPhone: '0300 1122334',
         reporterCnic: null,
@@ -329,6 +329,31 @@ describe('ReportIntakeScreen', () => {
         }),
       )
     })
+  })
+
+  it('automatically reverse-geocodes detected GPS coordinates to area and city with notice banner', async () => {
+    // Coordinates near Liberty Market / Gulberg III Lahore: 31.510, 74.348
+    vi.spyOn(domainModule, 'requestCurrentPosition').mockResolvedValue({
+      latitude: 31.510,
+      longitude: 74.348,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/new']}>
+        <Routes>
+          <Route path="/reports/new" element={<ReportIntakeScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const detectBtn = screen.getByRole('button', { name: /Detect current location/i })
+    fireEvent.click(detectBtn)
+
+    // Should detect and reverse geocode
+    expect(await screen.findByText(/31\.5100° N, 74\.3480° E/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Auto-resolved to Gulberg III, Lahore/i)).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Lahore')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Gulberg III')).toBeInTheDocument()
   })
 
   it('supports avian presets under Bird and multi-animal litter count', async () => {
