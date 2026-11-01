@@ -1,26 +1,46 @@
 import { type FormEvent } from 'react'
-import { ArrowRight } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight } from '@phosphor-icons/react'
 import { AVIAN_PRESETS } from '@/features/reports/domain/rescueReports'
 import type { ReportDraftState } from '@/features/reports/hooks/useReportDraft'
+import {
+  type ReportLanguage,
+  type ReportTranslations,
+  getReportTranslations,
+  EMERGENCY_QUICK_COMPLAINTS_EN,
+  EMERGENCY_QUICK_COMPLAINTS_UR,
+  CRUELTY_QUICK_COMPLAINTS_EN,
+  CRUELTY_QUICK_COMPLAINTS_UR,
+} from '@/features/reports/domain/reportTranslations'
 
 export const SPECIES_OPTIONS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other'] as const
 
-export const QUICK_COMPLAINTS = [
-  'Hit by vehicle',
-  'Severe bleeding',
-  'Fractured limb',
-  'Unable to stand',
-  'Sick or malnourished',
-  'Trapped or abused',
-] as const
+export const QUICK_COMPLAINTS = EMERGENCY_QUICK_COMPLAINTS_EN
 
 export type PublicReportStepAnimalProps = {
   draft: ReportDraftState
   onUpdate: (patch: Partial<ReportDraftState>) => void
   onNext: () => void
+  lang?: ReportLanguage
+  t?: ReportTranslations
 }
 
-export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReportStepAnimalProps) {
+export function PublicReportStepAnimal({
+  draft,
+  onUpdate,
+  onNext,
+  lang = 'en',
+  t = getReportTranslations(lang),
+}: PublicReportStepAnimalProps) {
+  const isCruelty = draft.category === 'cruelty'
+  const isUrdu = lang === 'ur'
+  const activeQuickTags = isCruelty
+    ? isUrdu
+      ? CRUELTY_QUICK_COMPLAINTS_UR
+      : CRUELTY_QUICK_COMPLAINTS_EN
+    : isUrdu
+      ? EMERGENCY_QUICK_COMPLAINTS_UR
+      : EMERGENCY_QUICK_COMPLAINTS_EN
+
   function handleQuickComplaint(tag: string) {
     if (!draft.chiefComplaint.trim()) {
       onUpdate({ chiefComplaint: tag })
@@ -38,7 +58,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
   return (
     <form onSubmit={handleSubmit} className="public-report__step-form">
       <div className="public-report__group">
-        <label className="public-report__label">What kind of report is this?</label>
+        <label className="public-report__label">{t.reportCategoryLabel}</label>
         <div className="public-report__chips" role="group" aria-label="Report category">
           <button
             type="button"
@@ -46,7 +66,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
             aria-pressed={draft.category === 'emergency'}
             onClick={() => onUpdate({ category: 'emergency' })}
           >
-            Medical emergency
+            {t.medicalEmergency}
           </button>
           <button
             type="button"
@@ -54,13 +74,13 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
             aria-pressed={draft.category === 'cruelty'}
             onClick={() => onUpdate({ category: 'cruelty' })}
           >
-            Animal cruelty
+            {t.animalCruelty}
           </button>
         </div>
       </div>
 
       <div className="public-report__group">
-        <label className="public-report__label">Animal count and composition</label>
+        <label className="public-report__label">{t.howManyAnimals}</label>
         <div className="public-report__chips" role="group" aria-label="Animal composition">
           <button
             type="button"
@@ -68,7 +88,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
             aria-pressed={draft.intakeCountMode === 'single'}
             onClick={() => onUpdate({ intakeCountMode: 'single', animalCount: 1 })}
           >
-            Single Animal
+            {t.singleAnimal}
           </button>
           <button
             type="button"
@@ -76,7 +96,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
             aria-pressed={draft.intakeCountMode === 'litter'}
             onClick={() => onUpdate({ intakeCountMode: 'litter', animalCount: Math.max(2, draft.animalCount) })}
           >
-            Litter or Family
+            {t.litter}
           </button>
           <button
             type="button"
@@ -84,7 +104,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
             aria-pressed={draft.intakeCountMode === 'multiple'}
             onClick={() => onUpdate({ intakeCountMode: 'multiple', animalCount: Math.max(2, draft.animalCount) })}
           >
-            Multiple Animals
+            {t.multipleAnimals}
           </button>
         </div>
       </div>
@@ -93,7 +113,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
         <>
           <div className="public-report__group">
             <label className="public-report__label" htmlFor="animal-count">
-              Total count in litter
+              {t.numberOfAnimals}
             </label>
             <div className="public-report__stepper">
               <button
@@ -115,7 +135,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
                 +
               </button>
               <span className="public-report__valid-hint" style={{ marginLeft: 'var(--space-2)' }}>
-                Litter of {draft.animalCount}
+                {lang === 'ur' ? `${draft.animalCount} بچے` : `Litter of ${draft.animalCount}`}
               </span>
             </div>
           </div>
@@ -147,7 +167,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
       {draft.intakeCountMode === 'multiple' ? (
         <div className="public-report__group">
           <label className="public-report__label" htmlFor="animal-count">
-            Total count in group
+            {t.numberOfAnimals}
           </label>
           <div className="public-report__stepper">
             <button
@@ -169,7 +189,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
               +
             </button>
             <span className="public-report__valid-hint" style={{ marginLeft: 'var(--space-2)' }}>
-              Group of {draft.animalCount}
+              {lang === 'ur' ? `${draft.animalCount} جانور` : `Group of ${draft.animalCount}`}
             </span>
           </div>
         </div>
@@ -177,7 +197,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
 
       {draft.intakeCountMode === 'single' ? (
         <div className="public-report__group">
-          <label className="public-report__label">Life stage</label>
+          <label className="public-report__label">{t.lifeStage}</label>
           <div className="public-report__chips" role="group" aria-label="Life stage">
             <button
               type="button"
@@ -185,7 +205,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
               aria-pressed={draft.lifeStage === 'adult'}
               onClick={() => onUpdate({ lifeStage: 'adult' })}
             >
-              Adult
+              {t.adult}
             </button>
             <button
               type="button"
@@ -193,32 +213,42 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
               aria-pressed={draft.lifeStage === 'child'}
               onClick={() => onUpdate({ lifeStage: 'child' })}
             >
-              Child / Baby
+              {t.puppyKitten}
             </button>
           </div>
         </div>
       ) : null}
 
       <div className="public-report__group">
-        <label className="public-report__label">Animal type</label>
+        <label className="public-report__label">{t.species}</label>
         <div className="public-report__chips" role="group" aria-label="Animal type">
-          {SPECIES_OPTIONS.map((item) => (
-            <button
-              type="button"
-              key={item}
-              className={`public-report__chip${draft.speciesPreset === item ? ' public-report__chip--active' : ''}`}
-              aria-pressed={draft.speciesPreset === item}
-              onClick={() => onUpdate({ speciesPreset: item, avianSubtype: '' })}
-            >
-              {item}
-            </button>
-          ))}
+          {SPECIES_OPTIONS.map((item) => {
+            const speciesLabelMap: Record<string, string> = {
+              Dog: t.speciesDog,
+              Cat: t.speciesCat,
+              Horse: t.speciesHorse,
+              Donkey: t.speciesDonkey,
+              Bird: t.speciesBird,
+              Other: t.speciesOther,
+            }
+            return (
+              <button
+                type="button"
+                key={item}
+                className={`public-report__chip${draft.speciesPreset === item ? ' public-report__chip--active' : ''}`}
+                aria-pressed={draft.speciesPreset === item}
+                onClick={() => onUpdate({ speciesPreset: item, avianSubtype: '' })}
+              >
+                {speciesLabelMap[item] || item}
+              </button>
+            )
+          })}
         </div>
       </div>
 
       {draft.speciesPreset === 'Bird' ? (
         <div className="public-report__group">
-          <label className="public-report__label">Avian species</label>
+          <label className="public-report__label">{t.avianSpecies}</label>
           <div className="public-report__chips" role="group" aria-label="Avian species">
             {AVIAN_PRESETS.map((item) => (
               <button
@@ -238,7 +268,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
       {draft.speciesPreset === 'Other' ? (
         <div className="public-report__field">
           <label htmlFor="species-other" className="public-report__label">
-            Specify animal
+            {t.specifyAnimal}
           </label>
           <input
             id="species-other"
@@ -254,10 +284,10 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
 
       <div className="public-report__field">
         <label htmlFor="chief-complaint" className="public-report__label">
-          What happened / Injury description
+          {isCruelty ? t.crueltyDescriptionLabel : t.injuryDescriptionLabel}
         </label>
         <div className="public-report__quick-tags" aria-label="Quick complaint tags">
-          {QUICK_COMPLAINTS.map((tag) => (
+          {activeQuickTags.map((tag) => (
             <button
               key={tag}
               type="button"
@@ -272,7 +302,7 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
           id="chief-complaint"
           className="public-report__textarea"
           rows={3}
-          placeholder="Describe the injury, bleeding, behavior, or emergency situation"
+          placeholder={isCruelty ? t.crueltyPlaceholder : t.injuryPlaceholder}
           value={draft.chiefComplaint}
           onChange={(e) => onUpdate({ chiefComplaint: e.target.value })}
           required
@@ -285,8 +315,12 @@ export function PublicReportStepAnimal({ draft, onUpdate, onNext }: PublicReport
           className="public-report__btn public-report__btn--primary"
           disabled={!draft.chiefComplaint.trim()}
         >
-          Continue to Location
-          <ArrowRight size={18} weight="bold" aria-hidden />
+          <span>{t.nextLocation}</span>
+          {isUrdu ? (
+            <ArrowLeft size={18} weight="bold" aria-hidden />
+          ) : (
+            <ArrowRight size={18} weight="bold" aria-hidden />
+          )}
         </button>
       </div>
     </form>

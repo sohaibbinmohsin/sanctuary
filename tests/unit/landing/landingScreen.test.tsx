@@ -13,15 +13,15 @@ describe('LandingScreen animal welfare network', () => {
     expect(screen.getByText('Animal welfare network')).toBeInTheDocument()
   })
 
-  it('renders primary Report a case CTA linking to /report and a single topbar Sign in link', () => {
+  it('renders primary Try playground CTA linking to /playground and a single topbar Sign in link', () => {
     render(
       <MemoryRouter>
         <LandingScreen />
       </MemoryRouter>
     )
-    const reportLink = screen.getByRole('link', { name: /Report a case/i })
-    expect(reportLink).toBeInTheDocument()
-    expect(reportLink).toHaveAttribute('href', '/report')
+    const playgroundLink = screen.getByRole('link', { name: /Try playground/i })
+    expect(playgroundLink).toBeInTheDocument()
+    expect(playgroundLink).toHaveAttribute('href', '/playground')
     const signInLinks = screen.getAllByRole('link', { name: /Sign in/i })
     expect(signInLinks).toHaveLength(1)
   })

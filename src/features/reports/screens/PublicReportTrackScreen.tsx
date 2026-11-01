@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
+  ArrowRight,
   Copy,
   Check,
   Siren,
@@ -10,7 +11,6 @@ import {
   ShieldCheck,
   Heart,
   Scales,
-  Broadcast,
   FileText,
   CaretDown,
   Sparkle,
@@ -26,21 +26,16 @@ import {
   getTrackingNotice,
 } from '@/features/reports/domain/partners'
 import { SanctuaryFooter } from '@/shared/ui/SanctuaryFooter'
+import { useReportLanguage } from '@/features/reports/hooks/useReportLanguage'
+import {
+  EMERGENCY_PIPELINE_STAGES,
+  CRUELTY_PIPELINE_STAGES,
+  type PipelineStageTranslation,
+  translateSpecies,
+  translateLifeStage,
+  formatAnimalCount,
+} from '@/features/reports/domain/reportTranslations'
 import '@/features/reports/publicReport.css'
-
-interface PipelineStageDef {
-  key: string
-  label: string
-  timeKey: string
-}
-
-const PIPELINE_STAGES: readonly PipelineStageDef[] = [
-  { key: 'logged', label: 'Logged', timeKey: 'stage_logged_at' },
-  { key: 'accepted', label: 'Accepted', timeKey: 'stage_accepted_at' },
-  { key: 'dispatched', label: 'Dispatched', timeKey: 'stage_dispatched_at' },
-  { key: 'attended', label: 'Attended', timeKey: 'stage_attended_at' },
-  { key: 'resolved', label: 'Resolved', timeKey: 'stage_resolved_at' },
-] as const
 
 const STAGE_ORDER: Record<string, number> = {
   logged: 0,
@@ -50,14 +45,22 @@ const STAGE_ORDER: Record<string, number> = {
   resolved: 4,
 }
 
-function getStatusBadgeText(status?: string | null): string {
-  if (!status) return 'Logged'
+function getStatusBadgeText(status?: string | null, isCruelty = false, isUrdu = false): string {
+  if (!status) return isCruelty ? (isUrdu ? 'شکایت درج' : 'Complaint Logged') : (isUrdu ? 'درج شدہ' : 'Logged')
   const s = status.toLowerCase()
-  if (s === 'logged') return 'Logged'
-  if (s === 'accepted') return 'Accepted'
-  if (s === 'dispatched') return 'Dispatched'
-  if (s === 'attended') return 'Attended'
-  if (s === 'resolved') return 'Resolved'
+  if (isCruelty) {
+    if (s === 'logged') return isUrdu ? 'شکایت درج' : 'Complaint Logged'
+    if (s === 'accepted') return isUrdu ? 'تحقیقات جاری' : 'Investigation'
+    if (s === 'dispatched') return isUrdu ? 'قانونی کارروائی' : 'Notice / Legal Action'
+    if (s === 'attended') return isUrdu ? 'حفاظتی تحویل' : 'In Custody'
+    if (s === 'resolved' || s === 'completed') return isUrdu ? 'حل شدہ' : 'Resolved'
+  } else {
+    if (s === 'logged') return isUrdu ? 'درج شدہ' : 'Logged'
+    if (s === 'accepted') return isUrdu ? 'منظور شدہ' : 'Accepted'
+    if (s === 'dispatched') return isUrdu ? 'ٹیم روانہ' : 'Dispatched'
+    if (s === 'attended') return isUrdu ? 'مقام پر آمد' : 'Attended'
+    if (s === 'resolved' || s === 'completed') return isUrdu ? 'حل شدہ' : 'Resolved'
+  }
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
@@ -95,7 +98,7 @@ export function formatStageTimestamp(isoString?: string | null): StageTimestamp 
 }
 
 function getStageTimestamp(
-  stage: PipelineStageDef,
+  stage: PipelineStageTranslation,
   report: Record<string, any>,
   isResolved: boolean
 ): StageTimestamp | null {
@@ -113,6 +116,7 @@ export function PublicReportTrackScreen() {
   const { reportNumber } = useParams<{ reportNumber: string }>()
   const navigate = useNavigate()
   const db = useDb()
+  const { lang, toggleLang, isRtl, t } = useReportLanguage()
   const [report, setReport] = useState<Record<string, any> | null>(null)
   useReportTrackSeo(reportNumber, report?.status)
   const [photos, setPhotos] = useState<any[]>([])
@@ -268,6 +272,31 @@ export function PublicReportTrackScreen() {
       }
 
       if (
+        !fetchedReport &&
+        (searchKey.toLowerCase() === 'sanctuary-r102' || digits === '102')
+      ) {
+        fetchedReport = {
+          id: 'demo-r102',
+          report_number: 'Sanctuary-R102',
+          report_type: 'cruelty',
+          category: 'cruelty',
+          status: 'logged',
+          species: 'Dog',
+          animal_count: 1,
+          life_stage: 'adult',
+          chief_complaint: 'Physical abuse or beating',
+          city: 'Lahore',
+          location_area: 'Gulberg I',
+          location_landmark: 'None',
+          reporter_name: 'Anonymous',
+          reporter_phone: '03001234333',
+          reporter_cnic: '',
+          stage_logged_at: '2026-10-26T20:25:00Z',
+          created_at: '2026-10-26T20:25:00Z',
+        }
+      }
+
+      if (
         fetchedReport?.photos &&
         Array.isArray(fetchedReport.photos) &&
         fetchedPhotos.length === 0
@@ -308,16 +337,22 @@ export function PublicReportTrackScreen() {
 
   if (loading) {
     return (
-      <div className="public-track-page">
+      <div className="public-track-page" dir={isRtl ? 'rtl' : 'ltr'} lang={lang}>
         <header className="public-track-page__header">
           <div className="public-track-page__header-inner">
-            <Link to="/" className="public-track-page__brand" aria-label="Sanctuary Home">
-              <img src="/sanctuary-logo.svg" alt="" width={32} height={32} />
-              <span>Sanctuary</span>
-            </Link>
-            <div className="public-track-page__live-badge">
-              <span className="public-track-page__live-dot" />
-              <span>Live Case Tracker</span>
+            <div className="public-track-page__brand-group">
+              <Link to="/" className="public-track-page__brand" aria-label="Sanctuary Home">
+                <img src="/sanctuary-logo.svg" alt="" width={32} height={32} />
+                <span>{t.sanctuary}</span>
+              </Link>
+              <button
+                type="button"
+                className="public-lang-pill"
+                onClick={toggleLang}
+                aria-label="Switch language"
+              >
+                {t.switchLangText}
+              </button>
             </div>
           </div>
         </header>
@@ -361,16 +396,22 @@ export function PublicReportTrackScreen() {
 
   if (!report) {
     return (
-      <div className="public-track-page">
+      <div className="public-track-page" dir={isRtl ? 'rtl' : 'ltr'} lang={lang}>
         <header className="public-track-page__header">
           <div className="public-track-page__header-inner">
-            <Link to="/" className="public-track-page__brand" aria-label="Sanctuary Home">
-              <img src="/sanctuary-logo.svg" alt="" width={32} height={32} />
-              <span>Sanctuary</span>
-            </Link>
-            <div className="public-track-page__live-badge">
-              <span className="public-track-page__live-dot" />
-              <span>Live Case Tracker</span>
+            <div className="public-track-page__brand-group">
+              <Link to="/" className="public-track-page__brand" aria-label="Sanctuary Home">
+                <img src="/sanctuary-logo.svg" alt="" width={32} height={32} />
+                <span>{t.sanctuary}</span>
+              </Link>
+              <button
+                type="button"
+                className="public-lang-pill"
+                onClick={toggleLang}
+                aria-label="Switch language"
+              >
+                {t.switchLangText}
+              </button>
             </div>
           </div>
         </header>
@@ -379,17 +420,15 @@ export function PublicReportTrackScreen() {
             <div className="public-track-card">
               <div className="public-track__not-found">
                 <Siren size={44} className="public-track__not-found-icon" aria-hidden />
-                <h2 className="public-track__not-found-title">Case not found</h2>
-                <p className="public-track__not-found-desc">
-                  We could not find a rescue report matching this reference number. It may still be syncing or the tracking link could be incorrect.
-                </p>
+                <h2 className="public-track__not-found-title">{t.caseNotFoundTitle}</h2>
+                <p className="public-track__not-found-desc">{t.caseNotFoundDesc}</p>
                 <div
                   className="public-track__actions-row"
                   style={{ borderTop: 'none', justifyContent: 'center' }}
                 >
                   <Link to="/report" className="public-track__btn public-track__btn--primary">
-                    <ArrowLeft size={16} aria-hidden />
-                    <span>Report an emergency</span>
+                    {isRtl ? <ArrowRight size={16} aria-hidden /> : <ArrowLeft size={16} aria-hidden />}
+                    <span>{t.reportEmergency}</span>
                   </Link>
                 </div>
               </div>
@@ -401,6 +440,10 @@ export function PublicReportTrackScreen() {
     )
   }
 
+  const isCruelty = (report.category || '').toLowerCase() === 'cruelty'
+  const isUrdu = lang === 'ur'
+  const pipelineStages = isCruelty ? CRUELTY_PIPELINE_STAGES : EMERGENCY_PIPELINE_STAGES
+
   const normalizedStatus = (report.status || 'logged').toLowerCase()
   const isResolved =
     normalizedStatus === 'resolved' ||
@@ -409,18 +452,70 @@ export function PublicReportTrackScreen() {
     normalizedStatus === 'spot_released'
   const activeStageIndex = isResolved ? 4 : (STAGE_ORDER[normalizedStatus] ?? 0)
 
-  const statusBadgeText = getStatusBadgeText(report.status)
+  const statusBadgeText = getStatusBadgeText(report.status, isCruelty, isUrdu)
   const maskedPhone = maskPhoneNumber(report.reporter_phone)
   const maskedCnic = maskCnic(report.reporter_cnic)
   const animalCount = Number(report.animal_count) || 1
-  const countText = `${animalCount} animal${animalCount === 1 ? '' : 's'}`
-  const lifeStageText = report.life_stage
-    ? report.life_stage.charAt(0).toUpperCase() + report.life_stage.slice(1)
-    : 'Not specified'
+  const countText = formatAnimalCount(animalCount, isUrdu)
+  const speciesText = translateSpecies(report.species, isUrdu)
+  const lifeStageText = translateLifeStage(report.life_stage, isUrdu)
 
   const caseNumber = extractCaseNumber(report.report_number || reportNumber)
   const notice = getTrackingNotice(report)
   const partner = resolveRescuingPartner(report)
+
+  let noticeHeadline = notice.headline
+  let noticeBody = notice.body
+  let noticeSubtext = notice.subtext
+  let noticeAdvocacy = notice.advocacyNote
+
+  if (isUrdu) {
+    if (notice.type === 'resolved') {
+      noticeHeadline = t.noticeResolvedTitle
+      noticeBody = t.noticeResolvedBody
+      noticeSubtext = isCruelty ? t.noticeSubtextCruelty : t.noticeSubtextEmergency
+    } else if (notice.type === 'active') {
+      noticeHeadline = t.noticeActiveTitle
+      noticeBody = isCruelty ? t.noticeActiveCrueltyBody : t.noticeActiveBody
+      noticeSubtext = isCruelty ? t.noticeSubtextCruelty : t.noticeSubtextEmergency
+    } else if (notice.type === 'queued') {
+      noticeHeadline = t.noticeQueuedTitle
+      noticeBody = isCruelty ? t.noticeQueuedCrueltyBody : t.noticeQueuedBody
+      noticeSubtext = isCruelty ? t.noticeSubtextCruelty : t.noticeSubtextEmergency
+      if (noticeAdvocacy) noticeAdvocacy = t.advocacyBody
+    } else if (notice.type === 'extended') {
+      noticeHeadline = t.noticeExtendedTitle
+      noticeBody = isCruelty ? t.noticeExtendedCrueltyBody : t.noticeExtendedBody
+      noticeSubtext = isCruelty ? t.noticeSubtextCruelty : t.noticeSubtextEmergency
+      if (noticeAdvocacy) noticeAdvocacy = t.advocacyBody
+    } else {
+      noticeHeadline = t.noticeFreshTitle
+      noticeBody = isCruelty ? t.noticeFreshCrueltyBody : t.noticeFreshBody
+      noticeSubtext = isCruelty ? t.noticeSubtextCruelty : t.noticeSubtextEmergency
+    }
+  } else if (isCruelty) {
+    if (notice.type === 'resolved') {
+      noticeHeadline = t.noticeResolvedTitle
+      noticeBody = t.noticeResolvedBody
+      noticeSubtext = t.noticeSubtextCruelty
+    } else if (notice.type === 'active') {
+      noticeHeadline = t.noticeActiveTitle
+      noticeBody = t.noticeActiveCrueltyBody
+      noticeSubtext = t.noticeSubtextCruelty
+    } else if (notice.type === 'queued') {
+      noticeHeadline = t.noticeQueuedTitle
+      noticeBody = t.noticeQueuedCrueltyBody
+      noticeSubtext = t.noticeSubtextCruelty
+    } else if (notice.type === 'extended') {
+      noticeHeadline = t.noticeExtendedTitle
+      noticeBody = t.noticeExtendedCrueltyBody
+      noticeSubtext = t.noticeSubtextCruelty
+    } else {
+      noticeHeadline = t.noticeFreshTitle
+      noticeBody = t.noticeFreshCrueltyBody
+      noticeSubtext = t.noticeSubtextCruelty
+    }
+  }
 
   const coordinatesText =
     typeof report.latitude === 'number' && typeof report.longitude === 'number'
@@ -428,18 +523,22 @@ export function PublicReportTrackScreen() {
       : null
 
   return (
-    <div className="public-track-page">
+    <div className="public-track-page" dir={isRtl ? 'rtl' : 'ltr'} lang={lang}>
       <header className="public-track-page__header">
         <div className="public-track-page__header-inner">
-          <Link to="/" className="public-track-page__brand" aria-label="Sanctuary Home">
-            <img src="/sanctuary-logo.svg" alt="" width={32} height={32} />
-            <span>Sanctuary</span>
-          </Link>
-          <div className="public-track-page__header-actions">
-            <div className="public-track-page__live-badge">
-              <span className="public-track-page__live-dot" />
-              <span>Live Case Tracker</span>
-            </div>
+          <div className="public-track-page__brand-group">
+            <Link to="/" className="public-track-page__brand" aria-label="Sanctuary Home">
+              <img src="/sanctuary-logo.svg" alt="" width={32} height={32} />
+              <span>{t.sanctuary}</span>
+            </Link>
+            <button
+              type="button"
+              className="public-lang-pill"
+              onClick={toggleLang}
+              aria-label="Switch language"
+            >
+              {t.switchLangText}
+            </button>
           </div>
         </div>
       </header>
@@ -450,8 +549,8 @@ export function PublicReportTrackScreen() {
             <div className="public-track">
               <div className="public-track__header-row">
                 <div className="public-track__heading-group">
-                  <span className="public-track__case-label">Rescue Report</span>
-                  <h1 className="public-track__case-heading">Case #{caseNumber}</h1>
+                  <span className="public-track__case-label">{t.rescueReport}</span>
+                  <h1 className="public-track__case-heading">{t.caseNumberLabel}{caseNumber}</h1>
                 </div>
                 <span
                   className={`public-track__status-badge public-track__status-badge--${normalizedStatus}`}
@@ -469,10 +568,11 @@ export function PublicReportTrackScreen() {
                     } as React.CSSProperties
                   }
                 >
-                  {PIPELINE_STAGES.map((stage, idx) => {
+                  {pipelineStages.map((stage, idx) => {
                     const isCompleted = isResolved ? true : idx < activeStageIndex
                     const isActive = !isResolved && idx === activeStageIndex
                     const stamp = getStageTimestamp(stage, report, isResolved)
+                    const stageLabel = isUrdu ? stage.labelUr : stage.labelEn
 
                     let stepClass = 'public-track__pipeline-step'
                     if (isCompleted) stepClass += ' public-track__pipeline-step--completed'
@@ -487,15 +587,15 @@ export function PublicReportTrackScreen() {
                       <li key={stage.key} className={stepClass}>
                         <div className={indicatorClass}>
                           {isCompleted ? (
-                            <Check size={14} weight="bold" aria-label={`Completed: ${stage.label}`} />
+                            <Check size={14} weight="bold" aria-label={`Completed: ${stageLabel}`} />
                           ) : isActive ? (
-                            <Clock size={14} weight="bold" aria-label={`Active: ${stage.label}`} />
+                            <Clock size={14} weight="bold" aria-label={`Active: ${stageLabel}`} />
                           ) : (
                             <span>{idx + 1}</span>
                           )}
                         </div>
                         <div className="public-track__step-body">
-                          <span className="public-track__step-label">{stage.label}</span>
+                          <span className="public-track__step-label">{stageLabel}</span>
                           {stamp && (
                             <span className="public-track__step-time">
                               <span className="public-track__step-date">{stamp.date}</span>
@@ -523,22 +623,22 @@ export function PublicReportTrackScreen() {
                   ) : (
                     <Sparkle size={18} weight="fill" className="public-track__notice-header-icon" aria-hidden />
                   )}
-                  <h2 className="public-track__notice-title">{notice.headline}</h2>
+                  <h2 className="public-track__notice-title">{noticeHeadline}</h2>
                 </div>
-                <p className="public-track__notice-body">{notice.body}</p>
-                {notice.subtext && (
-                  <p className="public-track__notice-subtext">{notice.subtext}</p>
+                <p className="public-track__notice-body">{noticeBody}</p>
+                {noticeSubtext && (
+                  <p className="public-track__notice-subtext">{noticeSubtext}</p>
                 )}
-                {notice.advocacyNote && (
+                {noticeAdvocacy && (
                   <div className="public-track__notice-advocacy">
                     <Scales size={18} weight="bold" className="public-track__notice-advocacy-icon" aria-hidden />
-                    <span>{notice.advocacyNote}</span>
+                    <span>{noticeAdvocacy}</span>
                   </div>
                 )}
               </div>
 
-              <div className="public-track__rescuer-card">
-                {partner ? (
+              {partner ? (
+                <div className="public-track__rescuer-card">
                   <div className="public-track__rescuer-content">
                     <div className="public-track__rescuer-header">
                       <img
@@ -551,7 +651,7 @@ export function PublicReportTrackScreen() {
                       <div className="public-track__rescuer-meta">
                         <div className="public-track__rescuer-badge">
                           <ShieldCheck size={14} weight="bold" aria-hidden />
-                          <span>Assigned Responding Unit</span>
+                          <span>{t.assignedRespondingUnit}</span>
                         </div>
                         <h3 className="public-track__rescuer-name">{partner.name}</h3>
                         <span className="public-track__rescuer-region">{partner.region}</span>
@@ -565,58 +665,43 @@ export function PublicReportTrackScreen() {
                         rel="noopener noreferrer"
                         className="public-track__rescuer-btn"
                       >
-                        <span>Support and follow their work</span>
+                        <span>{t.supportAndFollow}</span>
                         <ArrowSquareOut size={13} weight="bold" aria-hidden />
                       </a>
                     </div>
                   </div>
-                ) : (
-                  <div className="public-track__rescuer-dispatch">
-                    <div className="public-track__rescuer-dispatch-header">
-                      <Broadcast size={20} weight="bold" className="public-track__rescuer-dispatch-icon" aria-hidden />
-                      <div>
-                        <h3 className="public-track__rescuer-name">Network Dispatch Active</h3>
-                        <span className="public-track__rescuer-region">
-                          Broadcasting across verified partner rescue units and institutions in {report.city || 'Punjab'}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="public-track__rescuer-dispatch-note">
-                      Responders monitor the live network intake queue and claim cases based on emergency triage and vehicle availability.
-                    </p>
-                  </div>
-                )}
-              </div>
+                </div>
+              ) : null}
 
               <details className="public-track__details">
                 <summary className="public-track__details-summary">
                   <div className="public-track__details-title">
                     <FileText size={18} weight="bold" aria-hidden />
-                    <span>View submitted report details</span>
+                    <span>{t.viewSubmittedDetails}</span>
                   </div>
                   <CaretDown size={16} weight="bold" className="public-track__details-chevron" aria-hidden />
                 </summary>
                 <div className="public-track__details-content">
                   <div className="public-track__section">
-                    <h3 className="public-track__section-title">Chief Complaint</h3>
+                    <h3 className="public-track__section-title">{t.chiefComplaint}</h3>
                     <p className="public-track__complaint-text">
                       {report.chief_complaint || 'No description provided'}
                     </p>
                   </div>
 
                   <div className="public-track__section">
-                    <h3 className="public-track__section-title">Animal Details</h3>
+                    <h3 className="public-track__section-title">{t.animalDetails}</h3>
                     <div className="public-track__grid">
                       <div className="public-track__item">
-                        <span className="public-track__item-label">Species</span>
-                        <span className="public-track__item-value">{report.species || 'Animal'}</span>
+                        <span className="public-track__item-label">{t.speciesLabel}</span>
+                        <span className="public-track__item-value">{speciesText}</span>
                       </div>
                       <div className="public-track__item">
-                        <span className="public-track__item-label">Animal count</span>
-                        <span className="public-track__item-value">{countText}</span>
+                        <span className="public-track__item-label">{t.animalCountLabel}</span>
+                        <span className="public-track__item-value"><bdi>{countText}</bdi></span>
                       </div>
                       <div className="public-track__item">
-                        <span className="public-track__item-label">Life stage</span>
+                        <span className="public-track__item-label">{t.lifeStageLabel}</span>
                         <span className="public-track__item-value">{lifeStageText}</span>
                       </div>
                       {report.group_breakdown && (
@@ -631,29 +716,31 @@ export function PublicReportTrackScreen() {
                   <div className="public-track__section">
                     <h3 className="public-track__section-title">
                       <MapPin size={16} aria-hidden />
-                      <span>Rescue Location</span>
+                      <span>{t.rescueLocation}</span>
                     </h3>
                     <div className="public-track__grid">
                       <div className="public-track__item">
-                        <span className="public-track__item-label">Area</span>
+                        <span className="public-track__item-label">{t.areaLabel}</span>
                         <span className="public-track__item-value">
-                          {report.location_area || 'Not specified'}
+                          {report.location_area || t.notSpecified}
                         </span>
                       </div>
                       <div className="public-track__item">
-                        <span className="public-track__item-label">City</span>
-                        <span className="public-track__item-value">{report.city || 'Not specified'}</span>
+                        <span className="public-track__item-label">{t.cityLabel}</span>
+                        <span className="public-track__item-value">{report.city || t.notSpecified}</span>
                       </div>
                       <div className="public-track__item">
-                        <span className="public-track__item-label">Landmark</span>
+                        <span className="public-track__item-label">{t.landmarkLabel}</span>
                         <span className="public-track__item-value">
-                          {report.location_landmark || 'None'}
+                          {(!report.location_landmark || report.location_landmark.toLowerCase() === 'none')
+                            ? t.landmarkNone
+                            : report.location_landmark}
                         </span>
                       </div>
                       {coordinatesText && (
                         <div className="public-track__item">
                           <span className="public-track__item-label">Coordinates</span>
-                          <span className="public-track__item-value">{coordinatesText}</span>
+                          <span className="public-track__item-value"><bdi dir="ltr" className="public-track__ltr-text">{coordinatesText}</bdi></span>
                         </div>
                       )}
                     </div>
@@ -661,7 +748,7 @@ export function PublicReportTrackScreen() {
 
                   {photos && photos.length > 0 && (
                     <div className="public-track__section">
-                      <h3 className="public-track__section-title">Case Photos</h3>
+                      <h3 className="public-track__section-title">{t.casePhotos}</h3>
                       <div className="public-track__photos-gallery">
                         {photos.map((photo: any, idx: number) => {
                           const src =
@@ -688,30 +775,40 @@ export function PublicReportTrackScreen() {
                     <div className="public-track__section-header">
                       <h3 className="public-track__section-title">
                         <ShieldCheck size={16} aria-hidden />
-                        <span>Reporter Details</span>
+                        <span>{t.reporterDetails}</span>
                       </h3>
                       <span className="public-track__protected-pill">
                         <ShieldCheck size={13} weight="bold" aria-hidden />
-                        <span>Protected</span>
+                        <span>{t.privacyProtected}</span>
                       </span>
                     </div>
                     <div className="public-track__grid">
                       <div className="public-track__item">
-                        <span className="public-track__item-label">Reporter name</span>
+                        <span className="public-track__item-label">{t.reporterNameLabel}</span>
                         <span className="public-track__item-value">
-                          {report.reporter_name || 'Anonymous'}
+                          {(!report.reporter_name || report.reporter_name.toLowerCase() === 'anonymous')
+                            ? t.anonymous
+                            : report.reporter_name}
                         </span>
                       </div>
                       <div className="public-track__item">
-                        <span className="public-track__item-label">Phone number</span>
+                        <span className="public-track__item-label">{t.phoneLabel}</span>
                         <span className="public-track__item-value">
-                          {maskedPhone || 'Not provided'}
+                          {maskedPhone ? (
+                            <bdi dir="ltr" className="public-track__ltr-text">{maskedPhone}</bdi>
+                          ) : (
+                            t.notProvided
+                          )}
                         </span>
                       </div>
                       <div className="public-track__item">
-                        <span className="public-track__item-label">CNIC number</span>
+                        <span className="public-track__item-label">{t.cnicLabel}</span>
                         <span className="public-track__item-value">
-                          {maskedCnic || 'Not provided'}
+                          {maskedCnic ? (
+                            <bdi dir="ltr" className="public-track__ltr-text">{maskedCnic}</bdi>
+                          ) : (
+                            t.notProvided
+                          )}
                         </span>
                       </div>
                     </div>
@@ -730,17 +827,17 @@ export function PublicReportTrackScreen() {
               {copied ? (
                 <>
                   <Check size={18} aria-hidden />
-                  <span>Copied!</span>
+                  <span>{t.copied}</span>
                 </>
               ) : (
                 <>
                   <Copy size={18} aria-hidden />
-                  <span>Copy tracking link</span>
+                  <span>{t.copyTrackingLink}</span>
                 </>
               )}
             </button>
             <Link to="/report" className="public-track__btn public-track__btn--primary">
-              Report another case
+              {t.reportAnotherCase}
             </Link>
           </div>
         </div>

@@ -1,9 +1,14 @@
 import { type FormEvent, useState } from 'react'
-import { ArrowLeft, Check, Siren, CircleNotch } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, Check, Siren, CircleNotch } from '@phosphor-icons/react'
 import { validatePhoneNumber, formatPhoneNumber } from '@/features/reports/domain/phone'
 import { validateCnic, formatCnic } from '@/features/reports/domain/cnic'
 import type { ReportDraftState } from '@/features/reports/hooks/useReportDraft'
 import type { PublicPhotoItem } from './PublicReportStepLocation'
+import {
+  type ReportLanguage,
+  type ReportTranslations,
+  getReportTranslations,
+} from '@/features/reports/domain/reportTranslations'
 
 export type PublicReportStepContactProps = {
   draft: ReportDraftState
@@ -13,6 +18,8 @@ export type PublicReportStepContactProps = {
   onUpdate: (patch: Partial<ReportDraftState>) => void
   onBack: () => void
   onSubmit: (e: FormEvent, honeypotValue: string) => void
+  lang?: ReportLanguage
+  t?: ReportTranslations
 }
 
 export function PublicReportStepContact({
@@ -23,7 +30,10 @@ export function PublicReportStepContact({
   onUpdate,
   onBack,
   onSubmit,
+  lang = 'en',
+  t = getReportTranslations(lang),
 }: PublicReportStepContactProps) {
+  const isUrdu = lang === 'ur'
   const [honeypot, setHoneypot] = useState('')
   const phoneValidation = validatePhoneNumber(draft.reporterPhone)
   const cnicValidation = validateCnic(draft.reporterCnic)
@@ -42,7 +52,8 @@ export function PublicReportStepContact({
       {/* Honeypot trap for automated bots */}
       <input
         type="text"
-        name="sanctuary_security_trap"
+        name="fax_number"
+        id="report-fax-number"
         tabIndex={-1}
         autoComplete="off"
         style={{ display: 'none', position: 'absolute', left: '-9999px' }}
@@ -53,13 +64,14 @@ export function PublicReportStepContact({
 
       <div className="public-report__field">
         <label htmlFor="reporter-phone" className="public-report__label">
-          Mobile phone number
+          {t.phoneLabel}
         </label>
         <input
           id="reporter-phone"
           type="tel"
-          className="public-report__input"
-          placeholder="0300 1234567"
+          dir="ltr"
+          className="public-report__input public-report__input--ltr public-report__input--phone"
+          placeholder={t.phonePlaceholder}
           value={draft.reporterPhone}
           onChange={(e) => onUpdate({ reporterPhone: formatPhoneNumber(e.target.value) })}
           required
@@ -77,13 +89,13 @@ export function PublicReportStepContact({
 
       <div className="public-report__field">
         <label htmlFor="reporter-name" className="public-report__label">
-          Your name (optional)
+          {t.fullNameLabel}
         </label>
         <input
           id="reporter-name"
           type="text"
           className="public-report__input"
-          placeholder="e.g. Usman Ali"
+          placeholder={t.fullNamePlaceholder}
           value={draft.reporterName}
           onChange={(e) => onUpdate({ reporterName: e.target.value })}
         />
@@ -91,13 +103,14 @@ export function PublicReportStepContact({
 
       <div className="public-report__field">
         <label htmlFor="reporter-cnic" className="public-report__label">
-          CNIC (optional)
+          {t.cnicLabel}
         </label>
         <input
           id="reporter-cnic"
           type="text"
-          className="public-report__input"
-          placeholder="42101-1234567-1"
+          dir="ltr"
+          className="public-report__input public-report__input--ltr public-report__input--cnic"
+          placeholder={t.cnicPlaceholder}
           value={draft.reporterCnic}
           onChange={(e) => onUpdate({ reporterCnic: formatCnic(e.target.value) })}
         />
@@ -118,32 +131,38 @@ export function PublicReportStepContact({
           checked={draft.rememberProfile}
           onChange={(e) => onUpdate({ rememberProfile: e.target.checked })}
         />
-        <span>Remember my contact details on this device for future rescue reports</span>
+        <span>{t.saveProfileToggle}</span>
       </label>
 
       {/* Summary card */}
       <div className="public-report__summary">
-        <h4 className="public-report__summary-title">Report Summary</h4>
+        <h4 className="public-report__summary-title">{t.reviewSummaryHeading}</h4>
         <div className="public-report__summary-row">
-          <span>Animal</span>
+          <span>{t.summaryCategory}</span>
+          <strong>
+            {draft.category === 'cruelty' ? t.categoryCruelty : t.categorySickInjured}
+          </strong>
+        </div>
+        <div className="public-report__summary-row">
+          <span>{t.summaryAnimals}</span>
           <strong>
             {draft.speciesPreset === 'Other' ? draft.speciesOther : draft.speciesPreset}
             {draft.avianSubtype ? ` (${draft.avianSubtype})` : ''} · {draft.animalCount}
           </strong>
         </div>
         <div className="public-report__summary-row">
-          <span>Complaint</span>
+          <span>{t.injuryDescriptionLabel}</span>
           <strong>{draft.chiefComplaint}</strong>
         </div>
         <div className="public-report__summary-row">
-          <span>Location</span>
+          <span>{t.summaryLocation}</span>
           <strong>
             {draft.locationArea}, {draft.city}
             {draft.locationLandmark ? ` (${draft.locationLandmark})` : ''}
           </strong>
         </div>
         <div className="public-report__summary-row">
-          <span>Photos</span>
+          <span>{t.summaryPhotos}</span>
           <strong>{photos.length} attached</strong>
         </div>
       </div>
@@ -157,8 +176,12 @@ export function PublicReportStepContact({
           onClick={onBack}
           disabled={submitting}
         >
-          <ArrowLeft size={18} weight="bold" aria-hidden />
-          Back
+          {isUrdu ? (
+            <ArrowRight size={18} weight="bold" aria-hidden />
+          ) : (
+            <ArrowLeft size={18} weight="bold" aria-hidden />
+          )}
+          <span>{t.back}</span>
         </button>
         <button
           type="submit"
@@ -168,12 +191,12 @@ export function PublicReportStepContact({
           {submitting ? (
             <>
               <CircleNotch size={20} weight="bold" className="public-report__spin" aria-hidden />
-              <span>Submitting report...</span>
+              <span>{t.submittingBtn}</span>
             </>
           ) : (
             <>
               <Siren size={20} weight="bold" aria-hidden />
-              <span>Submit Emergency Report</span>
+              <span>{t.submitReportBtn}</span>
             </>
           )}
         </button>

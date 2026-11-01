@@ -1,8 +1,25 @@
 import { useState, useRef, type FormEvent, type ChangeEvent } from 'react'
-import { ArrowLeft, ArrowRight, Crosshair, Check, Camera, ImageSquare, Trash } from '@phosphor-icons/react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Crosshair,
+  Check,
+  Camera,
+  ImageSquare,
+  Trash,
+  NavigationArrow,
+  PencilSimpleLine,
+} from '@phosphor-icons/react'
 import { PAKISTAN_CITIES, getAreasForCity } from '@/features/reports/domain/pakistanLocations'
 import { requestCurrentPosition } from '@/features/reports/domain/coordinates'
+import { extractPhotoMetadata } from '@/features/reports/domain/exif'
+import { classifyReportPhoto } from '@/features/reports/domain/visionClassifier'
 import type { ReportDraftState } from '@/features/reports/hooks/useReportDraft'
+import {
+  type ReportLanguage,
+  type ReportTranslations,
+  getReportTranslations,
+} from '@/features/reports/domain/reportTranslations'
 
 export type PublicPhotoItem = {
   id: string
@@ -16,8 +33,10 @@ export type PublicReportStepLocationProps = {
   onUpdate: (patch: Partial<ReportDraftState>) => void
   onAddPhotos: (newPhotos: PublicPhotoItem[]) => void
   onRemovePhoto: (id: string) => void
-  onBack: () => void
+  onBack?: () => void
   onNext: () => void
+  lang?: ReportLanguage
+  t?: ReportTranslations
 }
 
 export function PublicReportStepLocation({
@@ -28,29 +47,57 @@ export function PublicReportStepLocation({
   onRemovePhoto,
   onBack,
   onNext,
+  lang = 'en',
+  t = getReportTranslations(lang),
 }: PublicReportStepLocationProps) {
+  const isUrdu = lang === 'ur'
   const [detectingGps, setDetectingGps] = useState(false)
   const [gpsError, setGpsError] = useState<string | null>(null)
+  const [fromExif, setFromExif] = useState(false)
+  const [locationMode, setLocationMode] = useState<'auto' | 'manual' | 'unselected'>(() => {
+    if (draft.locationArea.trim() && draft.locationArea !== 'Current location') return 'manual'
+    if (draft.latitude != null && draft.longitude != null && draft.locationArea === 'Current location') return 'auto'
+    return 'unselected'
+  })
+
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
 
   const sortedCities = [...PAKISTAN_CITIES].sort((a, b) => a.localeCompare(b))
   const cityAreas = getAreasForCity(draft.city)
 
-  async function handleGetLocation() {
+  const CATEGORY_ITEMS = [
+    { key: 'sick_injured', label: t.categorySickInjured },
+    { key: 'cruelty', label: t.categoryCruelty },
+  ] as const
+
+  async function handleUseCurrentLocation() {
     setDetectingGps(true)
     setGpsError(null)
+    setFromExif(false)
     try {
       const pos = await requestCurrentPosition()
-      onUpdate({ latitude: pos.latitude, longitude: pos.longitude })
+      setLocationMode('auto')
+      onUpdate({
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+        locationArea: draft.locationArea.trim() || 'Current location',
+      })
     } catch (err) {
-      setGpsError(err instanceof Error ? err.message : 'Could not detect GPS location.')
+      setGpsError(err instanceof Error ? err.message : 'Could not detect current location.')
     } finally {
       setDetectingGps(false)
     }
   }
 
-  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+  function handleEnterManually() {
+    setLocationMode('manual')
+    if (draft.locationArea === 'Current location') {
+      onUpdate({ locationArea: '' })
+    }
+  }
+
+  async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
     if (!files || files.length === 0) return
     const items: PublicPhotoItem[] = []
@@ -64,95 +111,135 @@ export function PublicReportStepLocation({
     }
     onAddPhotos(items)
     e.target.value = ''
+
+    // Attempt EXIF GPS extraction from the uploaded photos
+    for (let i = 0; i < files.length; i++) {
+      try {
+        const meta = await extractPhotoMetadata(files[i]!)
+        if (meta && meta.latitude != null && meta.longitude != null) {
+          setFromExif(true)
+          onUpdate({
+            latitude: meta.latitude,
+            longitude: meta.longitude,
+          })
+          break
+        }
+      } catch {
+        // Fall back gracefully if photo has no EXIF
+      }
+    }
+
+    // Trigger non-blocking AI vision analysis in the background
+    if (files.length > 0) {
+      const primaryFile = files[0]!
+      Promise.resolve(classifyReportPhoto(primaryFile))
+        .then((analysis) => {
+          if (!analysis || !analysis.is_animal_present) return
+
+          const patch: Partial<ReportDraftState> = {
+            aiAnalysis: analysis,
+          }
+
+          if (analysis.animal_count && analysis.animal_count > 0) {
+            patch.animalCount = analysis.animal_count
+          }
+
+          if (analysis.species_details) {
+            patch.groupBreakdown = analysis.species_details
+          }
+
+          const primary = (analysis.species_primary || '').toLowerCase()
+          if (primary.includes('dog')) {
+            patch.speciesPreset = 'Dog'
+          } else if (primary.includes('cat')) {
+            patch.speciesPreset = 'Cat'
+          } else if (primary.includes('bird')) {
+            patch.speciesPreset = 'Bird'
+          } else if (primary.includes('donkey')) {
+            patch.speciesPreset = 'Donkey'
+          } else if (primary.includes('horse')) {
+            patch.speciesPreset = 'Horse'
+          } else if (primary.includes('cow') || primary.includes('cattle')) {
+            patch.speciesPreset = 'Cow'
+          } else if (primary.includes('goat')) {
+            patch.speciesPreset = 'Goat'
+          } else if (analysis.species_primary && analysis.species_primary !== 'Unknown') {
+            patch.speciesPreset = 'Other'
+            patch.speciesOther = analysis.species_primary
+          }
+
+          if (analysis.composition === 'litter_only') {
+            patch.intakeCountMode = 'litter'
+            patch.litterComposition = 'offspring_only'
+            patch.lifeStage = 'child'
+          } else if (analysis.composition === 'mother_and_offspring') {
+            patch.intakeCountMode = 'litter'
+            patch.litterComposition = 'mother_and_offspring'
+            patch.lifeStage = 'child'
+          } else if (analysis.composition === 'group_pack') {
+            patch.intakeCountMode = 'multiple'
+            patch.lifeStage = 'adult'
+          } else if (analysis.composition === 'single_juvenile') {
+            patch.intakeCountMode = 'single'
+            patch.lifeStage = 'child'
+          } else if (analysis.composition === 'single_adult') {
+            patch.intakeCountMode = 'single'
+            patch.lifeStage = 'adult'
+          }
+
+          if (!draft.chiefComplaint.trim() && analysis.condition_and_injuries) {
+            patch.chiefComplaint = analysis.condition_and_injuries
+          }
+
+          onUpdate(patch)
+        })
+        .catch(() => {
+          // Silent background fallback
+        })
+    }
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!draft.locationArea.trim() || photos.length === 0) return
+    if (photos.length === 0) return
+    const hasCoords = draft.latitude != null && draft.longitude != null
+    const hasArea = draft.locationArea.trim().length > 0
+    if (!hasCoords && !hasArea) return
+
+    if (!hasArea && hasCoords) {
+      onUpdate({ locationArea: 'Current location' })
+    }
     onNext()
   }
 
+  const hasCoords = draft.latitude != null && draft.longitude != null
+  const canContinue = photos.length > 0 && (hasCoords || draft.locationArea.trim().length > 0)
+
   return (
     <form onSubmit={handleSubmit} className="public-report__step-form">
-      <div className="public-report__field">
-        <label htmlFor="report-city" className="public-report__label">
-          City
-        </label>
-        <select
-          id="report-city"
-          className="public-report__select"
-          value={draft.city}
-          onChange={(e) => onUpdate({ city: e.target.value })}
-        >
-          {sortedCities.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="public-report__field">
-        <label htmlFor="report-area" className="public-report__label">
-          Area or Neighborhood
-        </label>
-        <input
-          id="report-area"
-          type="text"
-          list="area-suggestions"
-          className="public-report__input"
-          placeholder="e.g. Gulberg III, DHA Phase 5, Saddar"
-          value={draft.locationArea}
-          onChange={(e) => onUpdate({ locationArea: e.target.value })}
-          required
-        />
-        <datalist id="area-suggestions">
-          {cityAreas.map((a) => (
-            <option key={a} value={a} />
-          ))}
-        </datalist>
-      </div>
-
-      <div className="public-report__field">
-        <label htmlFor="report-landmark" className="public-report__label">
-          Specific landmark or street (optional)
-        </label>
-        <input
-          id="report-landmark"
-          type="text"
-          className="public-report__input"
-          placeholder="e.g. Near Kalma Chowk underpass, opposite bakery"
-          value={draft.locationLandmark}
-          onChange={(e) => onUpdate({ locationLandmark: e.target.value })}
-        />
-      </div>
-
-      <div className="public-report__gps-box">
-        <div className="public-report__gps-info">
-          <span className="public-report__label">Precise GPS coordinates</span>
-          <p className="public-report__hint">
-            Helps field rescue teams navigate directly to the animal in rural or unmapped areas.
-          </p>
-          {draft.latitude && draft.longitude ? (
-            <span className="public-report__gps-badge">
-              <Check size={14} weight="bold" aria-hidden /> GPS captured ({draft.latitude.toFixed(4)}, {draft.longitude.toFixed(4)})
-            </span>
-          ) : null}
-          {gpsError ? <span className="public-report__error">{gpsError}</span> : null}
+      <div className="public-report__group">
+        <label className="public-report__label">{t.reportCategoryLabel}</label>
+        <div className="public-report__chips" role="group" aria-label="Report category">
+          {CATEGORY_ITEMS.map((cat) => {
+            const isSelected = draft.category === cat.key || (cat.key === 'sick_injured' && draft.category === 'emergency')
+            return (
+              <button
+                key={cat.key}
+                type="button"
+                className={`public-report__chip ${isSelected ? 'public-report__chip--active' : ''}`}
+                onClick={() => onUpdate({ category: cat.key })}
+                aria-pressed={isSelected}
+              >
+                {cat.label}
+              </button>
+            )
+          })}
         </div>
-        <button
-          type="button"
-          className="public-report__btn public-report__btn--secondary"
-          onClick={handleGetLocation}
-          disabled={detectingGps}
-        >
-          <Crosshair size={18} weight="bold" aria-hidden />
-          {detectingGps ? 'Detecting...' : 'Share exact GPS location'}
-        </button>
       </div>
 
+      {/* 2. Photos Section */}
       <div className="public-report__field">
-        <label className="public-report__label">Photos of the animal or scene</label>
+        <label className="public-report__label">{t.photosHeading}</label>
         <p className="public-report__hint">
           At least 1 photo is required so rescue teams can assess the animal and severity.
         </p>
@@ -183,7 +270,7 @@ export function PublicReportStepLocation({
               aria-label="Take photo with camera"
             >
               <Camera size={18} weight="bold" aria-hidden />
-              <span>Take photo</span>
+              <span>{t.takePhoto}</span>
             </button>
             <button
               type="button"
@@ -192,7 +279,7 @@ export function PublicReportStepLocation({
               aria-label="Add photo from gallery"
             >
               <ImageSquare size={18} weight="bold" aria-hidden />
-              <span>Add photo</span>
+              <span>{t.uploadPhoto}</span>
             </button>
             <input
               ref={cameraInputRef}
@@ -224,18 +311,166 @@ export function PublicReportStepLocation({
         )}
       </div>
 
-      <div className="public-report__actions public-report__actions--split">
-        <button type="button" className="public-report__btn public-report__btn--secondary" onClick={onBack}>
-          <ArrowLeft size={18} weight="bold" aria-hidden />
-          Back
-        </button>
+      <div className="public-report__group">
+        <label className="public-report__label">{t.locationChooseHeading}</label>
+
+        {hasCoords && locationMode === 'auto' ? (
+          <div className="public-report__loc-confirmed-card">
+            <div className="public-report__loc-confirmed-info">
+              <span className="public-report__loc-confirmed-title">
+                <Check size={16} weight="bold" aria-hidden /> {fromExif ? t.gpsExtractedFromPhoto : t.locationConfirmed}
+              </span>
+              <span className="public-report__loc-confirmed-coords">
+                {draft.latitude?.toFixed(4)}° N, {draft.longitude?.toFixed(4)}° E
+              </span>
+            </div>
+            <button
+              type="button"
+              className="public-report__loc-change-btn"
+              onClick={handleEnterManually}
+            >
+              {t.changeLocation}
+            </button>
+          </div>
+        ) : null}
+
+        {locationMode !== 'manual' && (!hasCoords || locationMode === 'unselected') ? (
+          <div className="public-report__loc-choice-grid">
+            <button
+              type="button"
+              className="public-report__loc-choice-btn"
+              onClick={handleUseCurrentLocation}
+              disabled={detectingGps}
+            >
+              <span className="public-report__loc-choice-title">
+                <NavigationArrow size={18} weight="bold" aria-hidden />
+                <span>{detectingGps ? 'Detecting location...' : t.useCurrentLocationBtn}</span>
+              </span>
+              <span className="public-report__loc-choice-sub">{t.useCurrentLocationSubtext}</span>
+            </button>
+
+            <button
+              type="button"
+              className="public-report__loc-choice-btn"
+              onClick={handleEnterManually}
+            >
+              <span className="public-report__loc-choice-title">
+                <PencilSimpleLine size={18} weight="bold" aria-hidden />
+                <span>{t.enterLocationManuallyBtn}</span>
+              </span>
+              <span className="public-report__loc-choice-sub">{t.enterLocationManuallySubtext}</span>
+            </button>
+          </div>
+        ) : null}
+
+        {gpsError ? <span className="public-report__error">{gpsError}</span> : null}
+
+        {locationMode === 'manual' ? (
+          <div className="stack" style={{ marginTop: 'var(--space-3)' }}>
+            <div className="public-report__field">
+              <label htmlFor="report-city" className="public-report__label">
+                {t.cityLabel}
+              </label>
+              <select
+                id="report-city"
+                className="public-report__select"
+                value={draft.city}
+                onChange={(e) => onUpdate({ city: e.target.value })}
+              >
+                {sortedCities.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="public-report__field">
+              <label htmlFor="report-area" className="public-report__label">
+                {t.areaLabel}
+              </label>
+              <input
+                id="report-area"
+                type="text"
+                list="area-suggestions"
+                className="public-report__input"
+                placeholder={t.areaPlaceholder}
+                value={draft.locationArea}
+                onChange={(e) => onUpdate({ locationArea: e.target.value })}
+                required
+              />
+              <datalist id="area-suggestions">
+                {cityAreas.map((a) => (
+                  <option key={a} value={a} />
+                ))}
+              </datalist>
+            </div>
+
+            <div className="public-report__field">
+              <label htmlFor="report-landmark" className="public-report__label">
+                {t.landmarkLabel}
+              </label>
+              <input
+                id="report-landmark"
+                type="text"
+                className="public-report__input"
+                placeholder={t.landmarkPlaceholder}
+                value={draft.locationLandmark}
+                onChange={(e) => onUpdate({ locationLandmark: e.target.value })}
+              />
+            </div>
+
+            <div style={{ marginTop: 'var(--space-1)' }}>
+              <button
+                type="button"
+                className="public-report__loc-change-btn"
+                onClick={handleUseCurrentLocation}
+                disabled={detectingGps}
+              >
+                <Crosshair size={14} weight="bold" aria-hidden style={{ display: 'inline', verticalAlign: '-1px' }} />{' '}
+                {detectingGps ? 'Detecting location...' : t.useCurrentLocationBtn}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="public-report__field">
+        <label htmlFor="situation-notes" className="public-report__label">
+          {t.situationNoteOptional}
+        </label>
+        <textarea
+          id="situation-notes"
+          className="public-report__textarea"
+          placeholder={t.situationNotePlaceholder}
+          value={draft.chiefComplaint}
+          onChange={(e) => onUpdate({ chiefComplaint: e.target.value })}
+          rows={2}
+        />
+      </div>
+
+      <div className={`public-report__actions ${onBack ? 'public-report__actions--split' : ''}`}>
+        {onBack ? (
+          <button type="button" className="public-report__btn public-report__btn--secondary" onClick={onBack}>
+            {isUrdu ? (
+              <ArrowRight size={18} weight="bold" aria-hidden />
+            ) : (
+              <ArrowLeft size={18} weight="bold" aria-hidden />
+            )}
+            <span>{t.back}</span>
+          </button>
+        ) : null}
         <button
           type="submit"
           className="public-report__btn public-report__btn--primary"
-          disabled={!draft.locationArea.trim() || photos.length === 0}
+          disabled={!canContinue}
         >
-          Continue to Contact
-          <ArrowRight size={18} weight="bold" aria-hidden />
+          <span>{t.nextContact}</span>
+          {isUrdu ? (
+            <ArrowLeft size={18} weight="bold" aria-hidden />
+          ) : (
+            <ArrowRight size={18} weight="bold" aria-hidden />
+          )}
         </button>
       </div>
     </form>

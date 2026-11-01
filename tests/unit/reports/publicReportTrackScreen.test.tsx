@@ -74,7 +74,7 @@ describe('PublicReportTrackScreen', () => {
     expect(screen.getByText(/animal rights lawyers and policy advocates/i)).toBeInTheDocument()
   })
 
-  it('renders rescuing partner or network dispatch card with marketing visibility', async () => {
+  it('does not render extra dispatch card when unassigned, keeping track view clean', async () => {
     render(
       <MemoryRouter initialEntries={['/report/track/SANCTUARY-0142']}>
         <Routes>
@@ -83,9 +83,51 @@ describe('PublicReportTrackScreen', () => {
       </MemoryRouter>
     )
     await screen.findByRole('heading', { level: 1, name: 'Case #0142' })
-    // In logged state with Lahore city, displays Network Dispatch
-    expect(screen.getByText(/Network Dispatch Active/i)).toBeInTheDocument()
-    expect(screen.getByText(/Broadcasting across verified partner rescue units and institutions in Lahore/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Network Dispatch Active/i)).toBeNull()
+  })
+
+  it('renders cruelty pipeline stages when report category is cruelty', async () => {
+    localStorage.setItem(
+      'sanctuary_public_reports_v1',
+      JSON.stringify({
+        'SANCTUARY-R300': {
+          ...mockReport,
+          report_number: 'SANCTUARY-R300',
+          category: 'cruelty',
+          status: 'accepted',
+        },
+      })
+    )
+    render(
+      <MemoryRouter initialEntries={['/report/track/SANCTUARY-R300']}>
+        <Routes>
+          <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await screen.findByRole('heading', { level: 1, name: 'Case #300' })
+    expect(screen.getByText('Complaint Logged')).toBeInTheDocument()
+    expect(screen.getAllByText('Investigation')[0]).toBeInTheDocument()
+    expect(screen.getByText('Notice / Legal Action')).toBeInTheDocument()
+    expect(screen.getByText('In Custody')).toBeInTheDocument()
+    expect(screen.getByText('Resolved')).toBeInTheDocument()
+  })
+
+  it('toggles Urdu language mode when language pill is clicked', async () => {
+    render(
+      <MemoryRouter initialEntries={['/report/track/SANCTUARY-0142']}>
+        <Routes>
+          <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await screen.findByRole('heading', { level: 1, name: 'Case #0142' })
+    const langBtn = screen.getByRole('button', { name: /Switch language/i })
+    expect(langBtn).toHaveTextContent('اردو')
+
+    fireEvent.click(langBtn)
+    expect(langBtn).toHaveTextContent('English')
+    expect(screen.getByText('سینکچوئری')).toBeInTheDocument()
   })
 
   it('renders assigned partner with logo, name, and social follow button when accepted', async () => {
@@ -279,4 +321,72 @@ describe('PublicReportTrackScreen', () => {
     expect(container.textContent).not.toContain('\u2014')
     expect(container.textContent).not.toContain('--')
   })
+
+  it('renders translated Urdu labels and values in case facts when Urdu is selected', async () => {
+    localStorage.setItem('sanctuary_report_lang_v1', 'ur')
+    localStorage.setItem(
+      'sanctuary_public_reports_v1',
+      JSON.stringify({
+        'SANCTUARY-R555': {
+          ...mockReport,
+          report_number: 'SANCTUARY-R555',
+          species: 'Dog',
+          animal_count: 1,
+          life_stage: 'adult',
+          reporter_phone: '03001234567',
+          location_landmark: 'None',
+          reporter_name: 'Anonymous',
+        },
+      })
+    )
+    render(
+      <MemoryRouter initialEntries={['/report/track/SANCTUARY-R555']}>
+        <Routes>
+          <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await screen.findByRole('heading', { level: 1, name: 'کیس نمبر #555' })
+    expect(screen.getByText('جانور کی قسم')).toBeInTheDocument()
+    expect(screen.getByText('کتا')).toBeInTheDocument()
+    expect(screen.getByText('1 جانور')).toBeInTheDocument()
+    expect(screen.getByText('بالغ')).toBeInTheDocument()
+    expect(screen.getByText('اطلاع دہندہ کا نام')).toBeInTheDocument()
+    expect(screen.getByText('گمنام')).toBeInTheDocument()
+    expect(screen.getByText('0300 ···· 567')).toBeInTheDocument()
+  })
+
+  it('does not render live tracker pill in the header in either language', async () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/report/track/SANCTUARY-0142']}>
+        <Routes>
+          <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await screen.findByRole('heading', { level: 1, name: 'Case #0142' })
+    expect(container.querySelector('.public-track-page__live-badge')).toBeNull()
+    expect(screen.queryByText('Live Case Tracker')).toBeNull()
+
+    // Switch to Urdu
+    fireEvent.click(screen.getByRole('button', { name: 'Switch language' }))
+    expect(container.querySelector('.public-track-page__live-badge')).toBeNull()
+    expect(screen.queryByText('لائیو کیس ٹریکر')).toBeNull()
+  })
+
+  it('keeps footer direction ltr even when page is in Urdu', async () => {
+    localStorage.setItem('sanctuary_report_lang_v1', 'ur')
+    const { container } = render(
+      <MemoryRouter initialEntries={['/report/track/SANCTUARY-0142']}>
+        <Routes>
+          <Route path="/report/track/:reportNumber" element={<PublicReportTrackScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await screen.findByRole('heading', { level: 1, name: 'کیس نمبر #0142' })
+    const footer = container.querySelector('.sanctuary-footer')
+    expect(footer).toBeInTheDocument()
+    expect(footer).toHaveAttribute('dir', 'ltr')
+  })
 })
+

@@ -9,7 +9,7 @@ import './SanctuaryFooter.css'
 
 export function SanctuaryFooter() {
   return (
-    <footer className="sanctuary-footer">
+    <footer className="sanctuary-footer" dir="ltr">
       <div className="sanctuary-footer__wrap">
         <div className="sanctuary-footer__top-row">
           <Link to="/" className="sanctuary-footer__brand-lockup" aria-label="Sanctuary Home">

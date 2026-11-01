@@ -22,11 +22,13 @@ export type ReportDraftState = {
   reporterPhone: string
   reporterCnic: string
   rememberProfile: boolean
+  groupBreakdown?: string
+  aiAnalysis?: any
 }
 
 export const INITIAL_DRAFT: ReportDraftState = {
   currentStep: 1,
-  category: 'emergency',
+  category: 'sick_injured',
   intakeCountMode: 'single',
   litterComposition: 'offspring_only',
   animalCount: 1,
@@ -44,6 +46,8 @@ export const INITIAL_DRAFT: ReportDraftState = {
   reporterPhone: '',
   reporterCnic: '',
   rememberProfile: true,
+  groupBreakdown: '',
+  aiAnalysis: null,
 }
 
 export function useReportDraft() {

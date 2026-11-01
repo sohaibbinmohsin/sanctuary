@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PublicReportStepLocation } from '@/features/reports/components/public/PublicReportStepLocation'
 import { INITIAL_DRAFT } from '@/features/reports/hooks/useReportDraft'
 import { requestCurrentPosition } from '@/features/reports/domain/coordinates'
+import { extractPhotoMetadata } from '@/features/reports/domain/exif'
+import { classifyReportPhoto } from '@/features/reports/domain/visionClassifier'
 
 vi.mock('@/features/reports/domain/coordinates', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/features/reports/domain/coordinates')>()
@@ -12,12 +14,21 @@ vi.mock('@/features/reports/domain/coordinates', async (importOriginal) => {
   }
 })
 
+vi.mock('@/features/reports/domain/exif', () => ({
+  extractPhotoMetadata: vi.fn(),
+}))
+
+vi.mock('@/features/reports/domain/visionClassifier', () => ({
+  classifyReportPhoto: vi.fn(),
+}))
+
 describe('PublicReportStepLocation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(classifyReportPhoto).mockResolvedValue(null)
   })
 
-  it('renders city selector and area input', () => {
+  it('renders category options and location choice buttons, and reveals manual inputs when clicked', () => {
     render(
       <PublicReportStepLocation
         draft={INITIAL_DRAFT}
@@ -29,9 +40,16 @@ describe('PublicReportStepLocation', () => {
         onNext={vi.fn()}
       />
     )
+    expect(screen.getByText(/Sick \/ Injured Animal/i)).toBeInTheDocument()
+    expect(screen.getByText(/Animal Cruelty/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Dog Bite/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Missing Pet/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/Use current location/i)).toBeInTheDocument()
+    expect(screen.getByText(/Enter location manually/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Enter location manually/i }))
     expect(screen.getByLabelText(/City/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Area/i)).toBeInTheDocument()
-    expect(screen.getByText(/Share exact GPS location/i)).toBeInTheDocument()
   })
 
   it('validates area before continuing', () => {
@@ -141,6 +159,7 @@ describe('PublicReportStepLocation', () => {
         onNext={vi.fn()}
       />
     )
+    fireEvent.click(screen.getByRole('button', { name: /Enter location manually/i }))
     const select = screen.getByLabelText(/City/i)
     fireEvent.change(select, { target: { value: 'Karachi' } })
     expect(onUpdate).toHaveBeenCalledWith({ city: 'Karachi' })
@@ -159,6 +178,7 @@ describe('PublicReportStepLocation', () => {
         onNext={vi.fn()}
       />
     )
+    fireEvent.click(screen.getByRole('button', { name: /Enter location manually/i }))
     const areaInput = screen.getByLabelText(/Area/i)
     fireEvent.change(areaInput, { target: { value: 'DHA Phase 5' } })
     expect(onUpdate).toHaveBeenCalledWith({ locationArea: 'DHA Phase 5' })
@@ -177,6 +197,7 @@ describe('PublicReportStepLocation', () => {
         onNext={vi.fn()}
       />
     )
+    fireEvent.click(screen.getByRole('button', { name: /Enter location manually/i }))
     const landmarkInput = screen.getByLabelText(/Specific landmark/i)
     fireEvent.change(landmarkInput, { target: { value: 'Opposite hospital' } })
     expect(onUpdate).toHaveBeenCalledWith({ locationLandmark: 'Opposite hospital' })
@@ -201,13 +222,14 @@ describe('PublicReportStepLocation', () => {
       />
     )
 
-    const gpsBtn = screen.getByRole('button', { name: /Share exact GPS location/i })
+    const gpsBtn = screen.getByRole('button', { name: /Use current location/i })
     fireEvent.click(gpsBtn)
 
     await waitFor(() => {
       expect(onUpdate).toHaveBeenCalledWith({
         latitude: 31.5204,
         longitude: 74.3587,
+        locationArea: 'Current location',
       })
     })
   })
@@ -229,7 +251,7 @@ describe('PublicReportStepLocation', () => {
       />
     )
 
-    const gpsBtn = screen.getByRole('button', { name: /Share exact GPS location/i })
+    const gpsBtn = screen.getByRole('button', { name: /Use current location/i })
     fireEvent.click(gpsBtn)
 
     await waitFor(() => {
@@ -242,6 +264,7 @@ describe('PublicReportStepLocation', () => {
       ...INITIAL_DRAFT,
       latitude: 31.5204,
       longitude: 74.3587,
+      locationArea: 'Current location',
     }
 
     render(
@@ -256,7 +279,7 @@ describe('PublicReportStepLocation', () => {
       />
     )
 
-    expect(screen.getByText(/GPS captured \(31.5204, 74.3587\)/i)).toBeInTheDocument()
+    expect(screen.getByText(/Location confirmed/i)).toBeInTheDocument()
   })
 
   it('allows adding photos via file input', () => {
@@ -285,6 +308,38 @@ describe('PublicReportStepLocation', () => {
     expect(addedPhotos[0].blob).toBe(mockFile)
     expect(addedPhotos[0].url).toBeTruthy()
     expect(addedPhotos[0].id).toBeTruthy()
+  })
+
+  it('automatically extracts EXIF GPS coordinates when photo with GPS is uploaded', async () => {
+    const onUpdate = vi.fn()
+    vi.mocked(extractPhotoMetadata).mockResolvedValueOnce({
+      latitude: 31.4700,
+      longitude: 74.4100,
+      capturedAt: '2026-11-01T12:00:00Z',
+    })
+
+    const { container } = render(
+      <PublicReportStepLocation
+        draft={INITIAL_DRAFT}
+        photos={[]}
+        onUpdate={onUpdate}
+        onAddPhotos={vi.fn()}
+        onRemovePhoto={vi.fn()}
+        onBack={vi.fn()}
+        onNext={vi.fn()}
+      />
+    )
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    const mockFileWithExif = new File(['fake-gps-image'], 'rescue-gps.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [mockFileWithExif] } })
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith({
+        latitude: 31.4700,
+        longitude: 74.4100,
+      })
+    })
   })
 
   it('renders staged photo thumbnails and triggers onRemovePhoto when delete is clicked', () => {
@@ -333,6 +388,47 @@ describe('PublicReportStepLocation', () => {
     )
 
     expect(screen.queryByText(/Add photo/i)).not.toBeInTheDocument()
+  })
+
+  it('automatically triggers background image classification without blocking user', async () => {
+    const onUpdate = vi.fn()
+    vi.mocked(classifyReportPhoto).mockResolvedValueOnce({
+      is_animal_present: true,
+      species_primary: 'Dog',
+      species_details: 'Mother dog with 3 puppies',
+      composition: 'mother_and_offspring',
+      animal_count: 4,
+      condition_and_injuries: 'Injured left leg',
+      environment_context: 'Street side',
+    })
+
+    const { container } = render(
+      <PublicReportStepLocation
+        draft={INITIAL_DRAFT}
+        photos={[]}
+        onUpdate={onUpdate}
+        onAddPhotos={vi.fn()}
+        onRemovePhoto={vi.fn()}
+        onBack={vi.fn()}
+        onNext={vi.fn()}
+      />
+    )
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    const mockFile = new File(['dog-img'], 'dog.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [mockFile] } })
+
+    await waitFor(() => {
+      expect(classifyReportPhoto).toHaveBeenCalledWith(mockFile)
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          speciesPreset: 'Dog',
+          animalCount: 4,
+          intakeCountMode: 'litter',
+          chiefComplaint: 'Injured left leg',
+        })
+      )
+    })
   })
 
   it('contains strictly zero em-dashes', () => {

@@ -256,7 +256,7 @@ describe('PublicReportStepContact', () => {
         onSubmit={onSubmit}
       />
     )
-    const trapInput = container.querySelector('input[name="sanctuary_security_trap"]')
+    const trapInput = container.querySelector('input[name="fax_number"]')
     expect(trapInput).toBeInTheDocument()
     if (trapInput) {
       fireEvent.change(trapInput, { target: { value: 'spam-bot-token' } })
@@ -410,5 +410,24 @@ describe('PublicReportStepContact', () => {
     )
     expect(container.textContent).not.toContain('\u2014')
     expect(container.textContent).not.toContain('--')
+  })
+
+  it('renders phone and cnic inputs with dir=ltr attribute to prevent RTL number reversal', () => {
+    render(
+      <PublicReportStepContact
+        draft={INITIAL_DRAFT}
+        photos={[]}
+        submitting={false}
+        error={null}
+        onUpdate={vi.fn()}
+        onBack={vi.fn()}
+        onSubmit={vi.fn()}
+        lang="ur"
+      />
+    )
+    const phoneInput = screen.getByLabelText(/فون نمبر/i)
+    const cnicInput = screen.getByLabelText(/شناختی کارڈ نمبر/i)
+    expect(phoneInput).toHaveAttribute('dir', 'ltr')
+    expect(cnicInput).toHaveAttribute('dir', 'ltr')
   })
 })
