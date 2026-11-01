@@ -137,10 +137,16 @@ export function ProofCapture({
       return
     }
     const rect = buttonRef.current.getBoundingClientRect()
-    setMenuPos({
-      top: rect.bottom + 6,
-      left: rect.left,
-    })
+    const menuHeight = 96
+    const menuWidth = 160
+    let top = rect.bottom + 6
+    if (rect.bottom + menuHeight > window.innerHeight && rect.top > menuHeight) {
+      top = rect.top - menuHeight
+    } else if (top + menuHeight > window.innerHeight) {
+      top = Math.max(8, window.innerHeight - menuHeight - 8)
+    }
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8))
+    setMenuPos({ top, left })
   }, [menuOpen])
 
   useEffect(() => {

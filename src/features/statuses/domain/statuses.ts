@@ -29,14 +29,12 @@ export const DEFAULT_STATUS_DEFS = [
   { label: 'Deceased', countsAsInCare: 0 },
 ] as const
 
-export const REQUIRED_STATUS_LABELS = DEFAULT_STATUS_DEFS.map((s) =>
-  s.label.toLowerCase(),
-)
+export const REQUIRED_STATUS_LABELS = ['intake'] as const
 
 export function isRequiredStatus(label: string): boolean {
   if (!label) return false
   const lower = label.trim().toLowerCase()
-  return REQUIRED_STATUS_LABELS.includes(lower)
+  return lower === 'intake'
 }
 
 export function pickDefaultIntakeStatusId(
@@ -259,7 +257,7 @@ export async function renameStatus(
     [id],
   )
   if (existing && isRequiredStatus(existing.label)) {
-    throw new Error(`The status "${existing.label}" is a default status and cannot be renamed.`)
+    throw new Error(`The status "${existing.label}" is required and cannot be renamed.`)
   }
   await db.execute(`UPDATE animal_statuses SET label = ? WHERE id = ?`, [
     label.trim(),
@@ -277,7 +275,7 @@ export async function setStatusInCare(
     [id],
   )
   if (existing && isRequiredStatus(existing.label)) {
-    throw new Error(`The status "${existing.label}" is a default status and cannot be changed.`)
+    throw new Error(`The status "${existing.label}" is required and cannot be changed.`)
   }
   await db.execute(
     `UPDATE animal_statuses SET counts_as_in_care = ? WHERE id = ?`,
@@ -308,7 +306,7 @@ export async function archiveStatus(
     [id],
   )
   if (existing && isRequiredStatus(existing.label)) {
-    throw new Error(`The status "${existing.label}" is a default status and cannot be removed.`)
+    throw new Error(`The status "${existing.label}" is required and cannot be removed.`)
   }
   await db.execute(`UPDATE animal_statuses SET archived = 1 WHERE id = ?`, [id])
 }
