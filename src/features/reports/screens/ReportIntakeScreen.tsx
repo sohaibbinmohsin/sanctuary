@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Check, X, Camera, Crosshair, MapPin, Compass, CircleNotch, Trash } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
@@ -22,6 +22,8 @@ import {
   deleteReportPhoto,
   archiveRescueReport,
   syncReportPhotosToAnimal,
+  createAnimalFromRescueReport,
+  toDatetimeLocalValue,
   formatPhoneNumber,
   validatePhoneNumber,
   formatCnic,
@@ -38,6 +40,7 @@ import {
   type FrequentCaller,
   type ReportPhoto,
   type RescueReport,
+  type CreateRescueReportInput,
 } from '@/features/reports/domain/rescueReports'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
@@ -52,10 +55,12 @@ const CATEGORY_OPTIONS = [
 
 const INTAKE_SOURCES: { value: IntakeSource; label: string }[] = [
   { value: 'citizen', label: 'Citizen Call' },
+  { value: 'walk_in', label: 'Walk-in / Direct' },
   { value: 'rescue_1122', label: 'Rescue 1122' },
   { value: 'field_patrol', label: 'Field Patrol (Self)' },
   { value: 'partner_transfer', label: 'Partner Transfer' },
 ]
+
 
 export function ReportIntakeScreen() {
   const db = useDb()
@@ -63,8 +68,16 @@ export function ReportIntakeScreen() {
   const { id } = useParams<{ id: string }>()
   const isEditMode = Boolean(id)
   const { member } = useCurrentMember()
+  const [searchParams] = useSearchParams()
+  const isWalkInParam = searchParams.get('type') === 'walk-in' || searchParams.get('type') === 'walkin'
 
   const [existingReport, setExistingReport] = useState<RescueReport | null>(null)
+  const isWalkIn =
+    isWalkInParam ||
+    existingReport?.intake_source === 'walk_in' ||
+    existingReport?.intake_source === 'direct_intake'
+
+  const [reportDateTime, setReportDateTime] = useState<string>(() => toDatetimeLocalValue(new Date()))
   const [existingPhotos, setExistingPhotos] = useState<ReportPhoto[]>([])
   const [existingPhotoUrls, setExistingPhotoUrls] = useState<Record<string, string>>({})
   const [photosToDelete, setPhotosToDelete] = useState<string[]>([])
@@ -96,7 +109,7 @@ export function ReportIntakeScreen() {
   const [locationLinkInput, setLocationLinkInput] = useState('')
   const [detectingLocation, setDetectingLocation] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
-  const [intakeSource, setIntakeSource] = useState<IntakeSource>('citizen')
+  const [intakeSource, setIntakeSource] = useState<IntakeSource>(() => (isWalkInParam ? 'walk_in' : 'citizen'))
   const [reporterName, setReporterName] = useState('')
   const [reporterPhone, setReporterPhone] = useState('')
   const [reporterCnic, setReporterCnic] = useState('')
@@ -108,6 +121,12 @@ export function ReportIntakeScreen() {
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const confirm = useConfirm()
+
+  useEffect(() => {
+    if (!isEditMode && isWalkInParam) {
+      setIntakeSource('walk_in')
+    }
+  }, [isEditMode, isWalkInParam])
 
   async function handleDeleteReport() {
     if (!db || !id || deleting || submitting) return
@@ -142,6 +161,7 @@ export function ReportIntakeScreen() {
         const report = await getRescueReportById(db, id!)
         if (cancelled || !report) return
         setExistingReport(report)
+        setReportDateTime(toDatetimeLocalValue(report.created_at || report.stage_logged_at))
         setCategory(report.category || 'emergency')
         setIntakeSource((report.intake_source as IntakeSource) || 'citizen')
         setAnimalCount(report.animal_count && report.animal_count > 0 ? report.animal_count : 1)
@@ -301,9 +321,16 @@ export function ReportIntakeScreen() {
       return
     }
 
+    const reportDateTimeISO = reportDateTime
+      ? Number.isNaN(new Date(reportDateTime).getTime())
+        ? new Date().toISOString()
+        : new Date(reportDateTime).toISOString()
+      : new Date().toISOString()
+
     const complaintTrimmed = chiefComplaint.trim()
     const cityTrimmed = city.trim() || 'Lahore'
-    const areaTrimmed = locationArea.trim()
+    const isDirectWalkIn = isWalkIn || intakeSource === 'walk_in' || intakeSource === 'direct_intake'
+    const areaTrimmed = locationArea.trim() || (isDirectWalkIn ? 'Clinic / Shelter' : '')
 
     if (!complaintTrimmed) {
       setError('Please provide a chief complaint or injury description.')
@@ -384,6 +411,7 @@ export function ReportIntakeScreen() {
       if (isEditMode && id) {
         // Update details ONLY - preserve timeline milestones, stage, and disposition
         await updateRescueReport(db, id, {
+          createdAt: reportDateTimeISO,
           category,
           species: calculatedSpecies.toLowerCase(),
           lifeStage: effectiveLifeStage,
@@ -432,7 +460,13 @@ export function ReportIntakeScreen() {
         navigate(`/reports/${id}`, { replace: true })
       } else {
         const reportNumber = await generateReportNumber(db, orgInitials)
-        const report = await createRescueReport(db, {
+        const effectiveIntakeSource: IntakeSource = isDirectWalkIn
+          ? intakeSource === 'citizen'
+            ? 'walk_in'
+            : intakeSource
+          : intakeSource
+
+        const createInput: CreateRescueReportInput = {
           orgId,
           reportNumber,
           category,
@@ -447,14 +481,23 @@ export function ReportIntakeScreen() {
           reporterName: reporterName.trim() || null,
           reporterPhone: reporterPhone.trim() ? formatPhoneNumber(reporterPhone) : null,
           reporterCnic: reporterCnic.trim()
-            ? intakeSource === 'citizen' || intakeSource === 'field_patrol'
+            ? effectiveIntakeSource === 'citizen' || effectiveIntakeSource === 'field_patrol'
               ? formatCnic(reporterCnic)
               : reporterCnic.trim()
             : null,
-          intakeSource,
+          intakeSource: effectiveIntakeSource,
           animalCount: Math.max(1, effectiveCount),
           groupBreakdown: groupBreakdownJson,
-        })
+          createdAt: reportDateTimeISO,
+        }
+
+        if (isDirectWalkIn) {
+          createInput.status = 'attended'
+          createInput.stageAttendedAt = reportDateTimeISO
+          createInput.dispositionType = 'admitted_shelter'
+        }
+
+        const report = await createRescueReport(db, createInput)
 
         // Attach any staged photos to this report
         if (stagedPhotos.length > 0) {
@@ -467,12 +510,31 @@ export function ReportIntakeScreen() {
           }
         }
 
+        if (isDirectWalkIn) {
+          try {
+            const animalId = await createAnimalFromRescueReport(db, report, {
+              orgId,
+              orgInitials,
+              disposition: 'admitted_shelter',
+              attendedDate: new Date(reportDateTimeISO),
+            })
+            if (animalId) {
+              await db.execute('UPDATE rescue_reports SET animal_id = ? WHERE id = ?', [animalId, report.id])
+              report.animal_id = animalId
+              await syncReportPhotosToAnimal(db, report.id, animalId, orgId)
+            }
+          } catch (createErr) {
+            console.error('Failed to auto-create animal record for walk-in intake', createErr)
+          }
+        }
+
         navigate(`/reports/${report.id}`, { replace: true })
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save rescue report.')
       setSubmitting(false)
     }
+
   }
 
   function handleAddPhotos(newPhotos: StagedPhoto[]) {
@@ -510,19 +572,37 @@ export function ReportIntakeScreen() {
             ? existingReport?.report_number
               ? `Edit Report ${existingReport.report_number}`
               : 'Edit rescue report'
-            : 'Log a rescue report'
+            : isWalkIn
+              ? 'Log Walk-in Intake'
+              : 'Log a rescue report'
         }
         subtitle={
           isEditMode
             ? 'Update report details, location, or attach proof photos.'
-            : 'Record incoming emergency and dispatch rescue team.'
+            : isWalkIn
+              ? 'Record an animal brought directly to the rescuer or clinic'
+              : 'Record incoming emergency and dispatch rescue team.'
         }
       />
 
       <form className="stack stack--loose" onSubmit={handleSubmit}>
+        {/* Date & Time Picker */}
+        <div className="panel stack">
+          <TextField
+            label={isWalkIn ? 'Intake Date & Time' : 'Report Date & Time'}
+            type="datetime-local"
+            id="report-datetime-input"
+            value={reportDateTime}
+            onChange={(e) => setReportDateTime(e.target.value)}
+            hint="Backdate if logging after occurrence"
+            required
+          />
+        </div>
+
         {/* 1. Animal Category & Species */}
         <div className="panel stack">
           <p className="section-label">Report Category &amp; Animal</p>
+
 
           <div className="field">
             <span>Category</span>
@@ -1132,7 +1212,7 @@ export function ReportIntakeScreen() {
               if (error) setError(null)
             }}
             suggestions={getAreasForCity(city)}
-            required
+            required={!isWalkIn}
           />
 
           <TextField
@@ -1409,10 +1489,14 @@ export function ReportIntakeScreen() {
             {submitting
               ? isEditMode
                 ? 'Saving changes…'
-                : 'Logging report…'
+                : isWalkIn
+                  ? 'Logging walk-in intake…'
+                  : 'Logging report…'
               : isEditMode
                 ? 'Save changes'
-                : 'Log rescue report'}
+                : isWalkIn
+                  ? 'Log walk-in intake'
+                  : 'Log rescue report'}
           </Button>
         </div>
       </form>

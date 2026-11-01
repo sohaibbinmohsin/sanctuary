@@ -33,3 +33,23 @@ export function formatCareTimestamp(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso
   return d.toLocaleString()
 }
+
+/**
+ * Format a Date or ISO string into a local datetime-local string (YYYY-MM-DDTHH:mm).
+ */
+export function toDatetimeLocalValue(dateOrIso?: string | Date | null): string {
+  if (!dateOrIso) {
+    const d = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+  const d = typeof dateOrIso === 'string' ? new Date(dateOrIso) : dateOrIso
+  if (Number.isNaN(d.getTime())) {
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+  }
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+

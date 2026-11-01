@@ -93,6 +93,7 @@ describe('ReportIntakeScreen', () => {
         intakeSource: 'citizen',
         animalCount: 1,
         groupBreakdown: null,
+        createdAt: expect.any(String),
       })
     })
   })
@@ -168,6 +169,7 @@ describe('ReportIntakeScreen', () => {
         intakeSource: 'citizen',
         animalCount: 1,
         groupBreakdown: null,
+        createdAt: expect.any(String),
       })
     })
   })
@@ -241,6 +243,7 @@ describe('ReportIntakeScreen', () => {
         intakeSource: 'citizen',
         animalCount: 1,
         groupBreakdown: null,
+        createdAt: expect.any(String),
       })
     })
   })

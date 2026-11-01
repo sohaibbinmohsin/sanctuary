@@ -7,6 +7,10 @@ import {
 import { compressImage } from '@/shared/lib/r2/upload'
 import { storeLocalPhoto, getLocalPhoto } from '@/features/photos/domain/photos'
 import { notifyPendingMediaChanged } from '@/shared/lib/pendingMedia'
+import { createAnimal } from '@/features/animals/domain/animals'
+import { linkAnimals } from '@/features/animals/domain/relationships'
+import { listStatuses } from '@/features/statuses/domain/statuses'
+import { localDateString } from '@/shared/lib/checklist/missedStreak'
 
 export type RescueReportStage =
   | 'logged'
@@ -21,7 +25,13 @@ export type RescueReportDisposition =
   | 'admitted_shelter'
   | 'deceased_doa'
 
-export type IntakeSource = 'citizen' | 'rescue_1122' | 'field_patrol' | 'partner_transfer'
+export type IntakeSource =
+  | 'citizen'
+  | 'rescue_1122'
+  | 'field_patrol'
+  | 'partner_transfer'
+  | 'walk_in'
+  | 'direct_intake'
 
 export const AVIAN_PRESETS = [
   'Black Kite',
@@ -63,7 +73,13 @@ export type CreateRescueReportInput = {
   intakeSource?: IntakeSource | null
   animalCount?: number | null
   groupBreakdown?: string | null
+  createdAt?: string | null
+  status?: RescueReportStage
+  stageAttendedAt?: string | null
+  dispositionType?: RescueReportDisposition | null
+  animalId?: string | null
 }
+
 
 /**
  * Generates sequential human-readable emergency report numbers.
@@ -231,6 +247,23 @@ export async function createRescueReport(
   const cols = await getExistingColumns(db, 'rescue_reports')
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
+  const createdAtIso = input.createdAt
+    ? Number.isNaN(new Date(input.createdAt).getTime())
+      ? now
+      : new Date(input.createdAt).toISOString()
+    : now
+
+  const status = input.status ?? 'logged'
+  const stageAttendedAt =
+    input.stageAttendedAt !== undefined
+      ? input.stageAttendedAt
+        ? Number.isNaN(new Date(input.stageAttendedAt).getTime())
+          ? now
+          : new Date(input.stageAttendedAt).toISOString()
+        : null
+      : status === 'attended'
+        ? createdAtIso
+        : null
 
   const report: RescueReport = {
     id,
@@ -240,7 +273,7 @@ export async function createRescueReport(
     species: input.species.trim(),
     life_stage: input.lifeStage ?? 'adult',
     chief_complaint: input.chiefComplaint.trim(),
-    status: 'logged',
+    status,
     city: input.city?.trim() || 'Lahore',
     location_area: input.locationArea.trim(),
     location_landmark: input.locationLandmark?.trim() || null,
@@ -250,19 +283,19 @@ export async function createRescueReport(
     reporter_phone: input.reporterPhone?.trim() || null,
     reporter_cnic: input.reporterCnic?.trim() || null,
     transport_type: null,
-    disposition_type: null,
-    animal_id: null,
+    disposition_type: input.dispositionType ?? null,
+    animal_id: input.animalId ?? null,
     legal_notes: null,
     dismissal_reason: null,
     intake_source: input.intakeSource || 'citizen',
     animal_count: input.animalCount && input.animalCount > 0 ? input.animalCount : 1,
     group_breakdown: input.groupBreakdown ?? null,
     archived: 0,
-    stage_logged_at: now,
+    stage_logged_at: createdAtIso,
     stage_accepted_at: null,
     stage_dispatched_at: null,
-    stage_attended_at: null,
-    created_at: now,
+    stage_attended_at: stageAttendedAt,
+    created_at: createdAtIso,
     updated_at: now,
   }
 
@@ -640,6 +673,174 @@ export async function syncReportPhotosToAnimal(
   notifyPendingMediaChanged()
 }
 
+/**
+ * Automatically creates animal record(s) from a rescue report (e.g. for walk-in or shelter admission).
+ * Handles companion animals, litter breakdowns, and photo synchronization.
+ */
+export async function createAnimalFromRescueReport(
+  db: SanctuaryDb,
+  report: RescueReport,
+  options?: {
+    orgId?: string
+    orgInitials?: string
+    disposition?: 'spot_released' | 'admitted_shelter'
+    attendedDate?: Date
+  },
+): Promise<string> {
+  const orgId = options?.orgId || report.org_id
+  if (!orgId) throw new Error('Organization ID is missing')
+
+  const prefix = options?.orgInitials || report.report_number?.split('-')[0] || 'MS'
+  let targetStatusId: string | null = null
+
+  try {
+    const statuses = await listStatuses(db, orgId)
+    if (options?.disposition === 'spot_released') {
+      const released = statuses.find((s) => s.label.toLowerCase() === 'released')
+      targetStatusId = released?.id ?? statuses[0]?.id ?? null
+    } else {
+      const intake =
+        statuses.find((s) => !s.archived && s.label.trim().toLowerCase() === 'intake') ??
+        statuses.find((s) => !s.archived && s.counts_as_in_care === 1) ??
+        statuses[0]
+      targetStatusId = intake?.id ?? null
+    }
+  } catch (err) {
+    console.warn('Could not load statuses for report animal intake', err)
+  }
+
+  const notesText = [
+    `Rescue report: ${report.report_number || ''}`,
+    report.chief_complaint ? `Complaint: ${report.chief_complaint}` : null,
+    report.reporter_name
+      ? `Reporter: ${report.reporter_name}${report.reporter_phone ? ` (${report.reporter_phone})` : ''}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const markingsText = report.location_landmark
+    ? `${report.location_area || ''} (near ${report.location_landmark})`.trim()
+    : report.location_area || undefined
+
+  const attendedDate =
+    options?.attendedDate ??
+    (report.stage_attended_at
+      ? new Date(report.stage_attended_at)
+      : report.created_at
+        ? new Date(report.created_at)
+        : new Date())
+  const intakeDate = localDateString(attendedDate)
+  const intakeTime = `${String(attendedDate.getHours()).padStart(2, '0')}:${String(attendedDate.getMinutes()).padStart(2, '0')}`
+  const arrivalTimestamp = attendedDate.toISOString()
+
+  const animal = await createAnimal(db, {
+    orgId,
+    prefix,
+    species: report.species || 'other',
+    statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
+    notes: notesText,
+    markings: markingsText,
+    intakeDate,
+    intakeTime,
+    arrivalTimestamp,
+  })
+
+  // Transfer report photos to animal photos table and local cache
+  try {
+    await syncReportPhotosToAnimal(db, report.id, animal.id, orgId)
+  } catch (photoErr) {
+    console.warn('Could not copy report photos to animal', photoErr)
+  }
+
+  // Multi-animal / litter intake support
+  let parsedGroup: Array<{ count: number; species: string; lifeStage?: string; avianSubtype?: string }> = []
+  if (report.group_breakdown) {
+    try {
+      const parsed = JSON.parse(report.group_breakdown)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parsedGroup = parsed
+      }
+    } catch (err) {
+      console.warn('Failed to parse group_breakdown', err)
+    }
+  }
+
+  if (parsedGroup.length > 0) {
+    const allAnimals = parsedGroup.flatMap((item) =>
+      Array.from({ length: Math.max(1, item.count) }, () => ({
+        species: item.avianSubtype || item.species || report.species || 'other',
+        lifeStage: item.lifeStage as 'adult' | 'child' | undefined,
+      })),
+    )
+
+    for (let i = 1; i < allAnimals.length; i++) {
+      const spec = allAnimals[i]
+      try {
+        const companion = await createAnimal(db, {
+          orgId,
+          prefix,
+          species: spec.species.toLowerCase(),
+          lifeStage: spec.lifeStage || (report.life_stage === 'adult' ? 'child' : undefined),
+          statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
+          notes: `${notesText}\nCompanion #${i + 1} of ${allAnimals.length} in batch intake`,
+          markings: markingsText,
+          intakeDate,
+          intakeTime,
+          arrivalTimestamp,
+        })
+        await linkAnimals(db, {
+          orgId,
+          animalId: animal.id,
+          relatedAnimalId: companion.id,
+          relationshipType:
+            spec.lifeStage === 'child' && animal.life_stage === 'adult' ? 'child' : 'sibling',
+          notes: `Auto-linked from rescue report ${report.report_number || ''}`,
+        })
+      } catch (compErr) {
+        console.warn('Could not create companion animal for group', compErr)
+      }
+    }
+  } else {
+    const count = report.animal_count && report.animal_count > 1 ? report.animal_count : 1
+    if (count > 1) {
+      for (let i = 2; i <= count; i++) {
+        try {
+          const companion = await createAnimal(db, {
+            orgId,
+            prefix,
+            species: report.species || 'other',
+            lifeStage:
+              report.life_stage === 'adult'
+                ? 'child'
+                : report.life_stage === 'child'
+                  ? 'child'
+                  : undefined,
+            statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
+            notes: `${notesText}\nCompanion #${i} of ${count} in batch litter/group admission`,
+            markings: markingsText,
+            intakeDate,
+            intakeTime,
+            arrivalTimestamp,
+          })
+          await linkAnimals(db, {
+            orgId,
+            animalId: animal.id,
+            relatedAnimalId: companion.id,
+            relationshipType: report.life_stage === 'adult' ? 'child' : 'sibling',
+            notes: `Auto-linked from rescue report ${report.report_number || ''}`,
+          })
+        } catch (compErr) {
+          console.warn('Could not create companion animal for group', compErr)
+        }
+      }
+    }
+  }
+
+  return animal.id
+}
+
+
 let reportPhotoQueueRunning: Promise<{ uploaded: number; failed: number }> | null = null
 
 /**
@@ -750,10 +951,15 @@ export type UpdateRescueReportInput = {
   intakeSource?: IntakeSource | null
   animalCount?: number | null
   groupBreakdown?: string | null
+  createdAt?: string | null
+  stageAttendedAt?: string | null
+  status?: RescueReportStage
+  dispositionType?: RescueReportDisposition | null
+  animalId?: string | null
 }
 
 /**
- * Updates rescue report details without modifying lifecycle status or timeline milestones.
+ * Updates rescue report details without modifying lifecycle status or timeline milestones (unless explicitly supplied).
  */
 export async function updateRescueReport(
   db: SanctuaryDb,
@@ -826,6 +1032,39 @@ export async function updateRescueReport(
   if (cols.size === 0 || cols.has('group_breakdown')) {
     setClauses.push('group_breakdown = ?')
     params.push(input.groupBreakdown ?? null)
+  }
+
+  if (input.createdAt !== undefined && input.createdAt !== null) {
+    const parsedIso = Number.isNaN(new Date(input.createdAt).getTime())
+      ? input.createdAt
+      : new Date(input.createdAt).toISOString()
+    setClauses.push('created_at = ?')
+    params.push(parsedIso)
+    setClauses.push('stage_logged_at = ?')
+    params.push(parsedIso)
+  }
+
+  if (input.stageAttendedAt !== undefined && input.stageAttendedAt !== null) {
+    const parsedIso = Number.isNaN(new Date(input.stageAttendedAt).getTime())
+      ? input.stageAttendedAt
+      : new Date(input.stageAttendedAt).toISOString()
+    setClauses.push('stage_attended_at = ?')
+    params.push(parsedIso)
+  }
+
+  if (input.status !== undefined) {
+    setClauses.push('status = ?')
+    params.push(input.status)
+  }
+
+  if (input.dispositionType !== undefined) {
+    setClauses.push('disposition_type = ?')
+    params.push(input.dispositionType)
+  }
+
+  if (input.animalId !== undefined) {
+    setClauses.push('animal_id = ?')
+    params.push(input.animalId)
   }
 
   setClauses.push('updated_at = ?')
@@ -1069,5 +1308,7 @@ export {
 } from './coordinates'
 export * from './pakistanLocations'
 export * from './reportOutcomes'
+export { toDatetimeLocalValue } from '@/shared/lib/dates'
+
 
 
