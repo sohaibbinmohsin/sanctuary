@@ -28,6 +28,11 @@ export const PRESET_PARTNER_ORGS = [
   'Rescue 1122 Animal Emergency Unit',
 ] as const
 
+export const COMBINED_PARTNER_TRANSFER_PRESETS = [
+  ...PRESET_VET_CLINICS,
+  ...PRESET_PARTNER_ORGS,
+] as const
+
 export async function getClinicSuggestions(
   db: SanctuaryDb | null,
   orgId: string,
@@ -114,4 +119,22 @@ export async function getPartnerSuggestions(
   }
 
   return Array.from(map.values()).slice(0, 8)
+}
+
+export async function getCombinedPartnerSuggestions(
+  db: SanctuaryDb | null,
+  orgId: string,
+  query: string,
+): Promise<{ name: string; slug: string }[]> {
+  const [clinics, partners] = await Promise.all([
+    getClinicSuggestions(db, orgId, query),
+    getPartnerSuggestions(db, orgId, query),
+  ])
+  const map = new Map<string, { name: string; slug: string }>()
+  for (const item of [...clinics, ...partners]) {
+    if (!map.has(item.slug)) {
+      map.set(item.slug, item)
+    }
+  }
+  return Array.from(map.values())
 }

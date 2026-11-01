@@ -50,7 +50,7 @@ import { SelectField, TextareaField, TextField } from '@/shared/ui/Field'
 import { AutocompleteField } from '@/shared/ui/AutocompleteField'
 import {
   PRESET_VET_CLINICS,
-  PRESET_PARTNER_ORGS,
+  COMBINED_PARTNER_TRANSFER_PRESETS,
 } from '@/features/reports/domain/partnerDirectory'
 import { syncReportPhotosToAnimal } from '@/features/reports/domain/rescueReports'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
@@ -1742,11 +1742,11 @@ export function AnimalDetailScreen() {
                     Partner Transfer Details
                   </p>
                   <AutocompleteField
-                    label="Partner Organization / Shelter Name"
-                    placeholder="e.g. Todd's Welfare Society (TWS)"
+                    label="Partner Organization"
+                    placeholder="e.g. Todd's Welfare Society (TWS) or UVAS"
                     value={partnerName}
                     onChange={setPartnerName}
-                    suggestions={PRESET_PARTNER_ORGS as unknown as string[]}
+                    suggestions={COMBINED_PARTNER_TRANSFER_PRESETS}
                   />
                   <TextField
                     label="Focal Person / Contact"
