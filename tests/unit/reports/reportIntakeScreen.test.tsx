@@ -35,7 +35,7 @@ describe('ReportIntakeScreen', () => {
 
     // Verify Welfare check is NOT present in category options
     expect(screen.queryByRole('button', { name: /Welfare check/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Medical emergency/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Injured\/sick animal/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Animal cruelty/i })).toBeInTheDocument()
 
     // Select Cat species

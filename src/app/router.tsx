@@ -455,172 +455,28 @@ function AppShellContent() {
             <Route path="/" element={<Navigate to={fallbackRoute} replace />} />
 
             {/* Animals module */}
-            <Route
-              path="/animals"
-              element={
-                hasModule('animals') ? (
-                  <AnimalsListScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
-            <Route
-              path="/animals/filters"
-              element={
-                hasModule('animals') ? (
-                  <AnimalsFiltersScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
-            <Route
-              path="/animals/add-to-checklist"
-              element={
-                hasModule('animals') ? (
-                  <AddToChecklistScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
-            <Route
-              path="/animals/camera"
-              element={
-                hasModule('animals') ? (
-                  <Navigate to="/animals/new" replace />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
-            <Route
-              path="/animals/new"
-              element={
-                hasModule('animals') ? (
-                  <AnimalIntakeScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
-            <Route
-              path="/animals/:id/edit"
-              element={
-                hasModule('animals') ? (
-                  <AnimalIntakeScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
-            <Route
-              path="/animals/:id"
-              element={
-                hasModule('animals') ? (
-                  <AnimalDetailScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
+            <Route path="/animals" element={<AnimalsListScreen />} />
+            <Route path="/animals/filters" element={<AnimalsFiltersScreen />} />
+            <Route path="/animals/add-to-checklist" element={<AddToChecklistScreen />} />
+            <Route path="/animals/camera" element={<Navigate to="/animals/new" replace />} />
+            <Route path="/animals/new" element={<AnimalIntakeScreen />} />
+            <Route path="/animals/:id/edit" element={<AnimalIntakeScreen />} />
+            <Route path="/animals/:id" element={<AnimalDetailScreen />} />
 
             {/* Ledger module */}
-            <Route
-              path="/ledger"
-              element={
-                hasModule('ledger') ? (
-                  <LedgerScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
-            <Route
-              path="/ledger/new"
-              element={
-                hasModule('ledger') ? (
-                  <LedgerEntryScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
-            <Route
-              path="/ledger/:id"
-              element={
-                hasModule('ledger') ? (
-                  <LedgerEntryScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
+            <Route path="/ledger" element={<LedgerScreen />} />
+            <Route path="/ledger/new" element={<LedgerEntryScreen />} />
+            <Route path="/ledger/:id" element={<LedgerEntryScreen />} />
 
             {/* Checklist module */}
-            <Route
-              path="/checklist"
-              element={
-                hasModule('checklist') ? (
-                  <ChecklistScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
+            <Route path="/checklist" element={<ChecklistScreen />} />
 
             {/* Reports module */}
-            <Route
-              path="/reports"
-              element={
-                hasModule('reports') ? (
-                  <ReportsListScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
-            <Route
-              path="/reports/new"
-              element={
-                hasModule('reports') ? (
-                  <ReportIntakeScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
-            <Route
-              path="/reports/:id/edit"
-              element={
-                hasModule('reports') ? (
-                  <ReportIntakeScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
-            <Route
-              path="/reports/:id/animals"
-              element={
-                hasModule('reports') ? (
-                  <ReportAnimalsScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
-            <Route
-              path="/reports/:id"
-              element={
-                hasModule('reports') ? (
-                  <ReportDetailScreen />
-                ) : (
-                  <Navigate to={fallbackRoute} replace />
-                )
-              }
-            />
+            <Route path="/reports" element={<ReportsListScreen />} />
+            <Route path="/reports/new" element={<ReportIntakeScreen />} />
+            <Route path="/reports/:id/edit" element={<ReportIntakeScreen />} />
+            <Route path="/reports/:id/animals" element={<ReportAnimalsScreen />} />
+            <Route path="/reports/:id" element={<ReportDetailScreen />} />
 
             {/* Standard non-modular routes */}
             <Route path="/dashboard" element={<DashboardScreen />} />

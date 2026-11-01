@@ -49,7 +49,7 @@ import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other'] as const
 
 const CATEGORY_OPTIONS = [
-  { value: 'emergency', label: 'Medical emergency' },
+  { value: 'emergency', label: 'Injured/sick animal' },
   { value: 'cruelty', label: 'Animal cruelty' },
 ] as const
 

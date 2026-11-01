@@ -734,11 +734,43 @@ export async function createAnimalFromRescueReport(
   const intakeTime = `${String(attendedDate.getHours()).padStart(2, '0')}:${String(attendedDate.getMinutes()).padStart(2, '0')}`
   const arrivalTimestamp = attendedDate.toISOString()
 
+  // Multi-animal / litter intake support: parse breakdown first so primary animal gets actual species
+  let parsedGroup: Array<{ count: number; species: string; lifeStage?: string; avianSubtype?: string }> = []
+  if (report.group_breakdown) {
+    try {
+      const parsed = JSON.parse(report.group_breakdown)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parsedGroup = parsed
+      }
+    } catch (err) {
+      console.warn('Failed to parse group_breakdown', err)
+    }
+  }
+
+  const allAnimals =
+    parsedGroup.length > 0
+      ? parsedGroup.flatMap((item) =>
+          Array.from({ length: Math.max(1, item.count) }, () => ({
+            species: (item.avianSubtype || item.species || report.species || 'other').toLowerCase(),
+            lifeStage:
+              (item.lifeStage as 'adult' | 'child' | undefined) ??
+              (report.life_stage as 'adult' | 'child' | undefined),
+          })),
+        )
+      : []
+
+  const primarySpec = allAnimals[0]
+  const primarySpecies =
+    primarySpec?.species ||
+    (report.species && report.species.toLowerCase() !== 'mixed' ? report.species.toLowerCase() : 'other')
+  const primaryLifeStage =
+    primarySpec?.lifeStage || (report.life_stage as 'adult' | 'child') || undefined
+
   const animal = await createAnimal(db, {
     orgId,
     prefix,
-    species: report.species || 'other',
-    lifeStage: (report.life_stage as 'adult' | 'child') || undefined,
+    species: primarySpecies,
+    lifeStage: primaryLifeStage,
     statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
     notes: notesText,
     markings: markingsText,
@@ -754,27 +786,7 @@ export async function createAnimalFromRescueReport(
     console.warn('Could not copy report photos to animal', photoErr)
   }
 
-  // Multi-animal / litter intake support
-  let parsedGroup: Array<{ count: number; species: string; lifeStage?: string; avianSubtype?: string }> = []
-  if (report.group_breakdown) {
-    try {
-      const parsed = JSON.parse(report.group_breakdown)
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        parsedGroup = parsed
-      }
-    } catch (err) {
-      console.warn('Failed to parse group_breakdown', err)
-    }
-  }
-
-  if (parsedGroup.length > 0) {
-    const allAnimals = parsedGroup.flatMap((item) =>
-      Array.from({ length: Math.max(1, item.count) }, () => ({
-        species: item.avianSubtype || item.species || report.species || 'other',
-        lifeStage: item.lifeStage as 'adult' | 'child' | undefined,
-      })),
-    )
-
+  if (allAnimals.length > 1) {
     for (let i = 1; i < allAnimals.length; i++) {
       const spec = allAnimals[i]
       try {
@@ -782,7 +794,7 @@ export async function createAnimalFromRescueReport(
           orgId,
           prefix,
           species: spec.species.toLowerCase(),
-          lifeStage: spec.lifeStage || (report.life_stage === 'adult' ? 'child' : undefined),
+          lifeStage: spec.lifeStage || (primaryLifeStage === 'adult' ? 'child' : undefined),
           statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
           notes: `${notesText}\nCompanion #${i + 1} of ${allAnimals.length} in batch intake`,
           markings: markingsText,
@@ -795,14 +807,14 @@ export async function createAnimalFromRescueReport(
           animalId: animal.id,
           relatedAnimalId: companion.id,
           relationshipType:
-            spec.lifeStage === 'child' && animal.life_stage === 'adult' ? 'child' : 'sibling',
+            spec.lifeStage === 'child' && primaryLifeStage === 'adult' ? 'child' : 'sibling',
           notes: `Auto-linked from rescue report ${report.report_number || ''}`,
         })
       } catch (compErr) {
         console.warn('Could not create companion animal for group', compErr)
       }
     }
-  } else {
+  } else if (allAnimals.length === 0) {
     const count = report.animal_count && report.animal_count > 1 ? report.animal_count : 1
     if (count > 1) {
       for (let i = 2; i <= count; i++) {

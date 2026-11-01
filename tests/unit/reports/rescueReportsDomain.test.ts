@@ -9,6 +9,7 @@ import {
   updateReportLegalNotes,
   archiveRescueReport,
   deduplicateReportNumbers,
+  createAnimalFromRescueReport,
   type CreateRescueReportInput,
 } from '@/features/reports/domain/rescueReports'
 
@@ -386,6 +387,87 @@ describe('rescueReports domain', () => {
 
       await getRescueReportById(mockDb, 'rep-123')
       expect(capturedGetOptionalSql).toContain('(archived IS NULL OR archived = 0)')
+    })
+  })
+
+  describe('createAnimalFromRescueReport', () => {
+    it('creates primary animal and companions with correct individual species when report.species is mixed', async () => {
+      const createdAnimals: any[] = []
+      const linkedRelationships: any[] = []
+
+      const mockDb = {
+        getAll: async (sql: string) => {
+          if (sql.includes('animal_statuses')) {
+            return [{ id: 'status-intake', label: 'Intake', sort_order: 1, counts_as_in_care: 1 }]
+          }
+          if (sql.includes('SELECT shelter_code FROM animals')) {
+            return []
+          }
+          if (sql.includes('SELECT name FROM pragma_table_info')) {
+            return []
+          }
+          if (sql.includes('SELECT * FROM animal_photos')) {
+            return []
+          }
+          return []
+        },
+        getOptional: async (sql: string, params?: any[]) => {
+          if (sql.includes('SELECT id, prefix, name FROM orgs')) {
+            return { id: 'org-1', prefix: 'PARC', name: 'Test Org' }
+          }
+          if (sql.includes('FROM animals') && params?.[0]) {
+            const found = createdAnimals.find((a) => a.id === params[0])
+            return found ? { ...found, status_label: 'Intake' } : null
+          }
+          return null
+        },
+        writeTransaction: async (cb: any) => cb(mockDb),
+        execute: async (sql: string, params?: any[]) => {
+          if (sql.includes('INSERT INTO animals')) {
+            createdAnimals.push({
+              id: params?.[0],
+              org_id: params?.[1],
+              shelter_code: params?.[2],
+              species: params?.[4],
+              life_stage: params?.[13],
+            })
+          }
+          if (sql.includes('INSERT INTO animal_relationships')) {
+            linkedRelationships.push({
+              animal_id: params?.[2],
+              related_animal_id: params?.[3],
+              relationship_type: params?.[4],
+            })
+          }
+        },
+      } as any
+
+      const mockReport: any = {
+        id: 'rep-mixed',
+        org_id: 'org-1',
+        report_number: 'PARC-R101',
+        species: 'mixed',
+        life_stage: 'adult',
+        status: 'attended',
+        city: 'Lahore',
+        location_area: 'Gulberg',
+        location_landmark: null,
+        group_breakdown: JSON.stringify([
+          { count: 1, species: 'dog', lifeStage: 'adult' },
+          { count: 1, species: 'cat', lifeStage: 'adult' },
+        ]),
+      }
+
+      await createAnimalFromRescueReport(mockDb, mockReport)
+
+      expect(createdAnimals).toHaveLength(2)
+      // Primary animal is dog, not mixed
+      expect(createdAnimals[0].species).toBe('dog')
+      // Companion is cat, not mixed
+      expect(createdAnimals[1].species).toBe('cat')
+      expect(linkedRelationships).toHaveLength(2)
+      expect(linkedRelationships[0].animal_id).toBe(createdAnimals[0].id)
+      expect(linkedRelationships[0].related_animal_id).toBe(createdAnimals[1].id)
     })
   })
 })
