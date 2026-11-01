@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Camera, FirstAid, MapPin, Phone, LockKey, User, Scales, XCircle, Compass } from '@phosphor-icons/react'
+import { Camera, FirstAid, MapPin, Phone, LockKey, User, Scales, XCircle, Compass, Copy, Check } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   type RescueReport,
@@ -9,10 +9,10 @@ import {
   formatCnic,
   formatCoordinates,
   getNavigationUrl,
-  getMapEmbedUrl,
 } from '@/features/reports/domain/rescueReports'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
+import { ReportLocationMap } from './ReportLocationMap'
 
 export type ReportFactsGridProps = {
   report: RescueReport
@@ -22,6 +22,18 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
   const db = useDb()
   const [photos, setPhotos] = useState<ReportPhoto[]>([])
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
+  const [coordsCopied, setCoordsCopied] = useState(false)
+
+  const handleCopyCoordinates = useCallback(() => {
+    if (report.latitude == null || report.longitude == null) return
+    const text = `${report.latitude}, ${report.longitude}`
+    navigator.clipboard?.writeText(text).then(() => {
+      setCoordsCopied(true)
+      setTimeout(() => setCoordsCopied(false), 2000)
+    }).catch(() => {
+      // fallback
+    })
+  }, [report.latitude, report.longitude])
 
   const loadPhotos = useCallback(async () => {
     if (!db || !report.id) return
@@ -279,26 +291,47 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
             <span className="fact-label">Coordinates</span>
             {report.latitude != null && report.longitude != null ? (
               <div className="location-coordinates-wrap">
-                <span className="fact-value font-mono font-medium">
-                  {formatCoordinates(report.latitude, report.longitude)}
-                </span>
-                <div className="location-map-container">
-                  <iframe
-                    title="Rescue location map"
-                    src={getMapEmbedUrl(report.latitude, report.longitude)}
-                    className="location-map-frame"
-                    loading="lazy"
-                  />
+                <div className="location-coordinates-header">
+                  <div className="location-coordinates-text-group">
+                    <span className="fact-value font-mono font-medium">
+                      {formatCoordinates(report.latitude, report.longitude)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyCoordinates}
+                      className="coord-copy-btn pressable"
+                      title={coordsCopied ? 'Copied to clipboard!' : 'Copy raw coordinates'}
+                      aria-label="Copy coordinates"
+                    >
+                      {coordsCopied ? (
+                        <Check size={14} weight="bold" color="var(--color-forest, #2d6a4f)" />
+                      ) : (
+                        <Copy size={14} weight="bold" />
+                      )}
+                    </button>
+                    {coordsCopied && (
+                      <span className="coord-copied-badge">Copied!</span>
+                    )}
+                  </div>
+
                   <a
                     href={getNavigationUrl(report.latitude, report.longitude)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="quick-call-mini-btn location-map-navigate-btn"
-                    title="Open in Maps for free navigation"
+                    className="quick-call-mini-btn"
+                    title="Open in Maps for turn-by-turn navigation"
                   >
                     <Compass size={13} weight="bold" aria-hidden />
                     <span>Navigate</span>
                   </a>
+                </div>
+
+                <div className="location-map-container">
+                  <ReportLocationMap
+                    latitude={report.latitude}
+                    longitude={report.longitude}
+                    landmark={report.location_landmark}
+                  />
                 </div>
               </div>
             ) : (

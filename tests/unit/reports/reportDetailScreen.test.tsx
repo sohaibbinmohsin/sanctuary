@@ -566,7 +566,8 @@ describe('ReportDetailScreen', () => {
       'href',
       'https://www.google.com/maps/dir/?api=1&destination=24.918,67.0971',
     )
-    expect(screen.getByTitle('Rescue location map')).toBeInTheDocument()
+    expect(screen.getByLabelText('Rescue location map')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Copy coordinates/i })).toBeInTheDocument()
   })
 
   it('supports marking report DOA (Dead on Arrival) from dispatched stage without creating animal record', async () => {
