@@ -118,6 +118,63 @@ export async function getReportCompletionStatus(
       } catch (err) {
         console.error('Failed to load companion animals for report completion check', err)
       }
+
+      // Also collect companion animal IDs from group_breakdown (e.g. for mixed groups without relationship links)
+      const breakdownCompanionIds: string[] = []
+      if (report.group_breakdown) {
+        try {
+          const parsed = JSON.parse(report.group_breakdown)
+          if (Array.isArray(parsed)) {
+            for (const item of parsed) {
+              if (item.animalId && item.animalId !== report.animal_id && !breakdownCompanionIds.includes(item.animalId)) {
+                breakdownCompanionIds.push(item.animalId)
+              }
+              if (Array.isArray(item.animalIds)) {
+                for (const aId of item.animalIds) {
+                  if (aId !== report.animal_id && !breakdownCompanionIds.includes(aId)) {
+                    breakdownCompanionIds.push(aId)
+                  }
+                }
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (breakdownCompanionIds.length > 0) {
+        const placeholders = breakdownCompanionIds.map(() => '?').join(', ')
+        try {
+          const bdAnimals = await db.getAll<AnimalStatusRow>(
+            `SELECT
+               a.id,
+               COALESCE(s.counts_as_in_care, 1) AS counts_as_in_care,
+               s.label AS status_label,
+               (
+                 SELECT treated_at
+                 FROM treatments
+                 WHERE animal_id = a.id AND treatment_type = 'status'
+                 ORDER BY treated_at DESC
+                 LIMIT 1
+               ) AS status_timestamp,
+               a.updated_at
+             FROM animals a
+             LEFT JOIN animal_statuses s ON s.id = a.status_id
+             WHERE a.id IN (${placeholders})`,
+            breakdownCompanionIds,
+          )
+          if (Array.isArray(bdAnimals)) {
+            for (const bda of bdAnimals) {
+              if (!companions.some((c) => c.id === bda.id)) {
+                companions.push(bda)
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load breakdown companions for report completion check', err)
+        }
+      }
     }
   }
 
@@ -319,12 +376,36 @@ export async function getReportAnimals(
   db: SanctuaryDb,
   report: RescueReport,
 ): Promise<ReportAnimalItem[]> {
-  if (!report.animal_id) return []
+  const animalIds = new Set<string>()
+  if (report.animal_id) animalIds.add(report.animal_id)
+
+  if (report.group_breakdown) {
+    try {
+      const parsed = JSON.parse(report.group_breakdown)
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item.animalId && typeof item.animalId === 'string') {
+            animalIds.add(item.animalId)
+          }
+          if (Array.isArray(item.animalIds)) {
+            for (const aId of item.animalIds) {
+              if (typeof aId === 'string') animalIds.add(aId)
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (animalIds.size === 0) return []
 
   const animals: ReportAnimalItem[] = []
 
   try {
-    const primary = await db.getAll<ReportAnimalItem>(
+    const placeholders = Array.from(animalIds).map(() => '?').join(', ')
+    const directAnimals = await db.getAll<ReportAnimalItem>(
       `SELECT
          a.id,
          a.org_id,
@@ -339,39 +420,43 @@ export async function getReportAnimals(
          a.updated_at
        FROM animals a
        LEFT JOIN animal_statuses s ON s.id = a.status_id
-       WHERE a.id = ?`,
-      [report.animal_id],
-    )
-    if (primary && primary[0]) {
-      animals.push(primary[0])
-    }
-
-    const companions = await db.getAll<ReportAnimalItem>(
-      `SELECT DISTINCT
-         a.id,
-         a.org_id,
-         a.shelter_code,
-         a.name,
-         a.species,
-         a.life_stage,
-         a.status_id,
-         COALESCE(s.counts_as_in_care, 1) AS counts_as_in_care,
-         s.label AS status_label,
-         a.created_at,
-         a.updated_at
-       FROM animal_relationships ar
-       JOIN animals a ON a.id = ar.related_animal_id
-       LEFT JOIN animal_statuses s ON s.id = a.status_id
-       WHERE ar.animal_id = ?
-         AND (ar.relationship_type != 'incompatible' OR ar.relationship_type IS NULL)
+       WHERE a.id IN (${placeholders})
          AND (a.archived IS NULL OR a.archived = 0)
        ORDER BY a.shelter_code ASC`,
-      [report.animal_id],
+      Array.from(animalIds),
     )
-    if (Array.isArray(companions)) {
-      for (const comp of companions) {
-        if (!animals.some((a) => a.id === comp.id)) {
-          animals.push(comp)
+    if (Array.isArray(directAnimals)) {
+      animals.push(...directAnimals)
+    }
+
+    if (report.animal_id) {
+      const companions = await db.getAll<ReportAnimalItem>(
+        `SELECT DISTINCT
+           a.id,
+           a.org_id,
+           a.shelter_code,
+           a.name,
+           a.species,
+           a.life_stage,
+           a.status_id,
+           COALESCE(s.counts_as_in_care, 1) AS counts_as_in_care,
+           s.label AS status_label,
+           a.created_at,
+           a.updated_at
+         FROM animal_relationships ar
+         JOIN animals a ON a.id = ar.related_animal_id
+         LEFT JOIN animal_statuses s ON s.id = a.status_id
+         WHERE ar.animal_id = ?
+           AND (ar.relationship_type != 'incompatible' OR ar.relationship_type IS NULL)
+           AND (a.archived IS NULL OR a.archived = 0)
+         ORDER BY a.shelter_code ASC`,
+        [report.animal_id],
+      )
+      if (Array.isArray(companions)) {
+        for (const comp of companions) {
+          if (!animals.some((a) => a.id === comp.id)) {
+            animals.push(comp)
+          }
         }
       }
     }

@@ -8,7 +8,7 @@ import { compressImage } from '@/shared/lib/r2/upload'
 import { storeLocalPhoto, getLocalPhoto } from '@/features/photos/domain/photos'
 import { notifyPendingMediaChanged } from '@/shared/lib/pendingMedia'
 import { createAnimal } from '@/features/animals/domain/animals'
-import { linkAnimals } from '@/features/animals/domain/relationships'
+import { linkAnimals, type RelationshipType } from '@/features/animals/domain/relationships'
 import { listStatuses } from '@/features/statuses/domain/statuses'
 import { localDateString } from '@/shared/lib/checklist/missedStreak'
 
@@ -786,15 +786,29 @@ export async function createAnimalFromRescueReport(
     console.warn('Could not copy report photos to animal', photoErr)
   }
 
+  const createdAnimalList: Array<{
+    id: string
+    species: string
+    lifeStage?: 'adult' | 'child'
+  }> = [
+    {
+      id: animal.id,
+      species: primarySpecies,
+      lifeStage: primaryLifeStage,
+    },
+  ]
+
   if (allAnimals.length > 1) {
     for (let i = 1; i < allAnimals.length; i++) {
       const spec = allAnimals[i]
+      const companionLifeStage =
+        spec.lifeStage || (primaryLifeStage === 'adult' ? 'child' : undefined)
       try {
         const companion = await createAnimal(db, {
           orgId,
           prefix,
           species: spec.species.toLowerCase(),
-          lifeStage: spec.lifeStage || (primaryLifeStage === 'adult' ? 'child' : undefined),
+          lifeStage: companionLifeStage,
           statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
           notes: `${notesText}\nCompanion #${i + 1} of ${allAnimals.length} in batch intake`,
           markings: markingsText,
@@ -802,13 +816,10 @@ export async function createAnimalFromRescueReport(
           intakeTime,
           arrivalTimestamp,
         })
-        await linkAnimals(db, {
-          orgId,
-          animalId: animal.id,
-          relatedAnimalId: companion.id,
-          relationshipType:
-            spec.lifeStage === 'child' && primaryLifeStage === 'adult' ? 'child' : 'sibling',
-          notes: `Auto-linked from rescue report ${report.report_number || ''}`,
+        createdAnimalList.push({
+          id: companion.id,
+          species: spec.species.toLowerCase(),
+          lifeStage: companionLifeStage,
         })
       } catch (compErr) {
         console.warn('Could not create companion animal for group', compErr)
@@ -818,17 +829,18 @@ export async function createAnimalFromRescueReport(
     const count = report.animal_count && report.animal_count > 1 ? report.animal_count : 1
     if (count > 1) {
       for (let i = 2; i <= count; i++) {
+        const companionLifeStage =
+          primaryLifeStage === 'adult'
+            ? 'child'
+            : primaryLifeStage === 'child'
+              ? 'child'
+              : undefined
         try {
           const companion = await createAnimal(db, {
             orgId,
             prefix,
-            species: report.species || 'other',
-            lifeStage:
-              report.life_stage === 'adult'
-                ? 'child'
-                : report.life_stage === 'child'
-                  ? 'child'
-                  : undefined,
+            species: primarySpecies,
+            lifeStage: companionLifeStage,
             statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
             notes: `${notesText}\nCompanion #${i} of ${count} in batch litter/group admission`,
             markings: markingsText,
@@ -836,17 +848,98 @@ export async function createAnimalFromRescueReport(
             intakeTime,
             arrivalTimestamp,
           })
-          await linkAnimals(db, {
-            orgId,
-            animalId: animal.id,
-            relatedAnimalId: companion.id,
-            relationshipType: report.life_stage === 'adult' ? 'child' : 'sibling',
-            notes: `Auto-linked from rescue report ${report.report_number || ''}`,
+          createdAnimalList.push({
+            id: companion.id,
+            species: primarySpecies,
+            lifeStage: companionLifeStage,
           })
         } catch (compErr) {
           console.warn('Could not create companion animal for group', compErr)
         }
       }
+    }
+  }
+
+  // Multi-animal relationships:
+  // For mixed reports or groups with differing species, no relationship can be inferred - do not create false links.
+  // For litters / single-species groups, link all animals to each other (full mesh) so every sibling sees all others.
+  const distinctSpecies = new Set(createdAnimalList.map((a) => a.species.toLowerCase()))
+  const isMixed = report.species?.toLowerCase() === 'mixed' || distinctSpecies.size > 1
+
+  if (!isMixed && createdAnimalList.length > 1) {
+    for (let i = 0; i < createdAnimalList.length; i++) {
+      for (let j = i + 1; j < createdAnimalList.length; j++) {
+        const a1 = createdAnimalList[i]
+        const a2 = createdAnimalList[j]
+        try {
+          let relationshipType: RelationshipType = 'sibling'
+          if (a1.lifeStage === 'adult' && a2.lifeStage === 'child') {
+            relationshipType = 'child'
+          } else if (a1.lifeStage === 'child' && a2.lifeStage === 'adult') {
+            relationshipType = 'mother'
+          } else {
+            relationshipType = 'sibling'
+          }
+          await linkAnimals(db, {
+            orgId,
+            animalId: a1.id,
+            relatedAnimalId: a2.id,
+            relationshipType,
+            notes: `Auto-linked from rescue report ${report.report_number || ''}`,
+          })
+        } catch (linkErr) {
+          console.warn('Could not link littermates', linkErr)
+        }
+      }
+    }
+  }
+
+  // Update group_breakdown JSON with the created animal IDs so group screens and outcome checks can track all animals without requiring false relationship links
+  if (parsedGroup.length > 0) {
+    let animalIdx = 0
+    const updatedGroup = parsedGroup.map((item) => {
+      const itemAnimalIds: string[] = []
+      const count = Math.max(1, item.count)
+      for (let c = 0; c < count; c++) {
+        if (animalIdx < createdAnimalList.length) {
+          itemAnimalIds.push(createdAnimalList[animalIdx].id)
+          animalIdx++
+        }
+      }
+      return {
+        ...item,
+        animalId: itemAnimalIds[0],
+        animalIds: itemAnimalIds,
+      }
+    })
+    try {
+      const updatedJson = JSON.stringify(updatedGroup)
+      await db.execute(
+        `UPDATE rescue_reports SET group_breakdown = ?, animal_id = COALESCE(animal_id, ?), updated_at = ? WHERE id = ?`,
+        [updatedJson, animal.id, new Date().toISOString(), report.id],
+      )
+      report.group_breakdown = updatedJson
+    } catch (updateErr) {
+      console.warn('Could not update report group_breakdown with animal IDs', updateErr)
+    }
+  } else if (createdAnimalList.length > 1) {
+    const groupItems = createdAnimalList.map((a, idx) => ({
+      id: `animal-${idx + 1}`,
+      count: 1,
+      species: a.species,
+      lifeStage: a.lifeStage,
+      animalId: a.id,
+      animalIds: [a.id],
+    }))
+    try {
+      const updatedJson = JSON.stringify(groupItems)
+      await db.execute(
+        `UPDATE rescue_reports SET group_breakdown = ?, animal_id = COALESCE(animal_id, ?), updated_at = ? WHERE id = ?`,
+        [updatedJson, animal.id, new Date().toISOString(), report.id],
+      )
+      report.group_breakdown = updatedJson
+    } catch (updateErr) {
+      console.warn('Could not update report group_breakdown with animal IDs', updateErr)
     }
   }
 

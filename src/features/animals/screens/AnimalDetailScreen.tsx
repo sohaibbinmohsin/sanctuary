@@ -149,18 +149,26 @@ export function AnimalDetailScreen() {
   const fromReportId = searchParams.get('from_report')
   const fromGroupReportId = searchParams.get('from_group_report')
   const backState = location.state as
-    | { backTo?: string; backLabel?: string }
+    | {
+        backTo?: string
+        backLabel?: string
+        parentBackTo?: string
+        parentBackLabel?: string
+      }
     | null
-  const backTo =
-    backState?.backTo ||
-    (fromGroupReportId
-      ? `/reports/${fromGroupReportId}/animals`
-      : fromReportId
-        ? `/reports/${fromReportId}`
-        : '/animals')
-  const backLabel =
-    backState?.backLabel ||
-    (fromGroupReportId ? 'Group Animals' : fromReportId ? 'Report' : 'Animals')
+  const defaultBackTo = fromGroupReportId
+    ? `/reports/${fromGroupReportId}/animals`
+    : fromReportId
+      ? `/reports/${fromReportId}`
+      : '/animals'
+  const defaultBackLabel = fromGroupReportId
+    ? 'Group Animals'
+    : fromReportId
+      ? 'Report'
+      : 'Animals'
+
+  const backTo = backState?.backTo || defaultBackTo
+  const backLabel = backState?.backLabel || defaultBackLabel
   const db = useDb()
   const { member } = useCurrentMember()
   const confirm = useConfirm()
@@ -907,7 +915,31 @@ export function AnimalDetailScreen() {
 
   return (
     <section className="screen">
-      <Link className="back-link" to={backTo}>
+      <Link
+        className="back-link"
+        to={backTo}
+        state={
+          backState?.parentBackTo
+            ? {
+                backTo: backState.parentBackTo,
+                backLabel: backState.parentBackLabel,
+                parentBackTo: backState.parentBackTo,
+                parentBackLabel: backState.parentBackLabel,
+              }
+            : undefined
+        }
+        onClick={(e) => {
+          if (
+            typeof window !== 'undefined' &&
+            window.history.state &&
+            typeof window.history.state.idx === 'number' &&
+            window.history.state.idx > 0
+          ) {
+            e.preventDefault()
+            navigate(-1)
+          }
+        }}
+      >
         <ArrowLeft size={18} weight="bold" aria-hidden />
         {backLabel}
       </Link>
@@ -1493,10 +1525,18 @@ export function AnimalDetailScreen() {
                   return (
                     <div className="list-item list-item--row relationship-item" key={rel.id}>
                       <Link
-                        to={`/animals/${rel.relatedAnimalId}`}
+                        to={`/animals/${rel.relatedAnimalId}${location.search}`}
                         state={{
-                          backTo: `/animals/${id}`,
+                          backTo: `${location.pathname}${location.search}`,
                           backLabel: animal.name?.trim() || animal.shelter_code,
+                          parentBackTo:
+                            backState?.parentBackTo ||
+                            (backState?.backTo?.startsWith('/animals/') ? undefined : backState?.backTo) ||
+                            defaultBackTo,
+                          parentBackLabel:
+                            backState?.parentBackLabel ||
+                            (backState?.backTo?.startsWith('/animals/') ? undefined : backState?.backLabel) ||
+                            defaultBackLabel,
                         }}
                         className="relationship-item__body"
                       >
