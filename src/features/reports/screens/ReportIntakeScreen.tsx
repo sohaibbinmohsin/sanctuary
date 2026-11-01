@@ -72,8 +72,12 @@ export function ReportIntakeScreen() {
   const isWalkInParam = searchParams.get('type') === 'walk-in' || searchParams.get('type') === 'walkin'
 
   const [existingReport, setExistingReport] = useState<RescueReport | null>(null)
+  const [intakeSource, setIntakeSource] = useState<IntakeSource>(() => (isWalkInParam ? 'walk_in' : 'citizen'))
+
   const isWalkIn =
     isWalkInParam ||
+    intakeSource === 'walk_in' ||
+    intakeSource === 'direct_intake' ||
     existingReport?.intake_source === 'walk_in' ||
     existingReport?.intake_source === 'direct_intake'
 
@@ -109,7 +113,6 @@ export function ReportIntakeScreen() {
   const [locationLinkInput, setLocationLinkInput] = useState('')
   const [detectingLocation, setDetectingLocation] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
-  const [intakeSource, setIntakeSource] = useState<IntakeSource>(() => (isWalkInParam ? 'walk_in' : 'citizen'))
   const [reporterName, setReporterName] = useState('')
   const [reporterPhone, setReporterPhone] = useState('')
   const [reporterCnic, setReporterCnic] = useState('')
@@ -329,7 +332,7 @@ export function ReportIntakeScreen() {
 
     const complaintTrimmed = chiefComplaint.trim()
     const cityTrimmed = city.trim() || 'Lahore'
-    const isDirectWalkIn = isWalkIn || intakeSource === 'walk_in' || intakeSource === 'direct_intake'
+    const isDirectWalkIn = isWalkIn
     const areaTrimmed = locationArea.trim() || (isDirectWalkIn ? 'Clinic / Shelter' : '')
 
     if (!complaintTrimmed) {
@@ -519,9 +522,8 @@ export function ReportIntakeScreen() {
               attendedDate: new Date(reportDateTimeISO),
             })
             if (animalId) {
-              await db.execute('UPDATE rescue_reports SET animal_id = ? WHERE id = ?', [animalId, report.id])
+              await updateRescueReport(db, report.id, { animalId })
               report.animal_id = animalId
-              await syncReportPhotosToAnimal(db, report.id, animalId, orgId)
             }
           } catch (createErr) {
             console.error('Failed to auto-create animal record for walk-in intake', createErr)

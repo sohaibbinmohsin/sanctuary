@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ReportIntakeScreen } from '@/features/reports/screens/ReportIntakeScreen'
 import {
   createRescueReport,
+  updateRescueReport,
   toDatetimeLocalValue,
 } from '@/features/reports/domain/rescueReports'
 
@@ -68,6 +69,7 @@ vi.mock('@/features/reports/domain/rescueReports', async () => {
       created_at: input.createdAt || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })),
+    updateRescueReport: vi.fn(async () => {}),
     createAnimalFromRescueReport: vi.fn(async () => 'mock-animal-123'),
     syncReportPhotosToAnimal: vi.fn(async () => {}),
   }
@@ -104,6 +106,29 @@ describe('ReportIntakeScreen', () => {
     expect(walkInChip).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('dynamically updates to walk-in mode when toggling Walk-in / Direct chip on /reports/new', () => {
+    render(
+      <MemoryRouter initialEntries={['/reports/new']}>
+        <Routes>
+          <Route path="/reports/new" element={<ReportIntakeScreen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    // Initially standard field rescue report
+    expect(screen.getByRole('heading', { name: /Log a rescue report/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Report Date & Time/i)).toBeInTheDocument()
+
+    // Click Walk-in / Direct chip
+    const walkInChip = screen.getByRole('button', { name: /Walk-in \/ Direct/i })
+    fireEvent.click(walkInChip)
+
+    // Reactively switches to Walk-in mode
+    expect(screen.getByRole('heading', { name: /Log Walk-in Intake/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Intake Date & Time/i)).toBeInTheDocument()
+    expect(walkInChip).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('submits walk-in intake with attended status, backdated time, and creates animal', async () => {
     render(
       <MemoryRouter initialEntries={['/reports/new?type=walk-in']}>
@@ -132,6 +157,12 @@ describe('ReportIntakeScreen', () => {
     expect(createCallArgs.intakeSource).toBe('walk_in')
     expect(createCallArgs.createdAt).toContain('2026-10-15')
     expect(createCallArgs.stageAttendedAt).toContain('2026-10-15')
+
+    await waitFor(() => {
+      expect(updateRescueReport).toHaveBeenCalledWith(expect.anything(), 'mock-report-id', {
+        animalId: 'mock-animal-123',
+      })
+    })
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/reports/mock-report-id', { replace: true })
@@ -204,5 +235,80 @@ describe('domain rescueReports backdating support', () => {
     expect(query).toContain('stage_attended_at = ?')
     expect(query).toContain('status = ?')
     expect(query).toContain('disposition_type = ?')
+  })
+
+  it('createAnimalFromRescueReport preserves primary animal child lifeStage', async () => {
+    const unmockedRescue = await vi.importActual<typeof import('@/features/reports/domain/rescueReports')>(
+      '@/features/reports/domain/rescueReports'
+    )
+    const mockDb = {
+      execute: vi.fn(async (..._args: any[]) => {}),
+      getAll: vi.fn(async (sql: string) => {
+        if (String(sql).includes('animal_statuses')) {
+          return [{ id: 'status-intake', label: 'Intake', sort_order: 1, counts_as_in_care: 1 }]
+        }
+        return []
+      }),
+      getOptional: vi.fn(async (sql: string) => {
+        if (String(sql).includes('FROM animals')) {
+          return {
+            id: 'mock-puppy-id',
+            org_id: 'org-test',
+            shelter_code: 'PARC-101',
+            species: 'dog',
+            life_stage: 'child',
+            status_id: 'status-intake',
+          }
+        }
+        return null
+      }),
+    }
+
+    const createdAnimal = await unmockedRescue.createAnimalFromRescueReport(
+      mockDb as any,
+      {
+        id: 'rep-puppy',
+        org_id: 'org-test',
+        report_number: 'TEST-R201',
+        species: 'dog',
+        life_stage: 'child',
+        chief_complaint: 'Abandoned puppy',
+        status: 'attended',
+        city: 'Lahore',
+        location_area: 'Gulberg',
+        location_landmark: null,
+        latitude: null,
+        longitude: null,
+        reporter_name: null,
+        reporter_phone: null,
+        reporter_cnic: null,
+        transport_type: null,
+        disposition_type: 'admitted_shelter',
+        animal_id: null,
+        legal_notes: null,
+        dismissal_reason: null,
+        intake_source: 'walk_in',
+        animal_count: 1,
+        group_breakdown: null,
+        archived: 0,
+        stage_logged_at: '2026-10-15T10:00:00Z',
+        stage_accepted_at: null,
+        stage_dispatched_at: null,
+        stage_attended_at: '2026-10-15T10:00:00Z',
+        created_at: '2026-10-15T10:00:00Z',
+        updated_at: '2026-10-15T10:00:00Z',
+      } as any,
+    )
+
+    expect(createdAnimal).toBeDefined()
+    const animalInsertCall = (mockDb.execute.mock.calls as any[][]).find((c) =>
+      String(c[0]).includes('INSERT INTO animals'),
+    )
+    expect(animalInsertCall).toBeDefined()
+    const cols = String(animalInsertCall![0])
+    const vals = animalInsertCall![1]
+    expect(cols).toContain('life_stage')
+    expect(vals).toContain('child')
+    expect(vals[vals.length - 1]).toBe('child')
   })
 })

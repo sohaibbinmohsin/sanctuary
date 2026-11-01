@@ -738,6 +738,7 @@ export async function createAnimalFromRescueReport(
     orgId,
     prefix,
     species: report.species || 'other',
+    lifeStage: (report.life_stage as 'adult' | 'child') || undefined,
     statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
     notes: notesText,
     markings: markingsText,
