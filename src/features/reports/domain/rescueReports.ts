@@ -1068,5 +1068,6 @@ export {
   type Coordinates,
 } from './coordinates'
 export * from './pakistanLocations'
+export * from './reportOutcomes'
 
 
