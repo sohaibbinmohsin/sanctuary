@@ -48,8 +48,8 @@ describe('ReportsListScreen Actions', () => {
     vi.spyOn(rescueReportsDomain, 'getRescueOperationsSummary').mockResolvedValue({
       total: 2,
       awaitingTriage: 0,
-      inProgress: 1,
-      resolved: 1,
+      inProgress: 0,
+      resolved: 0,
       inField: 0,
       attended: 2,
       cancelled: 0,

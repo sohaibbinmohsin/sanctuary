@@ -72,7 +72,7 @@ export function RescueOperationsSummaryCard() {
             <p className="checklist-summary__value" style={{ color: 'var(--color-forest)' }}>
               {summary.resolved}
             </p>
-            <p className="checklist-summary__label">Attended / resolved</p>
+            <p className="checklist-summary__label">Resolved</p>
           </div>
         </div>
       </div>
