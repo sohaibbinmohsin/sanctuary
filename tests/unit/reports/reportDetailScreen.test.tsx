@@ -568,6 +568,16 @@ describe('ReportDetailScreen', () => {
     )
     expect(screen.getByLabelText('Rescue location map')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Copy coordinates/i })).toBeInTheDocument()
+
+    // Tapping the map opens the lightbox UI
+    const mapContainer = screen.getByTitle('Click to view enlarged map')
+    fireEvent.click(mapContainer)
+    expect(await screen.findByRole('dialog', { name: /Enlarged rescue location map/i })).toBeInTheDocument()
+
+    // Closing the lightbox UI
+    const closeBtn = screen.getByRole('button', { name: /Close enlarged map/i })
+    fireEvent.click(closeBtn)
+    expect(screen.queryByRole('dialog', { name: /Enlarged rescue location map/i })).not.toBeInTheDocument()
   })
 
   it('supports marking report DOA (Dead on Arrival) from dispatched stage without creating animal record', async () => {

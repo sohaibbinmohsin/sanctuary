@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
-import { Camera, FirstAid, MapPin, Phone, LockKey, User, Scales, XCircle, Compass, Copy, Check } from '@phosphor-icons/react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { Camera, FirstAid, MapPin, Phone, LockKey, User, Scales, XCircle, Compass, Copy, Check, ArrowsOutSimple, X } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import {
   type RescueReport,
@@ -9,6 +9,7 @@ import {
   formatCnic,
   formatCoordinates,
   getNavigationUrl,
+  isCentroidCoordinates,
 } from '@/features/reports/domain/rescueReports'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
@@ -23,6 +24,27 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
   const [photos, setPhotos] = useState<ReportPhoto[]>([])
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
   const [coordsCopied, setCoordsCopied] = useState(false)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+
+  const isCentroid = useMemo(() => {
+    return isCentroidCoordinates(
+      report.latitude,
+      report.longitude,
+      report.location_area,
+      report.city,
+    )
+  }, [report.latitude, report.longitude, report.location_area, report.city])
+
+  useEffect(() => {
+    if (!isLightboxOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsLightboxOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isLightboxOpen])
 
   const handleCopyCoordinates = useCallback(() => {
     if (report.latitude == null || report.longitude == null) return
@@ -312,6 +334,11 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
                     {coordsCopied && (
                       <span className="coord-copied-badge">Copied!</span>
                     )}
+                    {isCentroid && (
+                      <span className="map-centroid-tag" title="Coordinates represent the neighborhood area centroid">
+                        Area Centroid
+                      </span>
+                    )}
                   </div>
 
                   <a
@@ -326,12 +353,31 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
                   </a>
                 </div>
 
-                <div className="location-map-container">
+                <div
+                  className="location-map-container pressable"
+                  onClick={() => setIsLightboxOpen(true)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setIsLightboxOpen(true)
+                    }
+                  }}
+                  title="Click to view enlarged map"
+                >
                   <ReportLocationMap
                     latitude={report.latitude}
                     longitude={report.longitude}
                     landmark={report.location_landmark}
+                    areaName={report.location_area}
+                    isCentroid={isCentroid}
+                    onMapClick={() => setIsLightboxOpen(true)}
                   />
+                  <div className="location-map-expand-badge">
+                    <ArrowsOutSimple size={12} weight="bold" aria-hidden />
+                    <span>Tap to enlarge</span>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -404,6 +450,87 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
           </div>
         </div>
       </div>
+
+      {/* Map Lightbox UI */}
+      {isLightboxOpen && report.latitude != null && report.longitude != null && (
+        <div
+          className="map-lightbox-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Enlarged rescue location map"
+          onClick={() => setIsLightboxOpen(false)}
+        >
+          <div
+            className="map-lightbox-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="map-lightbox-header">
+              <div className="map-lightbox-title-group">
+                <div className="map-lightbox-title">
+                  <MapPin size={18} weight="fill" color="#e03131" />
+                  <span>
+                    {report.location_area || report.location_landmark || 'Rescue Location'}
+                    {report.city ? `, ${report.city}` : ''}
+                  </span>
+                </div>
+                {isCentroid && (
+                  <span className="map-centroid-tag">
+                    Area Centroid (~650m zone)
+                  </span>
+                )}
+              </div>
+
+              <div className="map-lightbox-actions">
+                <button
+                  type="button"
+                  onClick={handleCopyCoordinates}
+                  className="quick-call-mini-btn"
+                  title="Copy raw coordinates"
+                >
+                  {coordsCopied ? (
+                    <Check size={14} weight="bold" color="var(--color-forest, #2d6a4f)" />
+                  ) : (
+                    <Copy size={14} weight="bold" />
+                  )}
+                  <span>{coordsCopied ? 'Copied' : formatCoordinates(report.latitude, report.longitude)}</span>
+                </button>
+
+                <a
+                  href={getNavigationUrl(report.latitude, report.longitude)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="quick-call-mini-btn"
+                  title="Open in Maps for turn-by-turn navigation"
+                >
+                  <Compass size={14} weight="bold" />
+                  <span>Navigate</span>
+                </a>
+
+                <button
+                  type="button"
+                  className="map-lightbox-close"
+                  aria-label="Close enlarged map"
+                  onClick={() => setIsLightboxOpen(false)}
+                >
+                  <X size={18} weight="bold" />
+                </button>
+              </div>
+            </div>
+
+            <div className="map-lightbox-body">
+              <ReportLocationMap
+                latitude={report.latitude}
+                longitude={report.longitude}
+                landmark={report.location_landmark}
+                areaName={report.location_area}
+                isCentroid={isCentroid}
+                interactive
+                className="map-lightbox-canvas"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

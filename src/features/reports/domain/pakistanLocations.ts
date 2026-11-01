@@ -133,6 +133,25 @@ export function getAreaCentroid(
 }
 
 /**
+ * Checks whether the specified coordinates match the known centroid of the area.
+ * Useful for determining whether to render an area boundary marking instead of a pinpoint GPS fix.
+ */
+export function isCentroidCoordinates(
+  lat?: number | null,
+  lng?: number | null,
+  areaName?: string | null,
+  cityName?: string | null,
+): boolean {
+  if (lat == null || lng == null || !areaName || !areaName.trim()) return false
+  const centroid = getAreaCentroid(areaName, cityName)
+  if (!centroid) return false
+  return (
+    Math.abs(centroid.latitude - lat) < 0.0005 &&
+    Math.abs(centroid.longitude - lng) < 0.0005
+  )
+}
+
+/**
  * Returns all verified cities in Pakistan from pak-geodata.
  */
 export function getAllSupportedCities(): readonly string[] {

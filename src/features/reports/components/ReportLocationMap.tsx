@@ -5,14 +5,22 @@ export type ReportLocationMapProps = {
   latitude: number
   longitude: number
   landmark?: string | null
+  areaName?: string | null
+  isCentroid?: boolean
   className?: string
+  interactive?: boolean
+  onMapClick?: () => void
 }
 
 export function ReportLocationMap({
   latitude,
   longitude,
   landmark,
+  areaName,
+  isCentroid = false,
   className = '',
+  interactive = false,
+  onMapClick,
 }: ReportLocationMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -33,10 +41,13 @@ export function ReportLocationMap({
 
       const map = L.map(containerRef.current, {
         center: [latitude, longitude],
-        zoom: 15,
+        zoom: isCentroid ? 14 : 15,
         zoomControl: true,
         attributionControl: false, // Removes all OSM bottom text, credits, and donation links
-        scrollWheelZoom: false,
+        scrollWheelZoom: interactive,
+        dragging: true,
+        touchZoom: true,
+        doubleClickZoom: interactive,
       })
       mapInstance = map
 
@@ -44,35 +55,62 @@ export function ReportLocationMap({
         maxZoom: 19,
       }).addTo(map)
 
-      // Custom Sanctuary pin marker with brand styling
+      // Classic teardrop pointed map pin matching OpenStreetMap classic marker
       const pinIcon = L.divIcon({
-        className: 'custom-sanctuary-map-pin',
+        className: 'custom-sanctuary-pointed-pin',
         html: `
-          <div style="
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            background: #de6b2b;
-            color: #ffffff;
-            box-shadow: 0 3px 10px rgba(222, 107, 43, 0.45), 0 0 0 3px #ffffff;
-            transform: translate(-50%, -50%);
-          ">
-            <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor">
-              <path d="M128,16a88.1,88.1,0,0,0-88,88c0,75.3,80,132.17,83.41,134.55a8,8,0,0,0,9.18,0C136,236.17,216,179.3,216,104A88.1,88.1,0,0,0,128,16Zm0,112a24,24,0,1,1,24-24A24,24,0,0,1,128,128Z"/>
+          <div style="position: relative; width: 25px; height: 41px;">
+            <svg width="25" height="41" viewBox="0 0 25 41" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
+              <path d="M12.5 40L2.94 21.6448C1.47 18.8224 0 16 0 12.5C0 5.59644 5.59644 0 12.5 0C19.4036 0 25 5.59644 25 12.5C25 16 23.53 18.8224 22.06 21.6448L12.5 40Z" fill="#e03131" stroke="#b91c1c" stroke-width="1.2"/>
+              <circle cx="12.5" cy="12.5" r="4.5" fill="#ffffff"/>
             </svg>
           </div>
         `,
-        iconSize: [30, 30],
-        iconAnchor: [0, 0],
+        iconSize: [25, 41],
+        iconAnchor: [12.5, 40],
+        popupAnchor: [0, -36],
       })
 
       const marker = L.marker([latitude, longitude], { icon: pinIcon }).addTo(map)
-      if (landmark) {
-        marker.bindPopup(`<strong>${landmark}</strong>`)
+      const popupText = landmark || areaName || (isCentroid ? 'Area Centroid' : 'Rescue Location')
+      marker.bindPopup(`<strong>${popupText}</strong>`)
+
+      // If coordinates are an area centroid, render a neighborhood boundary marking
+      if (isCentroid) {
+        const zoneCircle = L.circle([latitude, longitude], {
+          radius: 650, // ~650m neighborhood radius
+          color: '#e03131',
+          weight: 2,
+          dashArray: '5, 6',
+          fillColor: '#e03131',
+          fillOpacity: 0.14,
+        }).addTo(map)
+
+        if (areaName || landmark) {
+          zoneCircle.bindTooltip(`Area Zone: ${areaName || landmark}`, {
+            direction: 'top',
+            offset: [0, -10],
+          })
+        }
+
+        map.fitBounds(zoneCircle.getBounds(), {
+          padding: [20, 20],
+          maxZoom: 15,
+        })
       }
+
+      if (onMapClick) {
+        map.on('click', () => {
+          onMapClick()
+        })
+      }
+
+      // Ensure proper tile rendering after container layout
+      setTimeout(() => {
+        if (isMounted && mapInstance) {
+          mapInstance.invalidateSize()
+        }
+      }, 150)
     }).catch((err) => {
       console.warn('Leaflet map initialization failed:', err)
     })
@@ -84,7 +122,7 @@ export function ReportLocationMap({
         mapInstance = null
       }
     }
-  }, [latitude, longitude, landmark])
+  }, [latitude, longitude, landmark, areaName, isCentroid, interactive, onMapClick])
 
   return (
     <div
@@ -93,6 +131,7 @@ export function ReportLocationMap({
       data-testid="location-map-canvas"
       aria-label="Rescue location map"
       role="region"
+      onClick={onMapClick}
     />
   )
 }

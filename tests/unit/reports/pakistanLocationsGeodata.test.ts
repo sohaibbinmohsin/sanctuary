@@ -3,6 +3,7 @@ import {
   searchLocationAreas,
   reverseGeocodeCoordinates,
   getAreaCentroid,
+  isCentroidCoordinates,
   getAllSupportedCities,
 } from '@/features/reports/domain/pakistanLocations'
 
@@ -71,6 +72,22 @@ describe('pakistanLocations with pak-geodata', () => {
     it('returns null for an unverified or unknown area name', () => {
       const centroid = getAreaCentroid('Nonexistent Street 999', 'Lahore')
       expect(centroid).toBeNull()
+    })
+  })
+
+  describe('isCentroidCoordinates', () => {
+    it('returns true when coordinates match area centroid within tolerance', () => {
+      const centroid = getAreaCentroid('DHA Phase 5', 'Lahore')!
+      expect(isCentroidCoordinates(centroid.latitude, centroid.longitude, 'DHA Phase 5', 'Lahore')).toBe(true)
+    })
+
+    it('returns false when coordinates belong to a different location or pinpoint', () => {
+      expect(isCentroidCoordinates(31.5540, 74.3640, 'DHA Phase 5', 'Lahore')).toBe(false)
+    })
+
+    it('returns false when area name or coordinates are missing', () => {
+      expect(isCentroidCoordinates(null, null, 'DHA Phase 5', 'Lahore')).toBe(false)
+      expect(isCentroidCoordinates(31.4581, 74.4121, null, 'Lahore')).toBe(false)
     })
   })
 
