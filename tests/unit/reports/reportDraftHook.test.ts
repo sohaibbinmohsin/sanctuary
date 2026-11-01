@@ -9,7 +9,7 @@ describe('useReportDraft', () => {
 
   it('initializes with default empty draft', () => {
     const { result } = renderHook(() => useReportDraft())
-    expect(result.current.draft.category).toBe('emergency')
+    expect(result.current.draft.category).toBe('sick_injured')
     expect(result.current.draft.speciesPreset).toBe('Dog')
   })
 

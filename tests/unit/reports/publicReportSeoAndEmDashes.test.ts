@@ -18,6 +18,8 @@ describe('Zero em-dashes and double hyphens verification across public report fi
     'src/features/reports/publicReport.css',
     'src/features/reports/domain/privacyMask.ts',
     'src/features/reports/domain/reportSeo.ts',
+    'src/features/reports/domain/exif.ts',
+    'src/features/reports/domain/visionClassifier.ts',
   ]
 
   for (const relativePath of filesToCheck) {
@@ -42,7 +44,12 @@ describe('Zero em-dashes and double hyphens verification across public report fi
       }
 
       // 3. For TypeScript domain files, strictly zero double hyphens anywhere in file
-      if (relativePath.endsWith('privacyMask.ts') || relativePath.endsWith('reportSeo.ts')) {
+      if (
+        relativePath.endsWith('privacyMask.ts') ||
+        relativePath.endsWith('reportSeo.ts') ||
+        relativePath.endsWith('exif.ts') ||
+        relativePath.endsWith('visionClassifier.ts')
+      ) {
         expect(content).not.toContain('--')
       }
     })

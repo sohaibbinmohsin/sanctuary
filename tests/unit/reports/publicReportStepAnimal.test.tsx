@@ -48,6 +48,22 @@ describe('PublicReportStepAnimal', () => {
     expect(onUpdate).toHaveBeenCalledWith({ category: 'cruelty' })
   })
 
+  it('renders cruelty quick complaints when category is cruelty', () => {
+    const crueltyDraft = { ...INITIAL_DRAFT, category: 'cruelty' as const }
+    render(<PublicReportStepAnimal draft={crueltyDraft} onUpdate={vi.fn()} onNext={vi.fn()} />)
+    expect(screen.getByText('+ Physical abuse or beating')).toBeInTheDocument()
+    expect(screen.getByText('+ Chained without food or water')).toBeInTheDocument()
+    expect(screen.getByText('+ Dog fighting or baiting')).toBeInTheDocument()
+    expect(screen.queryByText('+ Hit by vehicle')).toBeNull()
+  })
+
+  it('renders Urdu text when lang is ur', () => {
+    const crueltyDraft = { ...INITIAL_DRAFT, category: 'cruelty' as const }
+    render(<PublicReportStepAnimal draft={crueltyDraft} onUpdate={vi.fn()} onNext={vi.fn()} lang="ur" />)
+    expect(screen.getByText('+ مار پیٹ اور تشدد')).toBeInTheDocument()
+    expect(screen.getByText('جانوروں پر ظلم')).toBeInTheDocument()
+  })
+
   it('updates animal composition mode and counts', () => {
     const onUpdate = vi.fn()
     render(<PublicReportStepAnimal draft={INITIAL_DRAFT} onUpdate={onUpdate} onNext={vi.fn()} />)
@@ -119,6 +135,17 @@ describe('PublicReportStepAnimal', () => {
     render(<PublicReportStepAnimal draft={INITIAL_DRAFT} onUpdate={vi.fn()} onNext={onNext} />)
     const submitBtn = screen.getByRole('button', { name: /continue to location/i })
     expect(submitBtn).toBeDisabled()
+  })
+
+  it('renders forward navigation button with arrow in Urdu mode', () => {
+    const draft = { ...INITIAL_DRAFT, chiefComplaint: 'Injured cat' }
+    const { container: urContainer } = render(
+      <PublicReportStepAnimal draft={draft} onUpdate={vi.fn()} onNext={vi.fn()} lang="ur" />
+    )
+    const urBtn = screen.getByRole('button', { name: /مقام/i })
+    expect(urBtn).toBeInTheDocument()
+    const urSvg = urContainer.querySelector('.public-report__btn svg')
+    expect(urSvg).toBeInTheDocument()
   })
 
   it('contains strictly zero em-dashes', () => {

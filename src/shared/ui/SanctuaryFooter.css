@@ -1,9 +1,17 @@
 .sanctuary-footer {
+  direction: ltr !important;
+  text-align: left !important;
+  font-family: var(--font-sans) !important;
   background: var(--color-ink, #1a2e22);
   color: rgba(247, 250, 248, 0.88);
   padding: 3.5rem 0 max(2.75rem, env(safe-area-inset-bottom));
   margin-top: auto;
   width: 100%;
+}
+
+.sanctuary-footer,
+.sanctuary-footer * {
+  direction: ltr;
 }
 
 .sanctuary-footer .sanctuary-footer__wrap {
@@ -12,7 +20,8 @@
   display: grid;
   gap: 1.15rem;
   justify-items: start;
-  text-align: left;
+  text-align: left !important;
+  direction: ltr !important;
 }
 
 .sanctuary-footer__top-row {
@@ -22,6 +31,7 @@
   width: 100%;
   gap: 1rem;
   flex-wrap: wrap;
+  direction: ltr !important;
 }
 
 .sanctuary-footer__brand-lockup {
