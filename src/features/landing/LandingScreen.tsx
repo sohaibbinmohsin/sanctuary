@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Siren,
   MegaphoneSimple,
   Ambulance,
   HouseLine,
@@ -82,10 +81,16 @@ export function LandingScreen() {
               A shared digital backbone for rescuers, shelters, veterinarians, and animal guardians.
             </p>
             <div className="hero__actions">
-              <Link to="/report" className="btn btn--emergency">
-                <Siren size={20} weight="bold" aria-hidden="true" />
-                <span>Report a case</span>
-              </Link>
+              <a
+                href="/playground"
+                className="btn btn--primary"
+                onClick={(e) => {
+                  e.preventDefault()
+                  window.location.assign('/playground')
+                }}
+              >
+                <span>Try playground</span>
+              </a>
             </div>
           </div>
         </div>
