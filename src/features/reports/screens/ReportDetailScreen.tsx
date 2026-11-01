@@ -389,10 +389,10 @@ export function ReportDetailScreen() {
       } else {
         statusBadgeLabel = outcomeStatus.outcomeLabel || 'Completed'
       }
-      statusBadgeClass = 'status-badge-clean shelter'
+      statusBadgeClass = 'status-badge-clean completed'
     } else if (disp === 'spot_released') {
       statusBadgeLabel = isCruelty ? 'Resolved On-Site' : 'Spot Released (TNR)'
-      statusBadgeClass = 'status-badge-clean shelter'
+      statusBadgeClass = 'status-badge-clean completed'
     } else if (disp === 'admitted_shelter') {
       statusBadgeLabel = isCruelty ? 'In Shelter Custody' : 'In Shelter Care'
       statusBadgeClass = 'status-badge-clean shelter'

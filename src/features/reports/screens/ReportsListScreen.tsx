@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo, useCallback, useDeferredValue, useRef } from 'react'
-import { Plus, MagnifyingGlass, X, MegaphoneSimple } from '@phosphor-icons/react'
+import { Link } from 'react-router-dom'
+import { Plus, MagnifyingGlass, X, MegaphoneSimple, CaretDown, SignIn } from '@phosphor-icons/react'
 import { useDb } from '@/shared/hooks/useDb'
 import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { PageHeader } from '@/shared/ui/PageHeader'
-import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { useIncrementalList } from '@/shared/hooks/useIncrementalList'
 import { LoadMoreSentinel } from '@/shared/ui/LoadMoreSentinel'
@@ -14,6 +14,10 @@ import {
   type RescueReportFilter,
   type RescueOperationsSummary,
 } from '@/features/reports/domain/rescueReports'
+import {
+  getBatchReportCompletionMap,
+  type ReportCompletionResult,
+} from '@/features/reports/domain/reportOutcomes'
 import { ReportTimelineCard } from '@/features/reports/components/ReportTimelineCard'
 import { localDateString } from '@/shared/lib/checklist/missedStreak'
 import {
@@ -55,15 +59,39 @@ export function ReportsListScreen() {
   const db = useDb()
   const { member } = useCurrentMember()
   const [reports, setReports] = useState<RescueReport[]>([])
+  const [completionMap, setCompletionMap] = useState<Map<string, ReportCompletionResult>>(new Map())
   const [summary, setSummary] = useState<RescueOperationsSummary | null>(null)
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const deferredQuery = useDeferredValue(searchQuery)
   const [loading, setLoading] = useState(true)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const scrollRestoredRef = useRef(false)
   const defaultSelectedRef = useRef(false)
 
   const orgId = member?.orgId ?? ''
+
+  // Close dropdown on outside click or Escape key
+  useEffect(() => {
+    if (!isDropdownOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false)
+      }
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isDropdownOpen])
 
   // Track scroll position while browsing reports
   useEffect(() => {
@@ -110,8 +138,51 @@ export function ReportsListScreen() {
         void getRescueOperationsSummary(db, orgId).then(setSummary).catch(() => {})
       }
 
-      const data = await getRescueReports(db, orgId, targetFilter as RescueReportFilter)
-      setReports(data)
+      let allReports: RescueReport[] = []
+      if (targetFilter === 'in_progress') {
+        const [inProgressReports, attendedReports] = await Promise.all([
+          getRescueReports(db, orgId, 'in_progress'),
+          getRescueReports(db, orgId, 'completed'),
+        ])
+        const attendedOnly = (attendedReports || []).filter((r) => r.status === 'attended')
+        allReports = [...(inProgressReports || []), ...attendedOnly]
+      } else {
+        allReports = (await getRescueReports(db, orgId, targetFilter as RescueReportFilter)) || []
+      }
+
+      // Deduplicate reports by id
+      const seenReportIds = new Set<string>()
+      const uniqueReports: RescueReport[] = []
+      for (const r of allReports) {
+        if (!seenReportIds.has(r.id)) {
+          seenReportIds.add(r.id)
+          uniqueReports.push(r)
+        }
+      }
+      allReports = uniqueReports
+
+      const compMap = await getBatchReportCompletionMap(db, allReports)
+      setCompletionMap(compMap)
+
+      let finalReports = allReports
+      if (targetFilter === 'completed') {
+        finalReports = allReports.filter((r) => {
+          if (r.status === 'cancelled') return true
+          if (r.disposition_type === 'spot_released' || r.disposition_type === 'deceased_doa') return true
+          return compMap.get(r.id)?.isCompleted === true
+        })
+      } else if (targetFilter === 'in_progress') {
+        finalReports = allReports.filter((r) => {
+          if (r.status === 'accepted' || r.status === 'dispatched') return true
+          if (r.status === 'attended') {
+            return compMap.get(r.id)?.isCompleted === false
+          }
+          return false
+        })
+      }
+
+      finalReports.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+      setReports(finalReports)
     } catch (err) {
       console.error('Failed to load rescue reports', err)
     } finally {
@@ -262,11 +333,35 @@ export function ReportsListScreen() {
         title="Reports"
         subtitle={subtitle}
         actions={
-          filteredReports.length > 0 ? (
-            <Button to="/reports/new" variant="accent">
-              <Plus size={18} weight="bold" />
-              <span>Log report</span>
-            </Button>
+          loading || filteredReports.length > 0 ? (
+            <div className="split-btn-group" ref={dropdownRef}>
+              <Link to="/reports/new" className="btn-main pressable">
+                <Plus size={18} weight="bold" />
+                <span>Log report</span>
+              </Link>
+              <button
+                type="button"
+                className="btn-toggle pressable"
+                title="More report actions"
+                aria-label="More report actions"
+                aria-expanded={isDropdownOpen}
+                onClick={() => setIsDropdownOpen((prev) => !prev)}
+              >
+                <CaretDown size={14} weight="bold" />
+              </button>
+              {isDropdownOpen && (
+                <div className="dropdown-menu is-open">
+                  <Link
+                    to="/reports/new?type=walk-in"
+                    className="dropdown-item"
+                    onClick={() => setIsDropdownOpen(false)}
+                  >
+                    <SignIn size={15} weight="bold" aria-hidden />
+                    <span>Log walk-in</span>
+                  </Link>
+                </div>
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -350,7 +445,11 @@ export function ReportsListScreen() {
               <div className="timeline-date-header">{group.label}</div>
               <div className="timeline-cards-list">
                 {group.reports.map((report) => (
-                  <ReportTimelineCard key={report.id} report={report} />
+                  <ReportTimelineCard
+                    key={report.id}
+                    report={report}
+                    outcomeStatus={completionMap.get(report.id) ?? null}
+                  />
                 ))}
               </div>
             </div>

@@ -165,3 +165,96 @@ export async function getReportCompletionStatus(
     completedCount: 0,
   }
 }
+
+/**
+ * Efficiently computes completion status for a batch of rescue reports.
+ * Returns a map of reportId -> ReportCompletionResult.
+ */
+export async function getBatchReportCompletionMap(
+  db: SanctuaryDb,
+  reports: RescueReport[],
+): Promise<Map<string, ReportCompletionResult>> {
+  const map = new Map<string, ReportCompletionResult>()
+  if (!reports || reports.length === 0) return map
+
+  const defaultStatusLabels: Record<string, string> = {
+    logged: 'Logged',
+    accepted: 'Accepted',
+    dispatched: 'Dispatched',
+    attended: 'Attended',
+  }
+
+  const unresolvedReports: RescueReport[] = []
+  for (const report of reports) {
+    if (report.status === 'cancelled') {
+      map.set(report.id, {
+        isCompleted: true,
+        outcomeLabel: 'Cancelled',
+        activeCount: 0,
+        completedCount: 0,
+      })
+    } else if (report.disposition_type === 'spot_released') {
+      map.set(report.id, {
+        isCompleted: true,
+        outcomeLabel: 'Spot Released',
+        activeCount: 0,
+        completedCount: 1,
+      })
+    } else if (report.disposition_type === 'deceased_doa') {
+      map.set(report.id, {
+        isCompleted: true,
+        outcomeLabel: 'Dead on Arrival (DOA)',
+        activeCount: 0,
+        completedCount: 1,
+      })
+    } else if (!report.animal_id) {
+      if (report.disposition_type === 'transferred_partner') {
+        map.set(report.id, {
+          isCompleted: true,
+          outcomeLabel: 'Transferred',
+          activeCount: 0,
+          completedCount: 1,
+        })
+      } else {
+        map.set(report.id, {
+          isCompleted: false,
+          outcomeLabel: (report.status && defaultStatusLabels[report.status]) || report.status || 'Logged',
+          activeCount: 0,
+          completedCount: 0,
+        })
+      }
+    } else {
+      unresolvedReports.push(report)
+    }
+  }
+
+  if (unresolvedReports.length === 0) {
+    return map
+  }
+
+  const resolved = await Promise.all(
+    unresolvedReports.map(async (r) => {
+      try {
+        const res = await getReportCompletionStatus(db, r)
+        return [r.id, res] as const
+      } catch (err) {
+        console.error('Failed to compute completion status for report', r.id, err)
+        return [
+          r.id,
+          {
+            isCompleted: false,
+            outcomeLabel: r.status || 'Logged',
+            activeCount: 0,
+            completedCount: 0,
+          },
+        ] as const
+      }
+    }),
+  )
+
+  for (const [id, res] of resolved) {
+    map.set(id, res)
+  }
+
+  return map
+}

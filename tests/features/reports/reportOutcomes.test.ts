@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
-import { getReportCompletionStatus } from '@/features/reports/domain/reportOutcomes'
+import {
+  getReportCompletionStatus,
+  getBatchReportCompletionMap,
+} from '@/features/reports/domain/reportOutcomes'
 import type { RescueReport } from '@/features/reports/domain/rescueReports'
 
 describe('getReportCompletionStatus', () => {
@@ -164,5 +167,41 @@ describe('getReportCompletionStatus', () => {
     const result = await getReportCompletionStatus(mockDb as any, report as RescueReport)
     expect(result.isCompleted).toBe(false)
     expect(result.outcomeLabel).toBe('Attended')
+  })
+})
+
+describe('getBatchReportCompletionMap', () => {
+  it('returns empty map for empty reports list', async () => {
+    const res = await getBatchReportCompletionMap({} as any, [])
+    expect(res.size).toBe(0)
+  })
+
+  it('correctly maps batch of reports with mixed statuses', async () => {
+    const mockDb = {
+      getOptional: vi.fn().mockImplementation((_sql, params) => {
+        if (params[0] === 'a-done') {
+          return Promise.resolve({ id: 'a-done', counts_as_in_care: 0, status_label: 'Adopted' })
+        }
+        return Promise.resolve({ id: 'a-active', counts_as_in_care: 1, status_label: 'Under Treatment' })
+      }),
+      getAll: vi.fn().mockResolvedValue([]),
+    }
+
+    const reports: Partial<RescueReport>[] = [
+      { id: 'r1', status: 'cancelled' },
+      { id: 'r2', status: 'attended', disposition_type: 'spot_released' },
+      { id: 'r3', status: 'attended', disposition_type: 'admitted_shelter', animal_id: 'a-done' },
+      { id: 'r4', status: 'attended', disposition_type: 'admitted_shelter', animal_id: 'a-active' },
+      { id: 'r5', status: 'logged' },
+    ]
+
+    const map = await getBatchReportCompletionMap(mockDb as any, reports as RescueReport[])
+    expect(map.get('r1')?.isCompleted).toBe(true)
+    expect(map.get('r2')?.isCompleted).toBe(true)
+    expect(map.get('r3')?.isCompleted).toBe(true)
+    expect(map.get('r3')?.outcomeLabel).toBe('Adopted')
+    expect(map.get('r4')?.isCompleted).toBe(false)
+    expect(map.get('r4')?.outcomeLabel).toBe('Under Treatment')
+    expect(map.get('r5')?.isCompleted).toBe(false)
   })
 })

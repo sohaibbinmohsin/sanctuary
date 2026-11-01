@@ -370,6 +370,12 @@
   border-color: var(--color-border);
 }
 
+.status-badge-clean.completed {
+  background: var(--color-forest-soft);
+  color: var(--color-forest);
+  border-color: color-mix(in srgb, var(--color-forest) 25%, transparent);
+}
+
 /* Empty state */
 .reports-empty-state {
   text-align: center;
