@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ReportDetailScreen } from '@/features/reports/screens/ReportDetailScreen'
 import * as domainModule from '@/features/reports/domain/rescueReports'
+import * as outcomesModule from '@/features/reports/domain/reportOutcomes'
 
 const mockDb = {
   getAll: vi.fn().mockResolvedValue([]),
@@ -565,6 +566,18 @@ describe('ReportDetailScreen', () => {
       'href',
       'https://www.google.com/maps/dir/?api=1&destination=24.918,67.0971',
     )
+    expect(screen.getByLabelText('Rescue location map')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Copy coordinates/i })).toBeInTheDocument()
+
+    // Tapping the map opens the lightbox UI
+    const mapContainer = screen.getByTitle('Click to view enlarged map')
+    fireEvent.click(mapContainer)
+    expect(await screen.findByRole('dialog', { name: /Enlarged rescue location map/i })).toBeInTheDocument()
+
+    // Closing the lightbox UI
+    const closeBtn = screen.getByRole('button', { name: /Close enlarged map/i })
+    fireEvent.click(closeBtn)
+    expect(screen.queryByRole('dialog', { name: /Enlarged rescue location map/i })).not.toBeInTheDocument()
   })
 
   it('supports marking report DOA (Dead on Arrival) from dispatched stage without creating animal record', async () => {
@@ -640,5 +653,116 @@ describe('ReportDetailScreen', () => {
     expect(await screen.findByText('PARC-R110')).toBeInTheDocument()
     expect(screen.getAllByText(/Dead on Arrival \(DOA\)/i).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByRole('button', { name: /Dead on Arrival/i })).toBeInTheDocument()
+  })
+
+  it('renders exit outcome badge label and keeps Open Profile link when linked animal is completed', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-outcome-done',
+      org_id: 'org-1',
+      report_number: 'PARC-R111',
+      category: 'emergency',
+      species: 'dog',
+      chief_complaint: 'Healed and adopted',
+      status: 'attended',
+      disposition_type: 'admitted_shelter',
+      animal_id: 'animal-123',
+      location_area: 'Gulberg',
+      stage_logged_at: '2026-10-22T14:10:00Z',
+      stage_attended_at: '2026-10-22T15:00:00Z',
+      created_at: '2026-10-22T14:10:00Z',
+    } as any)
+
+    vi.spyOn(outcomesModule, 'getReportCompletionStatus').mockResolvedValue({
+      isCompleted: true,
+      outcomeLabel: 'Adopted',
+      activeCount: 0,
+      completedCount: 1,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-outcome-done']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R111')).toBeInTheDocument()
+    expect(screen.getAllByText('Adopted').length).toBeGreaterThanOrEqual(1)
+    const openProfileLink = screen.getByRole('link', { name: /Open Profile/i })
+    expect(openProfileLink).toBeInTheDocument()
+    expect(openProfileLink).toHaveAttribute('href', '/animals/animal-123')
+  })
+
+  it('renders In Care badge for stage 4 attended reports when not completed', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-in-care',
+      org_id: 'org-1',
+      report_number: 'PARC-R112',
+      category: 'emergency',
+      species: 'cat',
+      chief_complaint: 'Under recovery',
+      status: 'attended',
+      disposition_type: 'admitted_shelter',
+      animal_id: 'animal-456',
+      stage_attended_at: '2026-10-22T15:00:00Z',
+      created_at: '2026-10-22T14:10:00Z',
+    } as any)
+
+    vi.spyOn(outcomesModule, 'getReportCompletionStatus').mockResolvedValue({
+      isCompleted: false,
+      outcomeLabel: 'In Care',
+      activeCount: 1,
+      completedCount: 0,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-in-care']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R112')).toBeInTheDocument()
+    expect(screen.getAllByText('In Care').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText('In Shelter Care')).not.toBeInTheDocument()
+  })
+
+  it('renders Open Profiles button linking to /reports/:id/animals for group reports', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-group',
+      org_id: 'org-1',
+      report_number: 'PARC-R113',
+      category: 'emergency',
+      species: 'dog',
+      animal_count: 4,
+      chief_complaint: 'Litter of puppies',
+      status: 'attended',
+      disposition_type: 'admitted_shelter',
+      animal_id: 'animal-pup-1',
+      stage_attended_at: '2026-10-22T15:00:00Z',
+      created_at: '2026-10-22T14:10:00Z',
+    } as any)
+
+    vi.spyOn(outcomesModule, 'getReportCompletionStatus').mockResolvedValue({
+      isCompleted: false,
+      outcomeLabel: 'In Care',
+      activeCount: 4,
+      completedCount: 0,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-group']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R113')).toBeInTheDocument()
+    const openProfilesLink = screen.getByRole('link', { name: /Open Profiles/i })
+    expect(openProfilesLink).toBeInTheDocument()
+    expect(openProfilesLink).toHaveAttribute('href', '/reports/rep-group/animals')
   })
 })

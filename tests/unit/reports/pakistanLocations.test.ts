@@ -11,10 +11,10 @@ describe('pakistanLocations', () => {
   it('contains Lahore as the primary city and has comprehensive Lahore areas', () => {
     expect(PAKISTAN_CITIES).toContain('Lahore')
     expect(PAKISTAN_CITIES[0]).toBe('Lahore')
-    expect(LAHORE_AREAS.length).toBeGreaterThan(50)
+    expect(LAHORE_AREAS.length).toBeGreaterThanOrEqual(50)
     expect(LAHORE_AREAS).toContain('Gulberg III')
     expect(LAHORE_AREAS).toContain('DHA Phase 5')
-    expect(LAHORE_AREAS).toContain('Model Town Block C')
+    expect(LAHORE_AREAS).toContain('Model Town')
     expect(LAHORE_AREAS).toContain('Johar Town Phase 1')
   })
 

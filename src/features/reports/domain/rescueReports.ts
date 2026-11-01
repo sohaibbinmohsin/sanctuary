@@ -7,6 +7,12 @@ import {
 import { compressImage } from '@/shared/lib/r2/upload'
 import { storeLocalPhoto, getLocalPhoto } from '@/features/photos/domain/photos'
 import { notifyPendingMediaChanged } from '@/shared/lib/pendingMedia'
+import { createAnimal } from '@/features/animals/domain/animals'
+import { linkAnimals, type RelationshipType } from '@/features/animals/domain/relationships'
+import { listStatuses } from '@/features/statuses/domain/statuses'
+import { localDateString } from '@/shared/lib/checklist/missedStreak'
+import { toSentenceCase } from '@/shared/lib/text'
+import { getBatchReportCompletionMap } from '@/features/reports/domain/reportOutcomes'
 
 export type RescueReportStage =
   | 'logged'
@@ -21,7 +27,13 @@ export type RescueReportDisposition =
   | 'admitted_shelter'
   | 'deceased_doa'
 
-export type IntakeSource = 'citizen' | 'rescue_1122' | 'field_patrol' | 'partner_transfer'
+export type IntakeSource =
+  | 'citizen'
+  | 'rescue_1122'
+  | 'field_patrol'
+  | 'partner_transfer'
+  | 'walk_in'
+  | 'direct_intake'
 
 export const AVIAN_PRESETS = [
   'Black Kite',
@@ -63,7 +75,13 @@ export type CreateRescueReportInput = {
   intakeSource?: IntakeSource | null
   animalCount?: number | null
   groupBreakdown?: string | null
+  createdAt?: string | null
+  status?: RescueReportStage
+  stageAttendedAt?: string | null
+  dispositionType?: RescueReportDisposition | null
+  animalId?: string | null
 }
+
 
 /**
  * Generates sequential human-readable emergency report numbers.
@@ -238,6 +256,23 @@ export async function createRescueReport(
   const cols = await getExistingColumns(db, 'rescue_reports')
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
+  const createdAtIso = input.createdAt
+    ? Number.isNaN(new Date(input.createdAt).getTime())
+      ? now
+      : new Date(input.createdAt).toISOString()
+    : now
+
+  const status = input.status ?? 'logged'
+  const stageAttendedAt =
+    input.stageAttendedAt !== undefined
+      ? input.stageAttendedAt
+        ? Number.isNaN(new Date(input.stageAttendedAt).getTime())
+          ? now
+          : new Date(input.stageAttendedAt).toISOString()
+        : null
+      : status === 'attended'
+        ? createdAtIso
+        : null
 
   const report: RescueReport = {
     id,
@@ -247,7 +282,7 @@ export async function createRescueReport(
     species: input.species.trim(),
     life_stage: input.lifeStage ?? 'adult',
     chief_complaint: input.chiefComplaint.trim(),
-    status: 'logged',
+    status,
     city: input.city?.trim() || 'Lahore',
     location_area: input.locationArea.trim(),
     location_landmark: input.locationLandmark?.trim() || null,
@@ -257,19 +292,19 @@ export async function createRescueReport(
     reporter_phone: input.reporterPhone?.trim() || null,
     reporter_cnic: input.reporterCnic?.trim() || null,
     transport_type: null,
-    disposition_type: null,
-    animal_id: null,
+    disposition_type: input.dispositionType ?? null,
+    animal_id: input.animalId ?? null,
     legal_notes: null,
     dismissal_reason: null,
     intake_source: input.intakeSource || 'citizen',
     animal_count: input.animalCount && input.animalCount > 0 ? input.animalCount : 1,
     group_breakdown: input.groupBreakdown ?? null,
     archived: 0,
-    stage_logged_at: now,
+    stage_logged_at: createdAtIso,
     stage_accepted_at: null,
     stage_dispatched_at: null,
-    stage_attended_at: null,
-    created_at: now,
+    stage_attended_at: stageAttendedAt,
+    created_at: createdAtIso,
     updated_at: now,
   }
 
@@ -647,6 +682,280 @@ export async function syncReportPhotosToAnimal(
   notifyPendingMediaChanged()
 }
 
+/**
+ * Automatically creates animal record(s) from a rescue report (e.g. for walk-in or shelter admission).
+ * Handles companion animals, litter breakdowns, and photo synchronization.
+ */
+export async function createAnimalFromRescueReport(
+  db: SanctuaryDb,
+  report: RescueReport,
+  options?: {
+    orgId?: string
+    orgInitials?: string
+    disposition?: 'spot_released' | 'admitted_shelter'
+    attendedDate?: Date
+  },
+): Promise<string> {
+  const orgId = options?.orgId || report.org_id
+  if (!orgId) throw new Error('Organization ID is missing')
+
+  const prefix = options?.orgInitials || report.report_number?.split('-')[0] || 'MS'
+  let targetStatusId: string | null = null
+
+  try {
+    const statuses = await listStatuses(db, orgId)
+    if (options?.disposition === 'spot_released') {
+      const released = statuses.find((s) => s.label.toLowerCase() === 'released')
+      targetStatusId = released?.id ?? statuses[0]?.id ?? null
+    } else {
+      const intake =
+        statuses.find((s) => !s.archived && s.label.trim().toLowerCase() === 'intake') ??
+        statuses.find((s) => !s.archived && s.counts_as_in_care === 1) ??
+        statuses[0]
+      targetStatusId = intake?.id ?? null
+    }
+  } catch (err) {
+    console.warn('Could not load statuses for report animal intake', err)
+  }
+
+  const notesText = [
+    `Rescue report: ${report.report_number || ''}`,
+    report.chief_complaint ? `Complaint: ${report.chief_complaint}` : null,
+    report.reporter_name
+      ? `Reporter: ${report.reporter_name}${report.reporter_phone ? ` (${report.reporter_phone})` : ''}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const markingsText = report.location_landmark
+    ? `${report.location_area || ''} (near ${report.location_landmark})`.trim()
+    : report.location_area || undefined
+
+  const attendedDate =
+    options?.attendedDate ??
+    (report.stage_attended_at
+      ? new Date(report.stage_attended_at)
+      : report.created_at
+        ? new Date(report.created_at)
+        : new Date())
+  const intakeDate = localDateString(attendedDate)
+  const intakeTime = `${String(attendedDate.getHours()).padStart(2, '0')}:${String(attendedDate.getMinutes()).padStart(2, '0')}`
+  const arrivalTimestamp = attendedDate.toISOString()
+
+  // Multi-animal / litter intake support: parse breakdown first so primary animal gets actual species
+  let parsedGroup: Array<{ count: number; species: string; lifeStage?: string; avianSubtype?: string }> = []
+  if (report.group_breakdown) {
+    try {
+      const parsed = JSON.parse(report.group_breakdown)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parsedGroup = parsed
+      }
+    } catch (err) {
+      console.warn('Failed to parse group_breakdown', err)
+    }
+  }
+
+  const allAnimals =
+    parsedGroup.length > 0
+      ? parsedGroup.flatMap((item) =>
+          Array.from({ length: Math.max(1, item.count) }, () => ({
+            species: (item.avianSubtype || item.species || report.species || 'other').toLowerCase(),
+            lifeStage:
+              (item.lifeStage as 'adult' | 'child' | undefined) ??
+              (report.life_stage as 'adult' | 'child' | undefined),
+          })),
+        )
+      : []
+
+  const primarySpec = allAnimals[0]
+  const primarySpecies =
+    primarySpec?.species ||
+    (report.species && report.species.toLowerCase() !== 'mixed' ? report.species.toLowerCase() : 'other')
+  const primaryLifeStage =
+    primarySpec?.lifeStage || (report.life_stage as 'adult' | 'child') || undefined
+
+  const animal = await createAnimal(db, {
+    orgId,
+    prefix,
+    species: primarySpecies,
+    lifeStage: primaryLifeStage,
+    statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
+    notes: notesText,
+    markings: markingsText,
+    intakeDate,
+    intakeTime,
+    arrivalTimestamp,
+  })
+
+  // Transfer report photos to animal photos table and local cache
+  try {
+    await syncReportPhotosToAnimal(db, report.id, animal.id, orgId)
+  } catch (photoErr) {
+    console.warn('Could not copy report photos to animal', photoErr)
+  }
+
+  const createdAnimalList: Array<{
+    id: string
+    species: string
+    lifeStage?: 'adult' | 'child'
+  }> = [
+    {
+      id: animal.id,
+      species: primarySpecies,
+      lifeStage: primaryLifeStage,
+    },
+  ]
+
+  if (allAnimals.length > 1) {
+    for (let i = 1; i < allAnimals.length; i++) {
+      const spec = allAnimals[i]
+      const companionLifeStage =
+        spec.lifeStage || (primaryLifeStage === 'adult' ? 'child' : undefined)
+      try {
+        const companion = await createAnimal(db, {
+          orgId,
+          prefix,
+          species: spec.species.toLowerCase(),
+          lifeStage: companionLifeStage,
+          statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
+          notes: `${notesText}\nCompanion #${i + 1} of ${allAnimals.length} in batch intake`,
+          markings: markingsText,
+          intakeDate,
+          intakeTime,
+          arrivalTimestamp,
+        })
+        createdAnimalList.push({
+          id: companion.id,
+          species: spec.species.toLowerCase(),
+          lifeStage: companionLifeStage,
+        })
+      } catch (compErr) {
+        console.warn('Could not create companion animal for group', compErr)
+      }
+    }
+  } else if (allAnimals.length === 0) {
+    const count = report.animal_count && report.animal_count > 1 ? report.animal_count : 1
+    if (count > 1) {
+      for (let i = 2; i <= count; i++) {
+        const companionLifeStage =
+          primaryLifeStage === 'adult'
+            ? 'child'
+            : primaryLifeStage === 'child'
+              ? 'child'
+              : undefined
+        try {
+          const companion = await createAnimal(db, {
+            orgId,
+            prefix,
+            species: primarySpecies,
+            lifeStage: companionLifeStage,
+            statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
+            notes: `${notesText}\nCompanion #${i} of ${count} in batch litter/group admission`,
+            markings: markingsText,
+            intakeDate,
+            intakeTime,
+            arrivalTimestamp,
+          })
+          createdAnimalList.push({
+            id: companion.id,
+            species: primarySpecies,
+            lifeStage: companionLifeStage,
+          })
+        } catch (compErr) {
+          console.warn('Could not create companion animal for group', compErr)
+        }
+      }
+    }
+  }
+
+  // Multi-animal relationships:
+  // For mixed reports or groups with differing species, no relationship can be inferred - do not create false links.
+  // For litters / single-species groups, link all animals to each other (full mesh) so every sibling sees all others.
+  const distinctSpecies = new Set(createdAnimalList.map((a) => a.species.toLowerCase()))
+  const isMixed = report.species?.toLowerCase() === 'mixed' || distinctSpecies.size > 1
+
+  if (!isMixed && createdAnimalList.length > 1) {
+    for (let i = 0; i < createdAnimalList.length; i++) {
+      for (let j = i + 1; j < createdAnimalList.length; j++) {
+        const a1 = createdAnimalList[i]
+        const a2 = createdAnimalList[j]
+        try {
+          let relationshipType: RelationshipType = 'sibling'
+          if (a1.lifeStage === 'adult' && a2.lifeStage === 'child') {
+            relationshipType = 'child'
+          } else if (a1.lifeStage === 'child' && a2.lifeStage === 'adult') {
+            relationshipType = 'mother'
+          } else {
+            relationshipType = 'sibling'
+          }
+          await linkAnimals(db, {
+            orgId,
+            animalId: a1.id,
+            relatedAnimalId: a2.id,
+            relationshipType,
+            notes: `Auto-linked from rescue report ${report.report_number || ''}`,
+          })
+        } catch (linkErr) {
+          console.warn('Could not link littermates', linkErr)
+        }
+      }
+    }
+  }
+
+  // Update group_breakdown JSON with the created animal IDs so group screens and outcome checks can track all animals without requiring false relationship links
+  if (parsedGroup.length > 0) {
+    let animalIdx = 0
+    const updatedGroup = parsedGroup.map((item) => {
+      const itemAnimalIds: string[] = []
+      const count = Math.max(1, item.count)
+      for (let c = 0; c < count; c++) {
+        if (animalIdx < createdAnimalList.length) {
+          itemAnimalIds.push(createdAnimalList[animalIdx].id)
+          animalIdx++
+        }
+      }
+      return {
+        ...item,
+        animalId: itemAnimalIds[0],
+        animalIds: itemAnimalIds,
+      }
+    })
+    try {
+      const updatedJson = JSON.stringify(updatedGroup)
+      await db.execute(
+        `UPDATE rescue_reports SET group_breakdown = ?, animal_id = COALESCE(animal_id, ?), updated_at = ? WHERE id = ?`,
+        [updatedJson, animal.id, new Date().toISOString(), report.id],
+      )
+      report.group_breakdown = updatedJson
+    } catch (updateErr) {
+      console.warn('Could not update report group_breakdown with animal IDs', updateErr)
+    }
+  } else if (createdAnimalList.length > 1) {
+    const groupItems = createdAnimalList.map((a, idx) => ({
+      id: `animal-${idx + 1}`,
+      count: 1,
+      species: a.species,
+      lifeStage: a.lifeStage,
+      animalId: a.id,
+      animalIds: [a.id],
+    }))
+    try {
+      const updatedJson = JSON.stringify(groupItems)
+      await db.execute(
+        `UPDATE rescue_reports SET group_breakdown = ?, animal_id = COALESCE(animal_id, ?), updated_at = ? WHERE id = ?`,
+        [updatedJson, animal.id, new Date().toISOString(), report.id],
+      )
+      report.group_breakdown = updatedJson
+    } catch (updateErr) {
+      console.warn('Could not update report group_breakdown with animal IDs', updateErr)
+    }
+  }
+
+  return animal.id
+}
+
+
 let reportPhotoQueueRunning: Promise<{ uploaded: number; failed: number }> | null = null
 
 /**
@@ -757,10 +1066,15 @@ export type UpdateRescueReportInput = {
   intakeSource?: IntakeSource | null
   animalCount?: number | null
   groupBreakdown?: string | null
+  createdAt?: string | null
+  stageAttendedAt?: string | null
+  status?: RescueReportStage
+  dispositionType?: RescueReportDisposition | null
+  animalId?: string | null
 }
 
 /**
- * Updates rescue report details without modifying lifecycle status or timeline milestones.
+ * Updates rescue report details without modifying lifecycle status or timeline milestones (unless explicitly supplied).
  */
 export async function updateRescueReport(
   db: SanctuaryDb,
@@ -835,6 +1149,39 @@ export async function updateRescueReport(
     params.push(input.groupBreakdown ?? null)
   }
 
+  if (input.createdAt !== undefined && input.createdAt !== null) {
+    const parsedIso = Number.isNaN(new Date(input.createdAt).getTime())
+      ? input.createdAt
+      : new Date(input.createdAt).toISOString()
+    setClauses.push('created_at = ?')
+    params.push(parsedIso)
+    setClauses.push('stage_logged_at = ?')
+    params.push(parsedIso)
+  }
+
+  if (input.stageAttendedAt !== undefined && input.stageAttendedAt !== null) {
+    const parsedIso = Number.isNaN(new Date(input.stageAttendedAt).getTime())
+      ? input.stageAttendedAt
+      : new Date(input.stageAttendedAt).toISOString()
+    setClauses.push('stage_attended_at = ?')
+    params.push(parsedIso)
+  }
+
+  if (input.status !== undefined) {
+    setClauses.push('status = ?')
+    params.push(input.status)
+  }
+
+  if (input.dispositionType !== undefined) {
+    setClauses.push('disposition_type = ?')
+    params.push(input.dispositionType)
+  }
+
+  if (input.animalId !== undefined) {
+    setClauses.push('animal_id = ?')
+    params.push(input.animalId)
+  }
+
   setClauses.push('updated_at = ?')
   params.push(now)
   params.push(reportId)
@@ -860,6 +1207,8 @@ export async function deleteReportPhoto(
 export type RescueOperationsSummary = {
   total: number
   awaitingTriage: number
+  inProgress?: number
+  resolved?: number
   inField: number
   attended: number
   cancelled: number
@@ -924,7 +1273,45 @@ export async function getRescueOperationsSummary(
     else if (row.status === 'cancelled') cancelled += count
   }
 
-  return { total, awaitingTriage, inField, attended, cancelled }
+  let attendedResolved = 0
+  if (attended > 0 && typeof db?.getAll === 'function') {
+    try {
+      const attendedReports = await db.getAll<RescueReport>(
+        `SELECT *
+         FROM rescue_reports
+         WHERE org_id = ? AND status = 'attended' AND (archived IS NULL OR archived = 0)`,
+        [orgId],
+      )
+      if (Array.isArray(attendedReports) && attendedReports.length > 0) {
+        const compMap = await getBatchReportCompletionMap(db, attendedReports)
+        for (const rep of attendedReports) {
+          if (
+            rep.disposition_type === 'spot_released' ||
+            rep.disposition_type === 'deceased_doa' ||
+            compMap.get(rep.id)?.isCompleted === true
+          ) {
+            attendedResolved++
+          }
+        }
+      }
+    } catch {
+      // Fallback if full check fails (e.g. in minimal unit test mock)
+    }
+  }
+
+  const attendedInProgress = Math.max(0, attended - attendedResolved)
+  const inProgress = inField + attendedInProgress
+  const resolved = cancelled + attendedResolved
+
+  return {
+    total,
+    awaitingTriage,
+    inProgress,
+    resolved,
+    inField,
+    attended,
+    cancelled,
+  }
 }
 
 export async function getRescueCategoryBreakdown(
@@ -970,34 +1357,152 @@ export async function getRescueSpeciesBreakdown(
   db: SanctuaryDb,
   orgId: string,
 ): Promise<RescueSpeciesCount[]> {
-  const existingCols = await getExistingColumns(db, 'rescue_reports').catch(() => new Set<string>())
-  const hasCount = existingCols.has('animal_count')
-  const countExpr = hasCount ? 'COALESCE(animal_count, 1)' : '1'
+  let rows: Array<{
+    species: string | null
+    animal_count?: number | null
+    life_stage?: string | null
+    group_breakdown?: string | null
+    animal_id?: string | null
+    count?: number
+    child_count?: number
+    adult_count?: number
+  }> = []
 
-  const rows = await db.getAll<{
-    species: string
-    count: number
-    child_count: number
-    adult_count: number
-  }>(
-    `SELECT
-       species,
-       SUM(${countExpr}) as count,
-       SUM(CASE WHEN life_stage = 'child' THEN ${countExpr} ELSE 0 END) as child_count,
-       SUM(CASE WHEN life_stage != 'child' OR life_stage IS NULL THEN ${countExpr} ELSE 0 END) as adult_count
-     FROM rescue_reports
-     WHERE org_id = ? AND (archived IS NULL OR archived = 0)
-     GROUP BY species
-     ORDER BY count DESC`,
-    [orgId],
-  ).catch(() => [])
+  if (typeof db?.getAll === 'function') {
+    try {
+      rows = await db.getAll<any>(
+        `SELECT
+           species,
+           animal_count,
+           life_stage,
+           group_breakdown,
+           animal_id
+         FROM rescue_reports
+         WHERE org_id = ? AND (archived IS NULL OR archived = 0)`,
+        [orgId],
+      )
+    } catch {
+      rows = []
+    }
+  }
 
-  return rows.map((r) => ({
-    species: r.species?.trim() || 'Unknown',
-    count: Number(r.count) || 0,
-    adultCount: Number(r.adult_count) || 0,
-    childCount: Number(r.child_count) || 0,
-  }))
+  // Aggregate by normalized species
+  const speciesMap = new Map<string, { count: number; adultCount: number; childCount: number }>()
+
+  // Also collect any animal IDs that might need resolving if species is 'mixed' and no breakdown exists
+  const mixedAnimalIds: string[] = []
+  for (const row of rows) {
+    if (
+      row.species?.toLowerCase() === 'mixed' &&
+      !row.group_breakdown &&
+      row.animal_id &&
+      typeof db?.getAll === 'function'
+    ) {
+      mixedAnimalIds.push(row.animal_id)
+    }
+  }
+
+  const animalSpeciesMap = new Map<string, { species: string; lifeStage?: string | null }>()
+  if (mixedAnimalIds.length > 0 && typeof db?.getAll === 'function') {
+    try {
+      const placeholders = mixedAnimalIds.map(() => '?').join(', ')
+      const animals = await db.getAll<{ id: string; species: string; life_stage: string | null }>(
+        `SELECT id, species, life_stage FROM animals WHERE id IN (${placeholders})`,
+        mixedAnimalIds,
+      )
+      if (Array.isArray(animals)) {
+        for (const a of animals) {
+          if (a.species) {
+            animalSpeciesMap.set(a.id, { species: a.species, lifeStage: a.life_stage })
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  for (const row of rows) {
+    if (row.group_breakdown) {
+      try {
+        const parsed = JSON.parse(row.group_breakdown)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          for (const item of parsed) {
+            const rawSpecies = item.species || row.species || 'Unknown'
+            const sp = rawSpecies.trim().toLowerCase()
+            const cnt = Number(item.count) > 0 ? Number(item.count) : 1
+            const isChild = item.lifeStage === 'child' || (!item.lifeStage && row.life_stage === 'child')
+
+            const cur = speciesMap.get(sp) || { count: 0, adultCount: 0, childCount: 0 }
+            cur.count += cnt
+            if (isChild) {
+              cur.childCount += cnt
+            } else {
+              cur.adultCount += cnt
+            }
+            speciesMap.set(sp, cur)
+          }
+          continue
+        }
+      } catch (err) {
+        console.warn('Failed to parse group_breakdown in getRescueSpeciesBreakdown', err)
+      }
+    }
+
+    // Single report or legacy row
+    let rawSpecies = row.species || 'Unknown'
+    let rawLifeStage = row.life_stage
+
+    // If marked as 'mixed' but has an animal record, use the real animal's species
+    if (rawSpecies.toLowerCase() === 'mixed' && row.animal_id && animalSpeciesMap.has(row.animal_id)) {
+      const resolved = animalSpeciesMap.get(row.animal_id)!
+      rawSpecies = resolved.species
+      if (resolved.lifeStage) rawLifeStage = resolved.lifeStage
+    }
+
+    const sp = rawSpecies.trim().toLowerCase()
+    const cnt =
+      row.count !== undefined
+        ? Number(row.count) || 0
+        : Number(row.animal_count) > 0
+          ? Number(row.animal_count)
+          : 1
+    const isChild =
+      row.child_count !== undefined
+        ? Number(row.child_count) > 0
+        : rawLifeStage === 'child'
+    const childCnt =
+      row.child_count !== undefined
+        ? Number(row.child_count) || 0
+        : isChild
+          ? cnt
+          : 0
+    const adultCnt =
+      row.adult_count !== undefined
+        ? Number(row.adult_count) || 0
+        : isChild
+          ? 0
+          : cnt
+
+    const cur = speciesMap.get(sp) || { count: 0, adultCount: 0, childCount: 0 }
+    cur.count += cnt
+    cur.childCount += childCnt
+    cur.adultCount += adultCnt
+    speciesMap.set(sp, cur)
+  }
+
+  const results: RescueSpeciesCount[] = []
+  for (const [speciesKey, data] of speciesMap.entries()) {
+    results.push({
+      species: toSentenceCase(speciesKey),
+      count: data.count,
+      adultCount: data.adultCount,
+      childCount: data.childCount,
+    })
+  }
+
+  results.sort((a, b) => b.count - a.count || a.species.localeCompare(b.species))
+  return results
 }
 
 export async function getRescueHotspots(
@@ -1071,9 +1576,13 @@ export {
   isValidLatLng,
   formatCoordinates,
   getNavigationUrl,
+  getMapEmbedUrl,
   requestCurrentPosition,
   type Coordinates,
 } from './coordinates'
 export * from './pakistanLocations'
+export * from './reportOutcomes'
+export { toDatetimeLocalValue } from '@/shared/lib/dates'
+
 
 

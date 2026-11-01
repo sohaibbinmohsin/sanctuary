@@ -14,6 +14,10 @@ import {
   type RescueReportFilter,
   type RescueOperationsSummary,
 } from '@/features/reports/domain/rescueReports'
+import {
+  getBatchReportCompletionMap,
+  type ReportCompletionResult,
+} from '@/features/reports/domain/reportOutcomes'
 import { ReportTimelineCard } from '@/features/reports/components/ReportTimelineCard'
 import { localDateString } from '@/shared/lib/checklist/missedStreak'
 import {
@@ -55,7 +59,9 @@ export function ReportsListScreen() {
   const db = useDb()
   const { member } = useCurrentMember()
   const [reports, setReports] = useState<RescueReport[]>([])
+  const [completionMap, setCompletionMap] = useState<Map<string, ReportCompletionResult>>(new Map())
   const [summary, setSummary] = useState<RescueOperationsSummary | null>(null)
+  const [inProgressCount, setInProgressCount] = useState<number | null>(null)
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const deferredQuery = useDeferredValue(searchQuery)
@@ -88,15 +94,16 @@ export function ReportsListScreen() {
     try {
       let targetFilter = activeFilter
 
+      let sum: RescueOperationsSummary | null = null
       // Option 2 (Smart Operational Default):
       // On initial load, inspect counts: prioritize New reports, then In Progress, else All
       if (!defaultSelectedRef.current) {
         defaultSelectedRef.current = true
-        const sum = await getRescueOperationsSummary(db, orgId)
+        sum = await getRescueOperationsSummary(db, orgId)
         setSummary(sum)
         if (sum.awaitingTriage > 0) {
           targetFilter = 'new'
-        } else if (sum.inField > 0) {
+        } else if ((sum.inProgress ?? sum.inField) > 0) {
           targetFilter = 'in_progress'
         } else {
           targetFilter = 'all'
@@ -110,8 +117,78 @@ export function ReportsListScreen() {
         void getRescueOperationsSummary(db, orgId).then(setSummary).catch(() => {})
       }
 
-      const data = await getRescueReports(db, orgId, targetFilter as RescueReportFilter)
-      setReports(data)
+      let allReports: RescueReport[] = []
+      if (targetFilter === 'in_progress') {
+        const [inProgressReports, attendedReports] = await Promise.all([
+          getRescueReports(db, orgId, 'in_progress'),
+          getRescueReports(db, orgId, 'completed'),
+        ])
+        const attendedOnly = (attendedReports || []).filter((r) => r.status === 'attended')
+        allReports = [...(inProgressReports || []), ...attendedOnly]
+      } else {
+        allReports = (await getRescueReports(db, orgId, targetFilter as RescueReportFilter)) || []
+      }
+
+      // Deduplicate reports by id
+      const seenReportIds = new Set<string>()
+      const uniqueReports: RescueReport[] = []
+      for (const r of allReports) {
+        if (!seenReportIds.has(r.id)) {
+          seenReportIds.add(r.id)
+          uniqueReports.push(r)
+        }
+      }
+      allReports = uniqueReports
+
+      const compMap = await getBatchReportCompletionMap(db, allReports)
+      setCompletionMap(compMap)
+
+      let finalReports = allReports
+      if (targetFilter === 'completed') {
+        finalReports = allReports.filter((r) => {
+          if (r.status === 'cancelled') return true
+          if (r.disposition_type === 'spot_released' || r.disposition_type === 'deceased_doa') return true
+          return compMap.get(r.id)?.isCompleted === true
+        })
+      } else if (targetFilter === 'in_progress') {
+        finalReports = allReports.filter((r) => {
+          if (r.status === 'accepted' || r.status === 'dispatched') return true
+          if (r.status === 'attended') {
+            return compMap.get(r.id)?.isCompleted === false
+          }
+          return false
+        })
+        setInProgressCount(finalReports.length)
+      } else if (targetFilter === 'all') {
+        const inProg = allReports.filter((r) => {
+          if (r.status === 'accepted' || r.status === 'dispatched') return true
+          if (r.status === 'attended') {
+            return compMap.get(r.id)?.isCompleted === false
+          }
+          return false
+        }).length
+        setInProgressCount(inProg)
+      }
+
+      if (targetFilter !== 'in_progress' && targetFilter !== 'all') {
+        void (async () => {
+          try {
+            const attendedReports = await getRescueReports(db, orgId, 'completed')
+            const attendedOnly = (attendedReports || []).filter((r) => r.status === 'attended')
+            if (attendedOnly.length > 0) {
+              const comp = await getBatchReportCompletionMap(db, attendedOnly)
+              const attendedInCare = attendedOnly.filter((r) => comp.get(r.id)?.isCompleted === false).length
+              const inFieldCount = sum?.inField ?? summary?.inField ?? 0
+              setInProgressCount(inFieldCount + attendedInCare)
+            }
+          } catch {
+            // Ignore background count failure
+          }
+        })()
+      }
+
+      finalReports.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+      setReports(finalReports)
     } catch (err) {
       console.error('Failed to load rescue reports', err)
     } finally {
@@ -262,7 +339,7 @@ export function ReportsListScreen() {
         title="Reports"
         subtitle={subtitle}
         actions={
-          filteredReports.length > 0 ? (
+          loading || filteredReports.length > 0 ? (
             <Button to="/reports/new" variant="accent">
               <Plus size={18} weight="bold" />
               <span>Log report</span>
@@ -300,7 +377,9 @@ export function ReportsListScreen() {
             key === 'new'
               ? (summary?.awaitingTriage ?? 0)
               : key === 'in_progress'
-                ? (summary?.inField ?? 0)
+                ? (activeFilter === 'in_progress'
+                    ? (!loading || reports.length > 0 ? reports.length : (inProgressCount ?? summary?.inProgress ?? summary?.inField ?? 0))
+                    : (inProgressCount ?? summary?.inProgress ?? summary?.inField ?? 0))
                 : 0
 
           return (
@@ -350,7 +429,11 @@ export function ReportsListScreen() {
               <div className="timeline-date-header">{group.label}</div>
               <div className="timeline-cards-list">
                 {group.reports.map((report) => (
-                  <ReportTimelineCard key={report.id} report={report} />
+                  <ReportTimelineCard
+                    key={report.id}
+                    report={report}
+                    outcomeStatus={completionMap.get(report.id) ?? null}
+                  />
                 ))}
               </div>
             </div>

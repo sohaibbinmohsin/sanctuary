@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { AppShell } from '@/app/router'
@@ -53,7 +53,7 @@ describe('AppShell Module Navigation', () => {
     expect(screen.queryByText('Checklist')).toBeNull()
   })
 
-  it('redirects to first available enabled module when visiting a disabled route', () => {
+  it('allows direct path access even when module is not in sidebar navigation', () => {
     vi.spyOn(useCurrentMemberModule, 'useCurrentMember').mockReturnValue({
       loading: false,
       member: {
@@ -79,9 +79,11 @@ describe('AppShell Module Navigation', () => {
       </MemoryRouter>,
     )
 
-    // Ledger is disabled and should redirect to reports
-    expect(screen.queryByText('Ledger')).toBeNull()
-    expect(screen.getByRole('heading', { level: 1, name: 'Reports' })).toBeInTheDocument()
+    // Ledger is accessible directly via route
+    expect(screen.getByRole('heading', { level: 1, name: 'Ledger' })).toBeInTheDocument()
+    // But Ledger does not appear in the sidebar navigation items
+    const nav = screen.getByRole('navigation')
+    expect(within(nav).queryByText('Ledger')).toBeNull()
   })
 
   it('does not render bottom navbar and instead renders mobile drawer trigger on primary screens', () => {

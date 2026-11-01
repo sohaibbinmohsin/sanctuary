@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@powersync/react'
 import {
   ArrowLeft,
@@ -50,7 +50,7 @@ import { SelectField, TextareaField, TextField } from '@/shared/ui/Field'
 import { AutocompleteField } from '@/shared/ui/AutocompleteField'
 import {
   PRESET_VET_CLINICS,
-  PRESET_PARTNER_ORGS,
+  COMBINED_PARTNER_TRANSFER_PRESETS,
 } from '@/features/reports/domain/partnerDirectory'
 import { syncReportPhotosToAnimal } from '@/features/reports/domain/rescueReports'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
@@ -145,11 +145,30 @@ export function AnimalDetailScreen() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const fromReportId = searchParams.get('from_report')
+  const fromGroupReportId = searchParams.get('from_group_report')
   const backState = location.state as
-    | { backTo?: string; backLabel?: string }
+    | {
+        backTo?: string
+        backLabel?: string
+        parentBackTo?: string
+        parentBackLabel?: string
+      }
     | null
-  const backTo = backState?.backTo || '/animals'
-  const backLabel = backState?.backLabel || 'Animals'
+  const defaultBackTo = fromGroupReportId
+    ? `/reports/${fromGroupReportId}/animals`
+    : fromReportId
+      ? `/reports/${fromReportId}`
+      : '/animals'
+  const defaultBackLabel = fromGroupReportId
+    ? 'Group Animals'
+    : fromReportId
+      ? 'Report'
+      : 'Animals'
+
+  const backTo = backState?.backTo || defaultBackTo
+  const backLabel = backState?.backLabel || defaultBackLabel
   const db = useDb()
   const { member } = useCurrentMember()
   const confirm = useConfirm()
@@ -831,8 +850,6 @@ export function AnimalDetailScreen() {
   const arrivalTreatments = treatments.filter(
     (t) => isArrivalTreatmentType(t.treatment_type),
   )
-  const arrivalDateOrTime =
-    arrivalTreatments[0]?.treated_at || animal.intake_date || ''
   const timelineTreatments = treatments.filter((t) => {
     if (t.treatment_type !== 'status') return false
     const trimmedNotes = t.notes?.trim()
@@ -841,12 +858,18 @@ export function AnimalDetailScreen() {
       (!trimmedNotes &&
         (animal.status_label || 'intake').toLowerCase() === 'intake')
 
-    // If arrival milestone already displays Intake, do not show duplicate Intake status entry on arrival date
+    // If arrival milestone already displays Intake, do not show duplicate Intake status entry matching arrival timestamp
     if (isIntakeStatus && (hasArrivalEntry || showLegacyArrival)) {
-      const tTime = t.treated_at ? t.treated_at.slice(0, 10) : ''
-      const aTime = arrivalDateOrTime ? arrivalDateOrTime.slice(0, 10) : ''
-      if (!tTime || !aTime || tTime === aTime) {
-        return false
+      if (arrivalTreatments.length > 0 && t.treated_at && arrivalTreatments[0]?.treated_at) {
+        const tTimeMs = new Date(t.treated_at).getTime()
+        const aTimeMs = new Date(arrivalTreatments[0].treated_at).getTime()
+        if (Math.abs(tTimeMs - aTimeMs) <= 1000) {
+          return false
+        }
+      } else if (showLegacyArrival && animal.intake_date && t.treated_at) {
+        if (t.treated_at === animal.intake_date) {
+          return false
+        }
       }
     }
     return true
@@ -892,7 +915,31 @@ export function AnimalDetailScreen() {
 
   return (
     <section className="screen">
-      <Link className="back-link" to={backTo}>
+      <Link
+        className="back-link"
+        to={backTo}
+        state={
+          backState?.parentBackTo
+            ? {
+                backTo: backState.parentBackTo,
+                backLabel: backState.parentBackLabel,
+                parentBackTo: backState.parentBackTo,
+                parentBackLabel: backState.parentBackLabel,
+              }
+            : undefined
+        }
+        onClick={(e) => {
+          if (
+            typeof window !== 'undefined' &&
+            window.history.state &&
+            typeof window.history.state.idx === 'number' &&
+            window.history.state.idx > 0
+          ) {
+            e.preventDefault()
+            navigate(-1)
+          }
+        }}
+      >
         <ArrowLeft size={18} weight="bold" aria-hidden />
         {backLabel}
       </Link>
@@ -1478,10 +1525,18 @@ export function AnimalDetailScreen() {
                   return (
                     <div className="list-item list-item--row relationship-item" key={rel.id}>
                       <Link
-                        to={`/animals/${rel.relatedAnimalId}`}
+                        to={`/animals/${rel.relatedAnimalId}${location.search}`}
                         state={{
-                          backTo: `/animals/${id}`,
+                          backTo: `${location.pathname}${location.search}`,
                           backLabel: animal.name?.trim() || animal.shelter_code,
+                          parentBackTo:
+                            backState?.parentBackTo ||
+                            (backState?.backTo?.startsWith('/animals/') ? undefined : backState?.backTo) ||
+                            defaultBackTo,
+                          parentBackLabel:
+                            backState?.parentBackLabel ||
+                            (backState?.backTo?.startsWith('/animals/') ? undefined : backState?.backLabel) ||
+                            defaultBackLabel,
                         }}
                         className="relationship-item__body"
                       >
@@ -1742,11 +1797,11 @@ export function AnimalDetailScreen() {
                     Partner Transfer Details
                   </p>
                   <AutocompleteField
-                    label="Partner Organization / Shelter Name"
-                    placeholder="e.g. Todd's Welfare Society (TWS)"
+                    label="Partner Organization"
+                    placeholder="e.g. Todd's Welfare Society (TWS) or UVAS"
                     value={partnerName}
                     onChange={setPartnerName}
-                    suggestions={PRESET_PARTNER_ORGS as unknown as string[]}
+                    suggestions={COMBINED_PARTNER_TRANSFER_PRESETS}
                   />
                   <TextField
                     label="Focal Person / Contact"
