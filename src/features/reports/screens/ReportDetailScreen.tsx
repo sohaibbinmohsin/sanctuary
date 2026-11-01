@@ -205,6 +205,11 @@ export function ReportDetailScreen() {
   const status = report.status ?? 'logged'
   const disp = report.disposition_type
   const isCruelty = report.category === 'cruelty'
+  const isGroup = Boolean(
+    (report.animal_count && report.animal_count > 1) ||
+    (outcomeStatus && (outcomeStatus.activeCount + outcomeStatus.completedCount) > 1) ||
+    report.group_breakdown,
+  )
 
   // Status badge styling and text
   let statusBadgeLabel = isCruelty
@@ -241,10 +246,10 @@ export function ReportDetailScreen() {
       statusBadgeLabel = isCruelty ? 'Resolved On-Site' : 'Spot Released (TNR)'
       statusBadgeClass = 'status-badge-clean completed'
     } else if (disp === 'admitted_shelter') {
-      statusBadgeLabel = isCruelty ? 'In Shelter Custody' : 'In Shelter Care'
+      statusBadgeLabel = isCruelty ? 'In Custody' : 'In Care'
       statusBadgeClass = 'status-badge-clean shelter'
     } else {
-      statusBadgeLabel = isCruelty ? 'In Custody' : 'Attended'
+      statusBadgeLabel = isCruelty ? 'In Custody' : 'In Care'
       statusBadgeClass = 'status-badge-clean shelter'
     }
   } else if (status === 'cancelled') {
@@ -559,20 +564,38 @@ export function ReportDetailScreen() {
             ) : status === 'attended' ? (
               <div className="split-btn-group">
                 {report.animal_id ? (
-                  <Link
-                    to={`/animals/${report.animal_id}`}
-                    className="btn-brand-amber btn-main pressable"
-                    style={{
-                      textDecoration: 'none',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    <HouseSimple size={16} weight="bold" aria-hidden />
-                    <span className="btn-text-full">Open Profile &rarr;</span>
-                    <span className="btn-text-mobile">Profile &rarr;</span>
-                  </Link>
+                  isGroup ? (
+                    <Link
+                      to={`/reports/${report.id}/animals`}
+                      className="btn-brand-amber btn-main pressable"
+                      style={{
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <HouseSimple size={16} weight="bold" aria-hidden />
+                      <span className="btn-text-full">Open Profiles &rarr;</span>
+                      <span className="btn-text-mobile">Profiles &rarr;</span>
+                    </Link>
+                  ) : (
+                    <Link
+                      to={`/animals/${report.animal_id}`}
+                      state={{ backTo: `/reports/${report.id}`, backLabel: report.report_number || 'Report' }}
+                      className="btn-brand-amber btn-main pressable"
+                      style={{
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <HouseSimple size={16} weight="bold" aria-hidden />
+                      <span className="btn-text-full">Open Profile &rarr;</span>
+                      <span className="btn-text-mobile">Profile &rarr;</span>
+                    </Link>
+                  )
                 ) : (
                   <div
                     className="btn-brand-amber btn-main"

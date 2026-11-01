@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@powersync/react'
 import {
   ArrowLeft,
@@ -145,11 +145,22 @@ export function AnimalDetailScreen() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const fromReportId = searchParams.get('from_report')
+  const fromGroupReportId = searchParams.get('from_group_report')
   const backState = location.state as
     | { backTo?: string; backLabel?: string }
     | null
-  const backTo = backState?.backTo || '/animals'
-  const backLabel = backState?.backLabel || 'Animals'
+  const backTo =
+    backState?.backTo ||
+    (fromGroupReportId
+      ? `/reports/${fromGroupReportId}/animals`
+      : fromReportId
+        ? `/reports/${fromReportId}`
+        : '/animals')
+  const backLabel =
+    backState?.backLabel ||
+    (fromGroupReportId ? 'Group Animals' : fromReportId ? 'Report' : 'Animals')
   const db = useDb()
   const { member } = useCurrentMember()
   const confirm = useConfirm()

@@ -161,7 +161,15 @@ export async function getReportCompletionStatus(
       }
     } else {
       const uniqueActiveLabels = Array.from(
-        new Set(activeAnimals.map((a) => a.status_label?.trim()).filter(Boolean) as string[]),
+        new Set(
+          activeAnimals
+            .map((a) => a.status_label?.trim())
+            .filter((lbl) => {
+              if (!lbl) return false
+              const l = lbl.toLowerCase()
+              return l !== 'intake' && l !== 'in shelter care' && l !== 'in shelter'
+            }) as string[],
+        ),
       )
       outcomeLabel = uniqueActiveLabels.length > 0 ? uniqueActiveLabels.join(', ') : 'In Care'
     }
@@ -291,4 +299,85 @@ export async function getBatchReportCompletionMap(
   }
 
   return map
+}
+
+export type ReportAnimalItem = {
+  id: string
+  org_id: string
+  shelter_code: string
+  name: string | null
+  species: string | null
+  life_stage: 'adult' | 'child' | null
+  status_id: string | null
+  status_label: string | null
+  counts_as_in_care: number
+  created_at: string
+  updated_at: string
+}
+
+export async function getReportAnimals(
+  db: SanctuaryDb,
+  report: RescueReport,
+): Promise<ReportAnimalItem[]> {
+  if (!report.animal_id) return []
+
+  const animals: ReportAnimalItem[] = []
+
+  try {
+    const primary = await db.getAll<ReportAnimalItem>(
+      `SELECT
+         a.id,
+         a.org_id,
+         a.shelter_code,
+         a.name,
+         a.species,
+         a.life_stage,
+         a.status_id,
+         COALESCE(s.counts_as_in_care, 1) AS counts_as_in_care,
+         s.label AS status_label,
+         a.created_at,
+         a.updated_at
+       FROM animals a
+       LEFT JOIN animal_statuses s ON s.id = a.status_id
+       WHERE a.id = ?`,
+      [report.animal_id],
+    )
+    if (primary && primary[0]) {
+      animals.push(primary[0])
+    }
+
+    const companions = await db.getAll<ReportAnimalItem>(
+      `SELECT DISTINCT
+         a.id,
+         a.org_id,
+         a.shelter_code,
+         a.name,
+         a.species,
+         a.life_stage,
+         a.status_id,
+         COALESCE(s.counts_as_in_care, 1) AS counts_as_in_care,
+         s.label AS status_label,
+         a.created_at,
+         a.updated_at
+       FROM animal_relationships ar
+       JOIN animals a ON a.id = ar.related_animal_id
+       LEFT JOIN animal_statuses s ON s.id = a.status_id
+       WHERE ar.animal_id = ?
+         AND (ar.relationship_type != 'incompatible' OR ar.relationship_type IS NULL)
+         AND (a.archived IS NULL OR a.archived = 0)
+       ORDER BY a.shelter_code ASC`,
+      [report.animal_id],
+    )
+    if (Array.isArray(companions)) {
+      for (const comp of companions) {
+        if (!animals.some((a) => a.id === comp.id)) {
+          animals.push(comp)
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load report animals', err)
+  }
+
+  return animals
 }

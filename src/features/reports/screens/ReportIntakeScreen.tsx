@@ -600,6 +600,92 @@ export function ReportIntakeScreen() {
           />
         </div>
 
+        {/* Photos & Proof (Directly after Date & Time) */}
+        <div className="panel stack">
+          <div className="stack stack--tight">
+            <p className="section-label">Photos &amp; Proof</p>
+            <span className="field__hint">Optional</span>
+          </div>
+
+          {/* Existing Photos in Edit Mode */}
+          {isEditMode && existingPhotos.length > 0 && (
+            <div className="stack stack--tight" style={{ marginBottom: '8px' }}>
+              <span className="field__hint" style={{ fontWeight: 600 }}>
+                Existing photos:
+              </span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {existingPhotos
+                  .filter((p) => !photosToDelete.includes(p.id))
+                  .map((p) => (
+                    <div
+                      key={p.id}
+                      style={{
+                        position: 'relative',
+                        width: '4.5rem',
+                        height: '4.5rem',
+                        borderRadius: 'var(--radius-md)',
+                        overflow: 'hidden',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    >
+                      {existingPhotoUrls[p.id] ? (
+                        <img
+                          src={existingPhotoUrls[p.id]}
+                          alt="Report proof"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: 'var(--color-surface)',
+                          }}
+                        >
+                          <Camera size={20} color="var(--color-ink-muted)" />
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className="pressable"
+                        onClick={() => setPhotosToDelete((prev) => [...prev, p.id])}
+                        title="Remove photo"
+                        aria-label="Remove photo"
+                        style={{
+                          position: 'absolute',
+                          top: '3px',
+                          right: '3px',
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          background: 'rgba(0,0,0,0.65)',
+                          color: '#fff',
+                          border: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <X size={12} weight="bold" />
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          <IntakePhotoPicker
+            photos={stagedPhotos}
+            onAddPhotos={handleAddPhotos}
+            onRemovePhoto={handleRemovePhoto}
+            disabled={submitting}
+          />
+        </div>
+
         {/* 1. Animal Category & Species */}
         <div className="panel stack">
           <p className="section-label">Report Category &amp; Animal</p>
@@ -1353,91 +1439,6 @@ export function ReportIntakeScreen() {
           </div>
         </div>
 
-        {/* 4. Photos & Proof (Optional) */}
-        <div className="panel stack">
-          <div className="stack stack--tight">
-            <p className="section-label">Photos &amp; Proof</p>
-            <span className="field__hint">Optional</span>
-          </div>
-
-          {/* Existing Photos in Edit Mode */}
-          {isEditMode && existingPhotos.length > 0 && (
-            <div className="stack stack--tight" style={{ marginBottom: '8px' }}>
-              <span className="field__hint" style={{ fontWeight: 600 }}>
-                Existing photos:
-              </span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {existingPhotos
-                  .filter((p) => !photosToDelete.includes(p.id))
-                  .map((p) => (
-                    <div
-                      key={p.id}
-                      style={{
-                        position: 'relative',
-                        width: '4.5rem',
-                        height: '4.5rem',
-                        borderRadius: 'var(--radius-md)',
-                        overflow: 'hidden',
-                        border: '1px solid var(--color-border)',
-                      }}
-                    >
-                      {existingPhotoUrls[p.id] ? (
-                        <img
-                          src={existingPhotoUrls[p.id]}
-                          alt="Report proof"
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'var(--color-surface)',
-                          }}
-                        >
-                          <Camera size={20} color="var(--color-ink-muted)" />
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        className="pressable"
-                        onClick={() => setPhotosToDelete((prev) => [...prev, p.id])}
-                        title="Remove photo"
-                        aria-label="Remove photo"
-                        style={{
-                          position: 'absolute',
-                          top: '3px',
-                          right: '3px',
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '50%',
-                          background: 'rgba(0,0,0,0.65)',
-                          color: '#fff',
-                          border: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <X size={12} weight="bold" />
-                      </button>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          <IntakePhotoPicker
-            photos={stagedPhotos}
-            onAddPhotos={handleAddPhotos}
-            onRemovePhoto={handleRemovePhoto}
-            disabled={submitting}
-          />
-        </div>
 
         {/* 5. Legal Action & Notice (Extra card in edit mode) */}
         {isEditMode && (category === 'cruelty' || existingReport?.legal_notes) && (

@@ -91,8 +91,14 @@ function getStatusBadgeInfo(
 
   if (status === 'attended') {
     if (outcomeStatus && outcomeStatus.isCompleted === false) {
+      const activeLabel = outcomeStatus.outcomeLabel?.trim()
+      const isDefaultIntake =
+        !activeLabel ||
+        activeLabel.toLowerCase() === 'intake' ||
+        activeLabel.toLowerCase() === 'in shelter care' ||
+        activeLabel.toLowerCase() === 'in shelter'
       return {
-        label: outcomeStatus.outcomeLabel || (isCruelty ? 'In Custody' : 'In Care'),
+        label: isDefaultIntake ? (isCruelty ? 'In Custody' : 'In Care') : activeLabel,
         className: 'status-badge-clean shelter',
       }
     }
@@ -101,12 +107,12 @@ function getStatusBadgeInfo(
     }
     if (dispositionType === 'admitted_shelter') {
       return {
-        label: isCruelty ? 'In Custody' : 'In Shelter',
+        label: isCruelty ? 'In Custody' : 'In Care',
         className: 'status-badge-clean shelter',
       }
     }
     return {
-      label: isCruelty ? 'In Custody' : 'Attended',
+      label: isCruelty ? 'In Custody' : 'In Care',
       className: 'status-badge-clean shelter',
     }
   }

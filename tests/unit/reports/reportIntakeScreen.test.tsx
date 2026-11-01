@@ -487,4 +487,24 @@ describe('ReportIntakeScreen', () => {
       )
     })
   })
+
+  it('places Photos & Proof section directly after Date & Time picker', () => {
+    render(
+      <MemoryRouter>
+        <ReportIntakeScreen />
+      </MemoryRouter>,
+    )
+
+    const dateTimeInput = screen.getByLabelText(/Report Date & Time/i)
+    const photosHeader = screen.getByText(/Photos & Proof/i)
+    const categoryHeader = screen.getByText(/Report Category & Animal/i)
+
+    expect(dateTimeInput).toBeInTheDocument()
+    expect(photosHeader).toBeInTheDocument()
+    expect(categoryHeader).toBeInTheDocument()
+
+    expect(photosHeader.compareDocumentPosition(categoryHeader)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+  })
 })

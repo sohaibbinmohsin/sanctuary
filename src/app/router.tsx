@@ -32,6 +32,7 @@ import { DashboardScreen } from '@/features/dashboard/screens/DashboardScreen'
 import { ReportsListScreen } from '@/features/reports/screens/ReportsListScreen'
 import { ReportIntakeScreen } from '@/features/reports/screens/ReportIntakeScreen'
 import { ReportDetailScreen } from '@/features/reports/screens/ReportDetailScreen'
+import { ReportAnimalsScreen } from '@/features/reports/screens/ReportAnimalsScreen'
 import { ChecklistScreen } from '@/features/checklist/screens/ChecklistScreen'
 import { SettingsScreen } from '@/features/settings/screens/SettingsScreen'
 import { UploadsScreen } from '@/features/uploads/screens/UploadsScreen'
@@ -595,6 +596,16 @@ function AppShellContent() {
               element={
                 hasModule('reports') ? (
                   <ReportIntakeScreen />
+                ) : (
+                  <Navigate to={fallbackRoute} replace />
+                )
+              }
+            />
+            <Route
+              path="/reports/:id/animals"
+              element={
+                hasModule('reports') ? (
+                  <ReportAnimalsScreen />
                 ) : (
                   <Navigate to={fallbackRoute} replace />
                 )

@@ -681,4 +681,76 @@ describe('ReportDetailScreen', () => {
     expect(openProfileLink).toBeInTheDocument()
     expect(openProfileLink).toHaveAttribute('href', '/animals/animal-123')
   })
+
+  it('renders In Care badge for stage 4 attended reports when not completed', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-in-care',
+      org_id: 'org-1',
+      report_number: 'PARC-R112',
+      category: 'emergency',
+      species: 'cat',
+      chief_complaint: 'Under recovery',
+      status: 'attended',
+      disposition_type: 'admitted_shelter',
+      animal_id: 'animal-456',
+      stage_attended_at: '2026-10-22T15:00:00Z',
+      created_at: '2026-10-22T14:10:00Z',
+    } as any)
+
+    vi.spyOn(outcomesModule, 'getReportCompletionStatus').mockResolvedValue({
+      isCompleted: false,
+      outcomeLabel: 'In Care',
+      activeCount: 1,
+      completedCount: 0,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-in-care']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R112')).toBeInTheDocument()
+    expect(screen.getAllByText('In Care').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText('In Shelter Care')).not.toBeInTheDocument()
+  })
+
+  it('renders Open Profiles button linking to /reports/:id/animals for group reports', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-group',
+      org_id: 'org-1',
+      report_number: 'PARC-R113',
+      category: 'emergency',
+      species: 'dog',
+      animal_count: 4,
+      chief_complaint: 'Litter of puppies',
+      status: 'attended',
+      disposition_type: 'admitted_shelter',
+      animal_id: 'animal-pup-1',
+      stage_attended_at: '2026-10-22T15:00:00Z',
+      created_at: '2026-10-22T14:10:00Z',
+    } as any)
+
+    vi.spyOn(outcomesModule, 'getReportCompletionStatus').mockResolvedValue({
+      isCompleted: false,
+      outcomeLabel: 'In Care',
+      activeCount: 4,
+      completedCount: 0,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-group']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R113')).toBeInTheDocument()
+    const openProfilesLink = screen.getByRole('link', { name: /Open Profiles/i })
+    expect(openProfilesLink).toBeInTheDocument()
+    expect(openProfilesLink).toHaveAttribute('href', '/reports/rep-group/animals')
+  })
 })
