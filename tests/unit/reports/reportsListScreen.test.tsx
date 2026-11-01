@@ -216,18 +216,18 @@ describe('ReportsListScreen', () => {
       cancelled: 0,
     })
 
-    const getRescueReportsSpy = vi.spyOn(domainModule, 'getRescueReports').mockResolvedValue([
-      {
-        id: 'rep-inp-1',
+    const getRescueReportsSpy = vi.spyOn(domainModule, 'getRescueReports').mockResolvedValue(
+      Array.from({ length: 4 }, (_, i) => ({
+        id: `rep-inp-${i + 1}`,
         org_id: 'org-1',
-        report_number: 'PARC-R201',
+        report_number: `PARC-R20${i + 1}`,
         species: 'dog',
         chief_complaint: 'En route with ambulance',
         status: 'dispatched',
         location_area: 'Gulberg III',
         created_at: new Date().toISOString(),
-      } as any,
-    ])
+      })) as any,
+    )
 
     render(
       <MemoryRouter>

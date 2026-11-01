@@ -23,16 +23,13 @@ import {
   completeReportWithDisposition,
   updateReportLegalNotes,
   syncReportPhotosToAnimal,
+  createAnimalFromRescueReport,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
 import {
   getReportCompletionStatus,
   type ReportCompletionResult,
 } from '@/features/reports/domain/reportOutcomes'
-import { createAnimal } from '@/features/animals/domain/animals'
-import { linkAnimals } from '@/features/animals/domain/relationships'
-import { listStatuses } from '@/features/statuses/domain/statuses'
-import { localDateString } from '@/shared/lib/checklist/missedStreak'
 import { ReportPipelineTracker } from '@/features/reports/components/ReportPipelineTracker'
 import { ReportFactsGrid } from '@/features/reports/components/ReportFactsGrid'
 import { LegalActionModal } from '@/features/reports/components/LegalActionModal'
@@ -105,160 +102,6 @@ export function ReportDetailScreen() {
     }
   }, [isDropdownOpen])
 
-  async function createAnimalFromReport(
-    disposition: 'spot_released' | 'admitted_shelter',
-  ): Promise<string> {
-    if (!db || !report) throw new Error('Database or report not available')
-
-    const orgId = report.org_id || member?.orgId
-    if (!orgId) throw new Error('Organization ID is missing')
-
-    const prefix = member?.orgInitials || report.report_number?.split('-')[0] || 'MS'
-    let targetStatusId: string | null = null
-
-    try {
-      const statuses = await listStatuses(db, orgId)
-      if (disposition === 'spot_released') {
-        const released = statuses.find((s) => s.label.toLowerCase() === 'released')
-        targetStatusId = released?.id ?? statuses[0]?.id ?? null
-      } else {
-        const intake =
-          statuses.find((s) => !s.archived && s.label.trim().toLowerCase() === 'intake') ??
-          statuses.find((s) => !s.archived && s.counts_as_in_care === 1) ??
-          statuses[0]
-        targetStatusId = intake?.id ?? null
-      }
-    } catch (err) {
-      console.warn('Could not load statuses for report animal intake', err)
-    }
-
-    const notesText = [
-      `Rescue report: ${report.report_number || ''}`,
-      report.chief_complaint ? `Complaint: ${report.chief_complaint}` : null,
-      report.reporter_name
-        ? `Reporter: ${report.reporter_name}${report.reporter_phone ? ` (${report.reporter_phone})` : ''}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join('\n')
-
-    const markingsText = report.location_landmark
-      ? `${report.location_area || ''} (near ${report.location_landmark})`.trim()
-      : report.location_area || undefined
-
-    const attendedDate = report.stage_attended_at
-      ? new Date(report.stage_attended_at)
-      : new Date()
-    const intakeDate = localDateString(attendedDate)
-    const intakeTime = `${String(attendedDate.getHours()).padStart(2, '0')}:${String(attendedDate.getMinutes()).padStart(2, '0')}`
-    const arrivalTimestamp = attendedDate.toISOString()
-
-    const animal = await createAnimal(db, {
-      orgId,
-      prefix,
-      species: report.species || 'other',
-      statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
-      notes: notesText,
-      markings: markingsText,
-      intakeDate,
-      intakeTime,
-      arrivalTimestamp,
-    })
-
-    // Transfer report photos to animal photos table and local cache
-    try {
-      await syncReportPhotosToAnimal(db, report.id, animal.id, orgId)
-    } catch (photoErr) {
-      console.warn('Could not copy report photos to animal', photoErr)
-    }
-
-    // Multi-animal / litter intake support (Gap 1 & Item 5)
-    let parsedGroup: Array<{ count: number; species: string; lifeStage?: string; avianSubtype?: string }> = []
-    if (report.group_breakdown) {
-      try {
-        const parsed = JSON.parse(report.group_breakdown)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          parsedGroup = parsed
-        }
-      } catch (err) {
-        console.warn('Failed to parse group_breakdown', err)
-      }
-    }
-
-    if (parsedGroup.length > 0) {
-      const allAnimals = parsedGroup.flatMap((item) =>
-        Array.from({ length: Math.max(1, item.count) }, () => ({
-          species: item.avianSubtype || item.species || report.species || 'other',
-          lifeStage: item.lifeStage as 'adult' | 'child' | undefined,
-        })),
-      )
-
-      for (let i = 1; i < allAnimals.length; i++) {
-        const spec = allAnimals[i]
-        try {
-          const companion = await createAnimal(db, {
-            orgId,
-            prefix,
-            species: spec.species.toLowerCase(),
-            lifeStage: spec.lifeStage || (report.life_stage === 'adult' ? 'child' : undefined),
-            statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
-            notes: `${notesText}\nCompanion #${i + 1} of ${allAnimals.length} in batch intake`,
-            markings: markingsText,
-            intakeDate,
-            intakeTime,
-            arrivalTimestamp,
-          })
-          await linkAnimals(db, {
-            orgId,
-            animalId: animal.id,
-            relatedAnimalId: companion.id,
-            relationshipType:
-              spec.lifeStage === 'child' && animal.life_stage === 'adult' ? 'child' : 'sibling',
-            notes: `Auto-linked from rescue report ${report.report_number || ''}`,
-          })
-        } catch (compErr) {
-          console.warn('Could not create companion animal for group', compErr)
-        }
-      }
-    } else {
-      const count = report.animal_count && report.animal_count > 1 ? report.animal_count : 1
-      if (count > 1) {
-        for (let i = 2; i <= count; i++) {
-          try {
-            const companion = await createAnimal(db, {
-              orgId,
-              prefix,
-              species: report.species || 'other',
-              lifeStage:
-                report.life_stage === 'adult'
-                  ? 'child'
-                  : report.life_stage === 'child'
-                    ? 'child'
-                    : undefined,
-              statusIds: targetStatusId ? [targetStatusId] : ['status-intake'],
-              notes: `${notesText}\nCompanion #${i} of ${count} in batch litter/group admission`,
-              markings: markingsText,
-              intakeDate,
-              intakeTime,
-              arrivalTimestamp,
-            })
-            await linkAnimals(db, {
-              orgId,
-              animalId: animal.id,
-              relatedAnimalId: companion.id,
-              relationshipType: report.life_stage === 'adult' ? 'child' : 'sibling',
-              notes: `Auto-linked from rescue report ${report.report_number || ''}`,
-            })
-          } catch (compErr) {
-            console.warn('Could not create companion animal for litter', compErr)
-          }
-        }
-      }
-    }
-
-    return animal.id
-  }
-
   async function handleMarkDOA() {
     if (!db || !report) return
     setActionLoading(true)
@@ -285,7 +128,11 @@ export function ReportDetailScreen() {
         let animalId = report.animal_id
         if (!animalId) {
           try {
-            animalId = await createAnimalFromReport('admitted_shelter')
+            animalId = await createAnimalFromRescueReport(db, report, {
+              orgId: report.org_id || member?.orgId,
+              orgInitials: member?.orgInitials,
+              disposition: 'admitted_shelter',
+            })
           } catch (animalErr) {
             console.error('Failed to automatically create animal record', animalErr)
           }
@@ -761,7 +608,11 @@ export function ReportDetailScreen() {
                           setIsDropdownOpen(false)
                           setActionLoading(true)
                           try {
-                            const animalId = await createAnimalFromReport('admitted_shelter')
+                            const animalId = await createAnimalFromRescueReport(db, report, {
+                              orgId: report.org_id || member?.orgId,
+                              orgInitials: member?.orgInitials,
+                              disposition: 'admitted_shelter',
+                            })
                             await completeReportWithDisposition(
                               db,
                               report.id,

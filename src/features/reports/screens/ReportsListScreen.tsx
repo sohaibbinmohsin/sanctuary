@@ -61,6 +61,7 @@ export function ReportsListScreen() {
   const [reports, setReports] = useState<RescueReport[]>([])
   const [completionMap, setCompletionMap] = useState<Map<string, ReportCompletionResult>>(new Map())
   const [summary, setSummary] = useState<RescueOperationsSummary | null>(null)
+  const [inProgressCount, setInProgressCount] = useState<number | null>(null)
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const deferredQuery = useDeferredValue(searchQuery)
@@ -116,11 +117,12 @@ export function ReportsListScreen() {
     try {
       let targetFilter = activeFilter
 
+      let sum: RescueOperationsSummary | null = null
       // Option 2 (Smart Operational Default):
       // On initial load, inspect counts: prioritize New reports, then In Progress, else All
       if (!defaultSelectedRef.current) {
         defaultSelectedRef.current = true
-        const sum = await getRescueOperationsSummary(db, orgId)
+        sum = await getRescueOperationsSummary(db, orgId)
         setSummary(sum)
         if (sum.awaitingTriage > 0) {
           targetFilter = 'new'
@@ -179,6 +181,33 @@ export function ReportsListScreen() {
           }
           return false
         })
+        setInProgressCount(finalReports.length)
+      } else if (targetFilter === 'all') {
+        const inProg = allReports.filter((r) => {
+          if (r.status === 'accepted' || r.status === 'dispatched') return true
+          if (r.status === 'attended') {
+            return compMap.get(r.id)?.isCompleted === false
+          }
+          return false
+        }).length
+        setInProgressCount(inProg)
+      }
+
+      if (targetFilter !== 'in_progress' && targetFilter !== 'all') {
+        void (async () => {
+          try {
+            const attendedReports = await getRescueReports(db, orgId, 'completed')
+            const attendedOnly = (attendedReports || []).filter((r) => r.status === 'attended')
+            if (attendedOnly.length > 0) {
+              const comp = await getBatchReportCompletionMap(db, attendedOnly)
+              const attendedInCare = attendedOnly.filter((r) => comp.get(r.id)?.isCompleted === false).length
+              const inFieldCount = sum?.inField ?? summary?.inField ?? 0
+              setInProgressCount(inFieldCount + attendedInCare)
+            }
+          } catch {
+            // Ignore background count failure
+          }
+        })()
       }
 
       finalReports.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
@@ -395,7 +424,9 @@ export function ReportsListScreen() {
             key === 'new'
               ? (summary?.awaitingTriage ?? 0)
               : key === 'in_progress'
-                ? (summary?.inField ?? 0)
+                ? (activeFilter === 'in_progress'
+                    ? (!loading || reports.length > 0 ? reports.length : (inProgressCount ?? summary?.inField ?? 0))
+                    : (inProgressCount ?? summary?.inField ?? 0))
                 : 0
 
           return (

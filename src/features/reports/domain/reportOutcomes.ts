@@ -89,7 +89,8 @@ export async function getReportCompletionStatus(
              FROM animal_relationships ar
              JOIN animals a ON a.id = ar.related_animal_id
              LEFT JOIN animal_statuses s ON s.id = a.status_id
-             WHERE ar.animal_id = ?`,
+             WHERE ar.animal_id = ?
+               AND (ar.relationship_type != 'incompatible' OR ar.relationship_type IS NULL)`,
             [report.animal_id],
           )) || []
       } catch (err) {

@@ -139,6 +139,8 @@ describe('ReportsListScreen Actions', () => {
       expect(screen.getByText('PARC-R101')).toBeInTheDocument()
       // rep-2 is spot_released (completed), so it should NOT be in In Progress
       expect(screen.queryByText('PARC-R102')).not.toBeInTheDocument()
+      // Numeric badge on In progress chip should match the actual count (1) of in-progress reports
+      expect(inProgressChip).toHaveTextContent('1')
     })
 
     // Click Completed chip

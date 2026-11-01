@@ -168,6 +168,30 @@ describe('getReportCompletionStatus', () => {
     expect(result.isCompleted).toBe(false)
     expect(result.outcomeLabel).toBe('Attended')
   })
+
+  it('excludes animals with incompatible relationship_type in companion query', async () => {
+    let capturedSql = ''
+    const mockDb = {
+      getOptional: vi.fn().mockResolvedValue({
+        id: 'a1',
+        counts_as_in_care: 0,
+        status_label: 'Adopted',
+      }),
+      getAll: vi.fn().mockImplementation((sql: string) => {
+        capturedSql = sql
+        return Promise.resolve([])
+      }),
+    }
+    const report: Partial<RescueReport> = {
+      id: 'r11',
+      status: 'attended',
+      disposition_type: 'admitted_shelter',
+      animal_id: 'a1',
+    }
+    const result = await getReportCompletionStatus(mockDb as any, report as RescueReport)
+    expect(result.isCompleted).toBe(true)
+    expect(capturedSql).toContain("(ar.relationship_type != 'incompatible' OR ar.relationship_type IS NULL)")
+  })
 })
 
 describe('getBatchReportCompletionMap', () => {
