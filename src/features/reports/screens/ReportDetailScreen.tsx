@@ -25,6 +25,10 @@ import {
   syncReportPhotosToAnimal,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
+import {
+  getReportCompletionStatus,
+  type ReportCompletionResult,
+} from '@/features/reports/domain/reportOutcomes'
 import { createAnimal } from '@/features/animals/domain/animals'
 import { linkAnimals } from '@/features/animals/domain/relationships'
 import { listStatuses } from '@/features/statuses/domain/statuses'
@@ -42,6 +46,7 @@ export function ReportDetailScreen() {
   const { member } = useCurrentMember()
 
   const [report, setReport] = useState<RescueReport | null>(null)
+  const [outcomeStatus, setOutcomeStatus] = useState<ReportCompletionResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -59,6 +64,14 @@ export function ReportDetailScreen() {
     try {
       const data = await getRescueReportById(db, id)
       setReport(data)
+      if (data) {
+        try {
+          const outcome = await getReportCompletionStatus(db, data)
+          setOutcomeStatus(outcome)
+        } catch (err) {
+          console.error('Failed to load report outcome status', err)
+        }
+      }
     } catch (err) {
       console.error('Failed to load rescue report', err)
       setError(err instanceof Error ? err.message : 'Failed to load report')
@@ -367,15 +380,22 @@ export function ReportDetailScreen() {
       statusBadgeClass = 'status-badge-clean active'
     }
   } else if (status === 'attended') {
-    if (disp === 'spot_released') {
+    if (disp === 'deceased_doa') {
+      statusBadgeLabel = 'Dead on Arrival (DOA)'
+      statusBadgeClass = 'status-badge-clean declined'
+    } else if (outcomeStatus?.isCompleted) {
+      if (disp === 'spot_released') {
+        statusBadgeLabel = isCruelty ? 'Resolved On-Site' : 'Spot Released (TNR)'
+      } else {
+        statusBadgeLabel = outcomeStatus.outcomeLabel || 'Completed'
+      }
+      statusBadgeClass = 'status-badge-clean shelter'
+    } else if (disp === 'spot_released') {
       statusBadgeLabel = isCruelty ? 'Resolved On-Site' : 'Spot Released (TNR)'
       statusBadgeClass = 'status-badge-clean shelter'
     } else if (disp === 'admitted_shelter') {
       statusBadgeLabel = isCruelty ? 'In Shelter Custody' : 'In Shelter Care'
       statusBadgeClass = 'status-badge-clean shelter'
-    } else if (disp === 'deceased_doa') {
-      statusBadgeLabel = 'Dead on Arrival (DOA)'
-      statusBadgeClass = 'status-badge-clean declined'
     } else {
       statusBadgeLabel = isCruelty ? 'In Custody' : 'Attended'
       statusBadgeClass = 'status-badge-clean shelter'
@@ -844,9 +864,10 @@ export function ReportDetailScreen() {
           <span className={statusBadgeClass}>{statusBadgeLabel}</span>
         </div>
 
-        {/* 4-Stage Lifecycle Stepper */}
+        {/* Lifecycle Stepper */}
         <ReportPipelineTracker
           report={report}
+          outcomeStatus={outcomeStatus}
           onStepClick={(stepNumber) => {
             if (isCruelty && status === 'accepted' && stepNumber === 3) {
               setIsLegalEditingOnly(false)

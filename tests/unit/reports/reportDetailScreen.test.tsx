@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ReportDetailScreen } from '@/features/reports/screens/ReportDetailScreen'
 import * as domainModule from '@/features/reports/domain/rescueReports'
+import * as outcomesModule from '@/features/reports/domain/reportOutcomes'
 
 const mockDb = {
   getAll: vi.fn().mockResolvedValue([]),
@@ -640,5 +641,44 @@ describe('ReportDetailScreen', () => {
     expect(await screen.findByText('PARC-R110')).toBeInTheDocument()
     expect(screen.getAllByText(/Dead on Arrival \(DOA\)/i).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByRole('button', { name: /Dead on Arrival/i })).toBeInTheDocument()
+  })
+
+  it('renders exit outcome badge label and keeps Open Profile link when linked animal is completed', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-outcome-done',
+      org_id: 'org-1',
+      report_number: 'PARC-R111',
+      category: 'emergency',
+      species: 'dog',
+      chief_complaint: 'Healed and adopted',
+      status: 'attended',
+      disposition_type: 'admitted_shelter',
+      animal_id: 'animal-123',
+      location_area: 'Gulberg',
+      stage_logged_at: '2026-10-22T14:10:00Z',
+      stage_attended_at: '2026-10-22T15:00:00Z',
+      created_at: '2026-10-22T14:10:00Z',
+    } as any)
+
+    vi.spyOn(outcomesModule, 'getReportCompletionStatus').mockResolvedValue({
+      isCompleted: true,
+      outcomeLabel: 'Adopted',
+      activeCount: 0,
+      completedCount: 1,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-outcome-done']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('PARC-R111')).toBeInTheDocument()
+    expect(screen.getAllByText('Adopted').length).toBeGreaterThanOrEqual(1)
+    const openProfileLink = screen.getByRole('link', { name: /Open Profile/i })
+    expect(openProfileLink).toBeInTheDocument()
+    expect(openProfileLink).toHaveAttribute('href', '/animals/animal-123')
   })
 })
