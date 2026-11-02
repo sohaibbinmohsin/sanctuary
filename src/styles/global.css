@@ -1254,6 +1254,7 @@ a.primary {
     padding: 0.9rem 1rem;
     min-height: 3.25rem;
     gap: var(--space-4);
+    white-space: nowrap;
   }
 
   /* Bigger nav icons */
@@ -1281,15 +1282,27 @@ a.primary {
   position: fixed;
   top: 0;
   left: 0;
+  right: 0;
+  bottom: 0;
+  inset: 0;
+  width: 100%;
   width: 100vw;
+  height: 100%;
+  height: 100vh;
   height: 100dvh;
+  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100%;
+  max-height: 100vh;
+  max-height: 100dvh;
   z-index: calc(var(--z-modal, 1000) + 1);
   background: var(--color-surface, #f7faf8);
-  padding: var(--space-6) var(--space-4);
-  gap: var(--space-6);
+  padding: calc(var(--space-6) + env(safe-area-inset-top, 0px)) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+  gap: var(--space-4);
   transform: translateX(-100%);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow-y: auto;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
@@ -1301,6 +1314,7 @@ a.primary {
   display: flex;
   flex-direction: column;
   padding: 0 var(--space-2);
+  flex-shrink: 0;
 }
 
 .app-sidebar__brand-lockup {
@@ -1480,7 +1494,28 @@ a.primary {
 
 .app-sidebar__nav {
   display: grid;
+  align-content: start;
   gap: var(--space-1);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.app-sidebar__nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.app-sidebar__nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-sidebar__nav::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full, 9999px);
 }
 
 .app-sidebar__nav a {
@@ -1500,6 +1535,7 @@ a.primary {
   font-weight: 500;
   font-size: var(--text-sm);
   cursor: pointer;
+  white-space: nowrap;
   transition: background var(--duration) var(--ease-out), color var(--duration) var(--ease-out);
 }
 
@@ -1526,6 +1562,7 @@ a.primary {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  flex-shrink: 0;
 }
 
 .app-sidebar__copyright {
@@ -1542,7 +1579,7 @@ a.primary {
 
 @media (max-width: 640px) {
   .app-sidebar__copyright {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 }
 
@@ -5764,14 +5801,20 @@ a.primary {
     position: sticky;
     top: 0;
     left: auto;
+    right: auto;
+    bottom: auto;
+    inset: auto;
     width: auto;
     height: 100dvh;
+    min-height: 0;
+    max-height: none;
+    padding: var(--space-6) var(--space-4);
+    gap: var(--space-6);
     transform: none !important;
     z-index: 1;
     overflow-y: visible;
     border-right: 1px solid var(--color-border);
     background: rgba(247, 250, 248, 0.85);
-    min-height: 0;
     transition: width var(--duration) var(--ease-out), padding var(--duration) var(--ease-out);
   }
 
@@ -5999,7 +6042,7 @@ a.primary {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     font-size: var(--text-sm);
     font-weight: 600;
     color: var(--color-ink);

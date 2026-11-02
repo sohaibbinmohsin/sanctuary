@@ -231,4 +231,57 @@ describe('AppShell Module Navigation', () => {
     const dashboardLink = container.querySelector('.app-sidebar__nav a[href="/dashboard"]')
     expect(dashboardLink).not.toHaveClass('active')
   })
+
+  it('renders sidebar structure with scrollable nav container, fixed header and footer, without line break tags', () => {
+    vi.spyOn(useCurrentMemberModule, 'useCurrentMember').mockReturnValue({
+      loading: false,
+      member: {
+        id: 'mem-1',
+        orgId: 'org-1',
+        userId: 'user-1',
+        role: 'admin',
+        orgName: 'Full Shelter Org',
+        orgInitials: 'FSO',
+        orgLogoR2Key: null,
+        publicEnabled: false,
+        publicSlug: null,
+        setupCompleted: true,
+        currency: 'PKR',
+        enabledModules: new Set<import('@/shared/domain/modules').AppModuleId>([
+          'reports',
+          'animals',
+          'checklist',
+          'ledger',
+        ]),
+        hasModule: () => true,
+      },
+    })
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/reports']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+
+    const sidebar = container.querySelector('.app-sidebar')
+    expect(sidebar).not.toBeNull()
+
+    const header = sidebar?.querySelector('.app-sidebar__header')
+    expect(header).not.toBeNull()
+
+    const nav = sidebar?.querySelector('.app-sidebar__nav')
+    expect(nav).not.toBeNull()
+
+    const footer = sidebar?.querySelector('.app-sidebar__footer')
+    expect(footer).not.toBeNull()
+
+    // Ensure no line break tags (<br>) are added anywhere in the sidebar
+    expect(sidebar?.querySelectorAll('br')).toHaveLength(0)
+
+    // Ensure footer copyright and attribution are rendered cleanly
+    const copyright = footer?.querySelector('.app-sidebar__copyright')
+    expect(copyright).not.toBeNull()
+    const mohsin = footer?.querySelector('.app-sidebar__mohsin')
+    expect(mohsin).not.toBeNull()
+  })
 })
