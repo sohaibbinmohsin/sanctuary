@@ -25,13 +25,13 @@ export function SplashScreen({
           </div>
           <div className="boot-screen__brand-text">
             <h1 className="brand">Sanctuary</h1>
-            <p className="subheading">Animal welfare platform</p>
+            <p className="subheading">Animal welfare network</p>
           </div>
         </div>
         {message ? <p className="muted">{message}</p> : null}
       </div>
       <div className="boot-screen__footer">
-        <span>Free software by The Mohsin Project</span>
+        <span>A free software by The Mohsin Project</span>
         <img src="/mohsin-project-logo-white.svg" alt="" height={18} />
       </div>
     </main>

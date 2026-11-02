@@ -41,7 +41,7 @@ export function SetupWaitingScreen({ onSignOut }: SetupWaitingScreenProps) {
             Sanctuary
           </h1>
           <p className="subheading" style={{ margin: 0 }}>
-            Animal welfare platform
+            Animal welfare network
           </p>
         </div>
         <p className="setup-waiting-message">
