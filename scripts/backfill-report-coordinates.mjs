@@ -47,12 +47,18 @@ const sql = postgres(connectionString, { max: 2, ssl: isSsl ? 'require' : false 
 function getCentroid(areaName, cityName) {
   if (!areaName || !areaName.trim()) return null
   const cityId = cityName ? cityName.trim().toLowerCase().replace(/[\s_]+/g, '-') : undefined
-  const matches = searchAreas(areaName, { cityId, limit: 1 })
-  if (matches.length > 0) {
-    return {
-      latitude: matches[0].coordinates.lat,
-      longitude: matches[0].coordinates.lng,
-      matchedArea: matches[0].name,
+  const matches = searchAreas(areaName, { cityId, limit: 5 })
+  const qLower = areaName.trim().toLowerCase()
+  for (const top of matches) {
+    const isExact = top.name.toLowerCase() === qLower
+    const isAlias = (top.aliases || []).some((a) => a.toLowerCase() === qLower)
+    const isPrefix = top.name.toLowerCase().startsWith(qLower) || qLower.startsWith(top.name.toLowerCase())
+    if (isExact || isAlias || isPrefix) {
+      return {
+        latitude: top.coordinates.lat,
+        longitude: top.coordinates.lng,
+        matchedArea: top.name,
+      }
     }
   }
   return null
