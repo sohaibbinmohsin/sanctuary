@@ -25,6 +25,7 @@ import {
   updateReportLegalNotes,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
+import { updateReportInCache } from '@/features/reports/domain/reportsCache'
 import { createAnimal } from '@/features/animals/domain/animals'
 import { linkAnimals } from '@/features/animals/domain/relationships'
 import { listStatuses } from '@/features/statuses/domain/statuses'
@@ -58,6 +59,9 @@ export function ReportDetailScreen() {
     try {
       const data = await getRescueReportById(db, id)
       setReport(data)
+      if (data) {
+        updateReportInCache(data)
+      }
     } catch (err) {
       console.error('Failed to load rescue report', err)
       setError(err instanceof Error ? err.message : 'Failed to load report')

@@ -38,6 +38,7 @@ import {
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
+import { invalidateReportsCache } from '@/features/reports/domain/reportsCache'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 
 const SPECIES_PRESETS = ['Dog', 'Cat', 'Horse', 'Donkey', 'Bird', 'Other'] as const
@@ -434,6 +435,7 @@ export function ReportIntakeScreen() {
           animalCount: Math.max(1, effectiveCount),
           groupBreakdown: groupBreakdownJson,
         })
+        invalidateReportsCache(orgId)
 
         // Attach any staged photos to this report
         if (stagedPhotos.length > 0) {
