@@ -44,15 +44,38 @@ const isApply = process.argv.includes('--apply')
 const isSsl = connectionString.includes('supabase')
 const sql = postgres(connectionString, { max: 2, ssl: isSsl ? 'require' : false })
 
+const COMMON_AREA_ALIASES = {
+  thoker: 'Thokar Niaz Baig',
+  thokhar: 'Thokar Niaz Baig',
+  thokr: 'Thokar Niaz Baig',
+  'daewo express thoker': 'Thokar Niaz Baig',
+  margzar: 'Marghzar Colony',
+  'green twon': 'Green Town',
+  'bank stop': { lat: 31.4803, lng: 74.3602, name: 'Bank Stop (Walton Road)' },
+}
+
 function getCentroid(areaName, cityName) {
   if (!areaName || !areaName.trim()) return null
-  const cityId = cityName ? cityName.trim().toLowerCase().replace(/[\s_]+/g, '-') : undefined
-  const matches = searchAreas(areaName, { cityId, limit: 5 })
   const qLower = areaName.trim().toLowerCase()
+
+  const directAlias = COMMON_AREA_ALIASES[qLower]
+  if (directAlias && typeof directAlias === 'object') {
+    return {
+      latitude: directAlias.lat,
+      longitude: directAlias.lng,
+      matchedArea: directAlias.name,
+    }
+  }
+
+  const lookupName = typeof directAlias === 'string' ? directAlias : areaName
+  const cityId = cityName ? cityName.trim().toLowerCase().replace(/[\s_]+/g, '-') : undefined
+  const matches = searchAreas(lookupName, { cityId, limit: 5 })
+  const targetLower = lookupName.trim().toLowerCase()
+
   for (const top of matches) {
-    const isExact = top.name.toLowerCase() === qLower
-    const isAlias = (top.aliases || []).some((a) => a.toLowerCase() === qLower)
-    const isPrefix = top.name.toLowerCase().startsWith(qLower) || qLower.startsWith(top.name.toLowerCase())
+    const isExact = top.name.toLowerCase() === targetLower
+    const isAlias = (top.aliases || []).some((a) => a.toLowerCase() === targetLower)
+    const isPrefix = top.name.toLowerCase().startsWith(targetLower) || targetLower.startsWith(top.name.toLowerCase())
     if (isExact || isAlias || isPrefix) {
       return {
         latitude: top.coordinates.lat,
@@ -122,6 +145,21 @@ async function main() {
       process.stdout.write(`  Updated ${Math.min(i + batchSize, updates.length)} / ${updates.length} reports...\r`)
     }
     console.log(`\n✨ Successfully updated ${matched} reports in production!\n`)
+
+    const walkInFixes = await sql`
+      UPDATE public.rescue_reports
+      SET intake_source = CASE 
+            WHEN location_area ILIKE '%1122%' THEN 'rescue_1122'
+            ELSE 'walk_in'
+          END,
+          location_area = NULL,
+          updated_at = NOW()
+      WHERE latitude IS NULL AND (location_area ILIKE '%1122%' OR location_area = 'Office')
+      RETURNING id, report_number, location_area, intake_source
+    `
+    if (walkInFixes.length > 0) {
+      console.log(`🩺 Updated ${walkInFixes.length} 1122/Office reports to walk-in intake source and cleared dummy location area.`)
+    }
   } else if (!isApply && matched > 0) {
     console.log(`\n💡 To apply these changes to the database, run:`)
     console.log(`   node scripts/backfill-report-coordinates.mjs --apply\n`)

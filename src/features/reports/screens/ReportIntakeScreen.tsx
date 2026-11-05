@@ -361,15 +361,16 @@ export function ReportIntakeScreen() {
     const complaintTrimmed = chiefComplaint.trim()
     const cityTrimmed = city.trim() || 'Lahore'
     const isDirectWalkIn = isWalkIn
-    const areaTrimmed = locationArea.trim() || (isDirectWalkIn ? 'Clinic / Shelter' : '')
+    const isLocationOptional = isDirectWalkIn || intakeSource === 'rescue_1122'
+    const areaTrimmed = locationArea.trim()
 
     if (!complaintTrimmed) {
       setError('Please provide a chief complaint or injury description.')
       return
     }
 
-    if (!areaTrimmed) {
-      setError('Please provide a location area.')
+    if (!isLocationOptional && !areaTrimmed) {
+      setError('Please provide a rescue location area.')
       return
     }
 
@@ -505,7 +506,7 @@ export function ReportIntakeScreen() {
           lifeStage: effectiveLifeStage,
           chiefComplaint: complaintTrimmed,
           city: cityTrimmed,
-          locationArea: areaTrimmed,
+          locationArea: areaTrimmed || null,
           locationLandmark: locationLandmark.trim() || null,
           latitude: latitude ?? null,
           longitude: longitude ?? null,
@@ -1300,7 +1301,18 @@ export function ReportIntakeScreen() {
 
         {/* 3. Location & Landmark */}
         <div className="panel stack">
-          <p className="section-label">Location Details</p>
+          <div className="stack stack--tight">
+            <p className="section-label" style={{ margin: 0 }}>
+              {isWalkIn || intakeSource === 'rescue_1122'
+                ? 'Original Found Location (Optional)'
+                : 'Rescue / Incident Location'}
+            </p>
+            <p className="field__hint" style={{ margin: 0 }}>
+              {isWalkIn || intakeSource === 'rescue_1122'
+                ? 'Where the animal was originally found (leave blank if brought directly to the office/clinic).'
+                : 'Where was the animal found or where should the rescue team be dispatched?'}
+            </p>
+          </div>
 
           <AutocompleteField
             label="City"
@@ -1311,11 +1323,15 @@ export function ReportIntakeScreen() {
               if (error) setError(null)
             }}
             suggestions={getAllSupportedCities()}
-            required
+            required={!isWalkIn && intakeSource !== 'rescue_1122'}
           />
 
           <AutocompleteField
-            label="Area / Neighborhood"
+            label={
+              isWalkIn || intakeSource === 'rescue_1122'
+                ? 'Area / Neighborhood (optional)'
+                : 'Area / Neighborhood'
+            }
             placeholder={
               city.toLowerCase() === 'lahore'
                 ? 'e.g. Gulberg III, DHA Phase 5, Model Town'
@@ -1336,7 +1352,7 @@ export function ReportIntakeScreen() {
             }}
             suggestions={getAreasForCity(city)}
             filterFn={(q) => filterAreas(city, q)}
-            required={!isWalkIn}
+            required={!isWalkIn && intakeSource !== 'rescue_1122'}
           />
 
           <TextField

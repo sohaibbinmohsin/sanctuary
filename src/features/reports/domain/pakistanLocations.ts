@@ -107,6 +107,16 @@ export function searchLocationAreas(
   return searchAreas(query, { cityId, limit: options?.limit ?? 25 })
 }
 
+const COMMON_AREA_ALIASES: Record<string, string> = {
+  thoker: 'Thokar Niaz Baig',
+  thokhar: 'Thokar Niaz Baig',
+  thokr: 'Thokar Niaz Baig',
+  'daewo express thoker': 'Thokar Niaz Baig',
+  margzar: 'Marghzar Colony',
+  'green twon': 'Green Town',
+  'bank stop': 'Waltan',
+}
+
 /**
  * Looks up the verified centroid GPS coordinates for a given area name or alias.
  */
@@ -115,13 +125,15 @@ export function getAreaCentroid(
   cityName?: string | null
 ): { latitude: number; longitude: number } | null {
   if (!areaName || !areaName.trim()) return null
-  const matches = searchLocationAreas(areaName, { city: cityName, limit: 1 })
+  const qLower = areaName.trim().toLowerCase()
+  const lookupName = COMMON_AREA_ALIASES[qLower] || areaName
+  const matches = searchLocationAreas(lookupName, { city: cityName, limit: 1 })
   if (matches.length > 0) {
     const top = matches[0]
-    const qLower = areaName.trim().toLowerCase()
-    const isExact = top.name.toLowerCase() === qLower
-    const isAlias = top.aliases.some((a: string) => a.toLowerCase() === qLower)
-    const isPrefix = top.name.toLowerCase().startsWith(qLower) || qLower.startsWith(top.name.toLowerCase())
+    const targetLower = lookupName.trim().toLowerCase()
+    const isExact = top.name.toLowerCase() === targetLower
+    const isAlias = top.aliases.some((a: string) => a.toLowerCase() === targetLower)
+    const isPrefix = top.name.toLowerCase().startsWith(targetLower) || targetLower.startsWith(top.name.toLowerCase())
     if (isExact || isAlias || isPrefix) {
       return {
         latitude: top.coordinates.lat,

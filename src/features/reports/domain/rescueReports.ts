@@ -65,7 +65,7 @@ export type CreateRescueReportInput = {
   lifeStage?: 'adult' | 'child' | null
   chiefComplaint: string
   city?: string | null
-  locationArea: string
+  locationArea?: string | null
   locationLandmark?: string | null
   latitude?: number | null
   longitude?: number | null
@@ -284,7 +284,7 @@ export async function createRescueReport(
     chief_complaint: input.chiefComplaint.trim(),
     status,
     city: input.city?.trim() || 'Lahore',
-    location_area: input.locationArea.trim(),
+    location_area: input.locationArea?.trim() || null,
     location_landmark: input.locationLandmark?.trim() || null,
     latitude: input.latitude ?? null,
     longitude: input.longitude ?? null,
