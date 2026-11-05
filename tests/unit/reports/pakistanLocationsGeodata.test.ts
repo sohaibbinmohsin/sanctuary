@@ -19,8 +19,8 @@ describe('pakistanLocations with pak-geodata', () => {
     })
 
     it('resolves coordinates in Karachi Clifton to Clifton Block', () => {
-      // Clifton Block 2 is around 24.8184, 67.0305
-      const result = reverseGeocodeCoordinates({ latitude: 24.8184, longitude: 67.0305 })
+      // Clifton Block 5 is at 24.818, 67.039
+      const result = reverseGeocodeCoordinates({ latitude: 24.818, longitude: 67.039 })
       expect(result).not.toBeNull()
       expect(result?.areaName).toContain('Clifton')
       expect(result?.cityName).toBe('Karachi')

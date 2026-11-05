@@ -36,7 +36,7 @@ describe('pakistanLocations', () => {
   })
 
   it('returns empty list for cities without preset directories while allowing custom inputs', () => {
-    const custom = getAreasForCity('Swabi')
+    const custom = getAreasForCity('NonExistentCityXYZ')
     expect(custom).toEqual([])
   })
 })
