@@ -104,6 +104,20 @@ export function getNavigationUrl(lat: number, lng: number): string {
 }
 
 /**
+ * Generates an OpenStreetMap embed URL with an accurate coordinate marker.
+ * Free, offline-friendly tile caching, zero API keys required.
+ */
+export function getMapEmbedUrl(lat: number, lng: number): string {
+  const dLat = 0.005
+  const dLng = 0.007
+  const minLng = roundCoord(lng - dLng)
+  const minLat = roundCoord(lat - dLat)
+  const maxLng = roundCoord(lng + dLng)
+  const maxLat = roundCoord(lat + dLat)
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${minLng}%2C${minLat}%2C${maxLng}%2C${maxLat}&layer=mapnik&marker=${lat}%2C${lng}`
+}
+
+/**
  * Acquires current position using the standard browser Geolocation API.
  * 100% free, runs client-side with device GPS/cell triangulation.
  */

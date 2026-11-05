@@ -15,6 +15,7 @@ export type AutocompleteFieldProps = {
   value: string
   onChange: (value: string) => void
   suggestions: readonly string[] | string[]
+  filterFn?: (query: string, suggestions: readonly string[]) => string[]
   required?: boolean
   disabled?: boolean
   className?: string
@@ -28,6 +29,7 @@ export function AutocompleteField({
   value,
   onChange,
   suggestions,
+  filterFn,
   required,
   disabled,
   className,
@@ -41,10 +43,12 @@ export function AutocompleteField({
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
 
-  const query = value.trim().toLowerCase()
-  const filtered = suggestions
-    .filter((item) => (query ? item.toLowerCase().includes(query) : true))
-    .slice(0, 30) // Cap dropdown to 30 visible items for snappy rendering
+  const query = value.trim()
+  const filtered = filterFn
+    ? filterFn(value, suggestions).slice(0, 30)
+    : suggestions
+        .filter((item) => (query ? item.toLowerCase().includes(query.toLowerCase()) : true))
+        .slice(0, 30)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

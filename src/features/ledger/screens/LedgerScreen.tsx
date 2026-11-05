@@ -18,6 +18,8 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { TextField } from '@/shared/ui/Field'
+import { useIncrementalList } from '@/shared/hooks/useIncrementalList'
+import { LoadMoreSentinel } from '@/shared/ui/LoadMoreSentinel'
 import { isPlaygroundMode } from '@/features/playground/mode'
 
 type MoneyPeriod = 'all' | 'today' | 'yesterday' | 'month' | 'custom'
@@ -124,7 +126,7 @@ export function LedgerScreen() {
     }
   }, [db])
 
-  const visibleEntries = useMemo(() => {
+  const entriesInRange = useMemo(() => {
     if (period === 'all') return entries
     const from = activeRange.from
     const to = activeRange.to
@@ -135,6 +137,18 @@ export function LedgerScreen() {
       return true
     })
   }, [entries, period, activeRange])
+
+  const {
+    visibleItems: visibleEntries,
+    hasMore,
+    remainingCount,
+    loadMore,
+    sentinelRef,
+  } = useIncrementalList(entriesInRange, {
+    batchSize: 50,
+    getId: (e) => e.id,
+    resetDeps: [period, activeRange.from, activeRange.to],
+  })
 
   const net = totals.inCents - totals.outCents
   const hasEntries = entries.length > 0
@@ -294,52 +308,61 @@ export function LedgerScreen() {
           <h2>
             {period === 'all'
               ? 'All entries'
-              : `${visibleEntries.length} entr${visibleEntries.length === 1 ? 'y' : 'ies'} in range`}
+              : `${entriesInRange.length} entr${entriesInRange.length === 1 ? 'y' : 'ies'} in range`}
           </h2>
-          {visibleEntries.length === 0 ? (
+          {entriesInRange.length === 0 ? (
             <p className="muted">No entries in this date range.</p>
           ) : (
-            <div
-              className="panel"
-              style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}
-            >
-              {visibleEntries.map((e) => (
-                <div className="list-item list-item--row" key={e.id}>
-                  <div className="list-item__body">
-                    <strong
-                      className={`list-item__amount ${
-                        e.direction === 'in' ? 'money-in' : 'money-out'
-                      }`}
-                    >
-                      {e.direction === 'in' ? '+' : '−'}
-                      {formatCurrency(e.amount_cents ?? 0, member?.currency)}
-                    </strong>{' '}
-                    <span className="muted">
-                      {e.category_label} · {e.entry_date}
-                    </span>
-                    {e.direction === 'in' && isAnonymousEntry(e.is_anonymous) ? (
-                      <span className="muted"> · Anonymous</span>
-                    ) : null}
-                    {e.notes ? <div>{e.notes}</div> : null}
-                    <EntryProofThumbs
-                      entryId={e.id}
-                      attachments={attachments}
-                    />
+            <>
+              <div
+                className="panel"
+                style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}
+              >
+                {visibleEntries.map((e) => (
+                  <div className="list-item list-item--row" key={e.id}>
+                    <div className="list-item__body">
+                      <strong
+                        className={`list-item__amount ${
+                          e.direction === 'in' ? 'money-in' : 'money-out'
+                        }`}
+                      >
+                        {e.direction === 'in' ? '+' : '−'}
+                        {formatCurrency(e.amount_cents ?? 0, member?.currency)}
+                      </strong>{' '}
+                      <span className="muted">
+                        {e.category_label} · {e.entry_date}
+                      </span>
+                      {e.direction === 'in' && isAnonymousEntry(e.is_anonymous) ? (
+                        <span className="muted"> · Anonymous</span>
+                      ) : null}
+                      {e.notes ? <div>{e.notes}</div> : null}
+                      <EntryProofThumbs
+                        entryId={e.id}
+                        attachments={attachments}
+                      />
+                    </div>
+                    <div className="list-item__actions">
+                      <Button
+                        to={`/ledger/${e.id}`}
+                        variant="ghost"
+                        className="btn--icon"
+                        aria-label="Edit ledger entry"
+                        title="Edit"
+                      >
+                        <PencilSimple size={18} weight="bold" aria-hidden />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="list-item__actions">
-                    <Button
-                      to={`/ledger/${e.id}`}
-                      variant="ghost"
-                      className="btn--icon"
-                      aria-label="Edit ledger entry"
-                      title="Edit"
-                    >
-                      <PencilSimple size={18} weight="bold" aria-hidden />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              <LoadMoreSentinel
+                sentinelRef={sentinelRef}
+                hasMore={hasMore}
+                remainingCount={remainingCount}
+                onLoadMore={loadMore}
+              />
+            </>
           )}
         </div>
       )}

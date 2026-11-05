@@ -31,6 +31,8 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { MoraleToast } from '@/shared/ui/MoraleToast'
+import { useIncrementalList } from '@/shared/hooks/useIncrementalList'
+import { LoadMoreSentinel } from '@/shared/ui/LoadMoreSentinel'
 import {
   parseAnimalFilterParams,
   serializeAnimalFilterParams,
@@ -175,6 +177,24 @@ export function AddToChecklistScreen() {
   const allVisibleSelected =
     animals.length > 0 && animals.every((animal) => selectedIds.has(animal.id))
   const listClassName = isListView ? 'animal-list' : 'animal-grid'
+
+  const {
+    visibleItems: visibleAnimals,
+    hasMore,
+    remainingCount,
+    loadMore,
+    sentinelRef,
+  } = useIncrementalList(animals, {
+    batchSize: 50,
+    getId: (a) => a.id,
+    resetDeps: [
+      deferredQuery,
+      filters.statusIds,
+      filters.statusMode,
+      filters.species,
+      filters.sex,
+    ],
+  })
 
   function updateQuery(query: string) {
     const nextSearch = serializeAnimalFilterParams({ ...filters, query })
@@ -397,32 +417,41 @@ export function AddToChecklistScreen() {
           }
         />
       ) : (
-        <div className={listClassName}>
-          {animals.map((animal) => {
-            const selected = selectedIds.has(animal.id)
-            return (
-              <div
-                key={animal.id}
-                className={`animal-card-selectable animal-card-selectable--enabled${isListView ? ' animal-card-selectable--list' : ''}${selected ? ' animal-card-selectable--selected' : ''}`}
-                aria-selected={selected}
-                onClickCapture={(event) => {
-                  event.preventDefault()
-                  toggleAnimal(animal.id)
-                }}
-              >
-                <AnimalCard
-                  animal={animal}
-                  photoUrl={photoUrls[animal.id]}
-                  hasVerifiedPhoto={false}
-                  variant={view}
-                />
-                <span className="animal-card-selectable__indicator" aria-hidden>
-                  {selected ? <Check size={18} weight="bold" /> : null}
-                </span>
-              </div>
-            )
-          })}
-        </div>
+        <>
+          <div className={listClassName}>
+            {visibleAnimals.map((animal) => {
+              const selected = selectedIds.has(animal.id)
+              return (
+                <div
+                  key={animal.id}
+                  className={`animal-card-selectable animal-card-selectable--enabled${isListView ? ' animal-card-selectable--list' : ''}${selected ? ' animal-card-selectable--selected' : ''}`}
+                  aria-selected={selected}
+                  onClickCapture={(event) => {
+                    event.preventDefault()
+                    toggleAnimal(animal.id)
+                  }}
+                >
+                  <AnimalCard
+                    animal={animal}
+                    photoUrl={photoUrls[animal.id]}
+                    hasVerifiedPhoto={false}
+                    variant={view}
+                  />
+                  <span className="animal-card-selectable__indicator" aria-hidden>
+                    {selected ? <Check size={18} weight="bold" /> : null}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          <LoadMoreSentinel
+            sentinelRef={sentinelRef}
+            hasMore={hasMore}
+            remainingCount={remainingCount}
+            onLoadMore={loadMore}
+          />
+        </>
       )}
 
       <div className="animal-selection-actions animal-selection-actions--bottom">

@@ -60,7 +60,7 @@ export function RescueCategoryCard() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-1)', fontSize: 'var(--text-sm)' }}>
                   <span style={{ fontWeight: 600 }}>
-                    Medical emergency
+                    Injured/sick animal
                   </span>
                   <strong>{data.emergency}</strong>
                 </div>

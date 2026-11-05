@@ -35,6 +35,8 @@ import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { useIncrementalList } from '@/shared/hooks/useIncrementalList'
+import { LoadMoreSentinel } from '@/shared/ui/LoadMoreSentinel'
 import {
   parseAnimalFilterParams,
   serializeAnimalFilterParams,
@@ -96,9 +98,30 @@ export function AnimalsListScreen() {
     }
   }, [])
 
+  const targetAnimalId = useMemo(() => getLastClickedAnimalId(), [])
+
+  const {
+    visibleItems: visibleAnimals,
+    hasMore,
+    remainingCount,
+    loadMore,
+    sentinelRef,
+  } = useIncrementalList(animals, {
+    batchSize: 50,
+    targetId: targetAnimalId,
+    getId: (a) => a.id,
+    resetDeps: [
+      deferredQuery,
+      filters.statusIds,
+      filters.statusMode,
+      filters.species,
+      filters.sex,
+    ],
+  })
+
   // Restore scroll position when returning to the animals list
   useEffect(() => {
-    if (loading || animals.length === 0 || scrollRestoredRef.current) return
+    if (loading || visibleAnimals.length === 0 || scrollRestoredRef.current) return
 
     const targetId = getLastClickedAnimalId()
     const savedTop = getAnimalsScrollPosition()
@@ -144,7 +167,7 @@ export function AnimalsListScreen() {
     }
 
     requestAnimationFrame(tryRestore)
-  }, [loading, animals.length])
+  }, [loading, visibleAnimals.length])
 
   useEffect(() => {
     if (!db || !member) return
@@ -384,23 +407,32 @@ export function AnimalsListScreen() {
           actionTo={hasFilters ? undefined : '/animals/new'}
         />
       ) : (
-        <div className={listClassName}>
-          {animals.map((animal) => (
-            <div
-              key={animal.id}
-              id={`animal-card-${animal.id}`}
-              className="animal-card-selectable"
-              onClick={() => saveAnimalsScrollPosition(animal.id)}
-            >
-              <AnimalCard
-                animal={animal}
-                photoUrl={photoUrls[animal.id]}
-                hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
-                variant={view}
-              />
-            </div>
-          ))}
-        </div>
+        <>
+          <div className={listClassName}>
+            {visibleAnimals.map((animal) => (
+              <div
+                key={animal.id}
+                id={`animal-card-${animal.id}`}
+                className="animal-card-selectable"
+                onClick={() => saveAnimalsScrollPosition(animal.id)}
+              >
+                <AnimalCard
+                  animal={animal}
+                  photoUrl={photoUrls[animal.id]}
+                  hasVerifiedPhoto={Boolean(verifiedAnimalIds[animal.id])}
+                  variant={view}
+                />
+              </div>
+            ))}
+          </div>
+
+          <LoadMoreSentinel
+            sentinelRef={sentinelRef}
+            hasMore={hasMore}
+            remainingCount={remainingCount}
+            onLoadMore={loadMore}
+          />
+        </>
       )}
     </section>
   )

@@ -199,6 +199,7 @@ const rescue_reports = new Table(
     intake_source: column.text,
     animal_count: column.integer,
     group_breakdown: column.text,
+    archived: column.integer,
     created_at: column.text,
     updated_at: column.text,
   },

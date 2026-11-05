@@ -111,20 +111,26 @@ export function useCurrentMember(): {
     userId ? [userId] : [],
   )
 
-  const [hydrating, setHydrating] = useState(false)
+  const [bootstrapDone, setBootstrapDone] = useState(false)
+  const hydratedUserRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (userId !== hydratedUserRef.current) {
+      hydratedUserRef.current = userId ?? null
+      hydratedRef.current = false
+      setBootstrapDone(false)
+    }
+  }, [userId])
 
   useEffect(() => {
     if (!db || playground || !userId || authLoading || queryLoading) return
     if (!hydratedRef.current) {
       hydratedRef.current = true
-      if (memberRows.length === 0) {
-        setHydrating(true)
-      }
       void hydrateOrgBootstrap(db).finally(() => {
-        setHydrating(false)
+        setBootstrapDone(true)
       })
     }
-  }, [db, playground, userId, authLoading, queryLoading, memberRows.length])
+  }, [db, playground, userId, authLoading, queryLoading])
 
   const row = memberRows[0]
   const member = useMemo(
@@ -145,7 +151,10 @@ export function useCurrentMember(): {
     ],
   )
   const loading =
-    authLoading || (userId ? queryLoading || hydrating : false)
+    authLoading ||
+    (userId
+      ? queryLoading || (!member && !bootstrapDone)
+      : false)
 
   return { member, loading }
 }

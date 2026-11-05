@@ -28,6 +28,7 @@
   --font-display: "Outfit", "Segoe UI", sans-serif;
   --font-sans: "DM Sans", "Segoe UI", sans-serif;
   --font-mono: "DM Mono", ui-monospace, monospace;
+  --font-urdu: "Noto Nastaliq Urdu", "Noto Sans Arabic", "Jameel Noori Nastaleeq", "Urdu Typesetting", "Arial Unicode MS", Tahoma, sans-serif;
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -82,4 +83,7 @@
   --z-nav: 30;
   --z-toast: 40;
   --z-banner: 35;
+  --z-modal: 10000;
+  --z-popover: 15000;
+  --z-overlay: 20000;
 }

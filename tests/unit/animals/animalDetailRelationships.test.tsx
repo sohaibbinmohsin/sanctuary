@@ -326,4 +326,56 @@ describe('AnimalDetailScreen Relationships', () => {
     const shelterCodeValue = within(grid).getByText('MS-0001')
     expect(shelterCodeValue).toHaveClass('characteristic-value', 'shelter-code')
   })
+
+  it('preserves origin group/report back link and state when navigating to a related animal', async () => {
+    mockGetAll.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM animal_relationships')) {
+        return [
+          {
+            id: 'rel-1',
+            org_id: 'org-1',
+            animal_id: 'anim-1',
+            related_animal_id: 'anim-2',
+            relationship_type: 'sibling',
+            notes: null,
+            created_at: '2026-10-05T00:00:00Z',
+            related_name: 'Bella',
+            related_shelter_code: 'MS-0002',
+            related_species: 'Dog',
+            related_life_stage: 'child',
+            related_photo_url: null,
+          },
+        ]
+      }
+      return []
+    })
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: '/animals/anim-1',
+            search: '?from_group_report=rep-123',
+            state: { backTo: '/reports/rep-123/animals', backLabel: 'Group Animals' },
+          },
+        ]}
+      >
+        <Routes>
+          <Route path="/animals/:id" element={<AnimalDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Back link initially points to Group Animals
+    const initialBackLink = await screen.findByRole('link', { name: /Group Animals/i })
+    expect(initialBackLink).toHaveAttribute('href', '/reports/rep-123/animals')
+
+    // Switch to Details tab where relationships are rendered
+    const detailsTab = screen.getByRole('tab', { name: /Details/i })
+    fireEvent.click(detailsTab)
+
+    // Find the relationship link for Bella
+    const bellaLink = await screen.findByRole('link', { name: /Bella/i })
+    expect(bellaLink).toHaveAttribute('href', '/animals/anim-2?from_group_report=rep-123')
+  })
 })

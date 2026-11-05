@@ -1,9 +1,11 @@
 import { useNavigate } from 'react-router-dom'
 import { saveReportsScrollPosition } from '@/shared/lib/scroll'
 import type { RescueReport } from '@/features/reports/domain/rescueReports'
+import type { ReportCompletionResult } from '@/features/reports/domain/reportOutcomes'
 
 export type ReportTimelineCardProps = {
   report: RescueReport
+  outcomeStatus?: ReportCompletionResult | null
 }
 
 function formatCardTime(isoString?: string | null): { timeStr: string; relStr: string } {
@@ -55,8 +57,66 @@ function getStatusBadgeInfo(
   dispositionType?: string | null,
   transportType?: string | null,
   category?: string | null,
+  outcomeStatus?: ReportCompletionResult | null,
 ): { label: string; className: string } {
   const isCruelty = category === 'cruelty'
+
+  if (status === 'cancelled') {
+    return {
+      label: isCruelty ? 'Dismissed' : (outcomeStatus?.outcomeLabel || 'Cancelled'),
+      className: 'status-badge-clean declined',
+    }
+  }
+
+  if (dispositionType === 'spot_released') {
+    return {
+      label: isCruelty ? 'Resolved On-Site' : (outcomeStatus?.outcomeLabel || 'Spot Released'),
+      className: 'status-badge-clean completed',
+    }
+  }
+
+  if (dispositionType === 'deceased_doa') {
+    return {
+      label: outcomeStatus?.outcomeLabel || 'Dead on Arrival (DOA)',
+      className: 'status-badge-clean completed',
+    }
+  }
+
+  if (outcomeStatus?.isCompleted) {
+    return {
+      label: outcomeStatus.outcomeLabel || 'Completed',
+      className: 'status-badge-clean completed',
+    }
+  }
+
+  if (status === 'attended') {
+    if (outcomeStatus && outcomeStatus.isCompleted === false) {
+      const activeLabel = outcomeStatus.outcomeLabel?.trim()
+      const isDefaultIntake =
+        !activeLabel ||
+        activeLabel.toLowerCase() === 'intake' ||
+        activeLabel.toLowerCase() === 'in shelter care' ||
+        activeLabel.toLowerCase() === 'in shelter'
+      return {
+        label: isDefaultIntake ? (isCruelty ? 'In Custody' : 'In Care') : activeLabel,
+        className: 'status-badge-clean shelter',
+      }
+    }
+    if (dispositionType === 'transferred_partner') {
+      return { label: 'At Partner Vet', className: 'status-badge-clean vet' }
+    }
+    if (dispositionType === 'admitted_shelter') {
+      return {
+        label: isCruelty ? 'In Custody' : 'In Care',
+        className: 'status-badge-clean shelter',
+      }
+    }
+    return {
+      label: isCruelty ? 'In Custody' : 'In Care',
+      className: 'status-badge-clean shelter',
+    }
+  }
+
   if (!status || status === 'logged') {
     return {
       label: isCruelty ? 'New Complaint' : 'New Report',
@@ -79,37 +139,11 @@ function getStatusBadgeInfo(
       className: 'status-badge-clean active',
     }
   }
-  if (status === 'attended') {
-    if (dispositionType === 'transferred_partner') {
-      return { label: 'At Partner Vet', className: 'status-badge-clean vet' }
-    }
-    if (dispositionType === 'admitted_shelter') {
-      return {
-        label: isCruelty ? 'In Custody' : 'In Shelter',
-        className: 'status-badge-clean shelter',
-      }
-    }
-    if (dispositionType === 'spot_released') {
-      return {
-        label: isCruelty ? 'Resolved On-Site' : 'Spot Released',
-        className: 'status-badge-clean shelter',
-      }
-    }
-    return {
-      label: isCruelty ? 'In Custody' : 'Attended',
-      className: 'status-badge-clean shelter',
-    }
-  }
-  if (status === 'cancelled') {
-    return {
-      label: isCruelty ? 'Dismissed' : 'Cancelled',
-      className: 'status-badge-clean declined',
-    }
-  }
+
   return { label: status, className: 'status-badge-clean' }
 }
 
-export function ReportTimelineCard({ report }: ReportTimelineCardProps) {
+export function ReportTimelineCard({ report, outcomeStatus }: ReportTimelineCardProps) {
   const navigate = useNavigate()
   const { timeStr, relStr } = formatCardTime(report.created_at)
   const statusInfo = getStatusBadgeInfo(
@@ -117,6 +151,7 @@ export function ReportTimelineCard({ report }: ReportTimelineCardProps) {
     report.disposition_type,
     report.transport_type,
     report.category,
+    outcomeStatus,
   )
   const speciesDisplay = report.species ? report.species.toUpperCase() : 'OTHER'
 

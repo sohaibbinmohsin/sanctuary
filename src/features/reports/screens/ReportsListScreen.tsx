@@ -5,6 +5,8 @@ import { useCurrentMember } from '@/shared/hooks/useCurrentMember'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { useIncrementalList } from '@/shared/hooks/useIncrementalList'
+import { LoadMoreSentinel } from '@/shared/ui/LoadMoreSentinel'
 import {
   getRescueReports,
   getRescueOperationsSummary,
@@ -17,6 +19,10 @@ import {
   setCachedReports,
   type FilterKey,
 } from '@/features/reports/domain/reportsCache'
+import {
+  getBatchReportCompletionMap,
+  type ReportCompletionResult,
+} from '@/features/reports/domain/reportOutcomes'
 import { ReportTimelineCard } from '@/features/reports/components/ReportTimelineCard'
 import { localDateString } from '@/shared/lib/checklist/missedStreak'
 import {
@@ -60,15 +66,18 @@ export function ReportsListScreen() {
   const initialCache = orgId ? getCachedReports(orgId) : null
 
   const [reports, setReports] = useState<RescueReport[]>(() => initialCache?.reports ?? [])
+  const [completionMap, setCompletionMap] = useState<Map<string, ReportCompletionResult>>(new Map())
   const [summary, setSummary] = useState<RescueOperationsSummary | null>(() => initialCache?.summary ?? null)
+  const [inProgressCount, setInProgressCount] = useState<number | null>(null)
   const [activeFilter, setActiveFilter] = useState<FilterKey>(() => initialCache?.activeFilter ?? 'all')
   const [searchQuery, setSearchQuery] = useState(() => initialCache?.searchQuery ?? '')
   const deferredQuery = useDeferredValue(searchQuery)
-  const [displayLimit, setDisplayLimit] = useState(() => initialCache?.displayLimit ?? PAGE_BATCH_SIZE)
   const [loading, setLoading] = useState(() => !initialCache || initialCache.reports.length === 0)
   const scrollRestoredRef = useRef(false)
   const defaultSelectedRef = useRef(Boolean(initialCache))
-  const sentinelRef = useRef<HTMLDivElement>(null)
+  const displayLimitRef = useRef(initialCache?.displayLimit ?? PAGE_BATCH_SIZE)
+  const searchQueryRef = useRef(searchQuery)
+  searchQueryRef.current = searchQuery
 
   // Track scroll position while browsing reports
   useEffect(() => {
@@ -87,11 +96,6 @@ export function ReportsListScreen() {
     }
   }, [])
 
-  const displayLimitRef = useRef(displayLimit)
-  displayLimitRef.current = displayLimit
-  const searchQueryRef = useRef(searchQuery)
-  searchQueryRef.current = searchQuery
-
   const fetchReports = useCallback(async (isSilent = false) => {
     if (!db || !orgId) return
     if (!isSilent) {
@@ -100,15 +104,16 @@ export function ReportsListScreen() {
     try {
       let targetFilter = activeFilter
 
+      let sum: RescueOperationsSummary | null = null
       // Option 2 (Smart Operational Default):
       // On initial load, inspect counts: prioritize New reports, then In Progress, else All
       if (!defaultSelectedRef.current) {
         defaultSelectedRef.current = true
-        const sum = await getRescueOperationsSummary(db, orgId)
+        sum = await getRescueOperationsSummary(db, orgId)
         setSummary(sum)
         if (sum.awaitingTriage > 0) {
           targetFilter = 'new'
-        } else if (sum.inField > 0) {
+        } else if ((sum.inProgress ?? sum.inField) > 0) {
           targetFilter = 'in_progress'
         } else {
           targetFilter = 'all'
@@ -122,15 +127,85 @@ export function ReportsListScreen() {
         void getRescueOperationsSummary(db, orgId).then(setSummary).catch(() => {})
       }
 
-      const data = await getRescueReports(db, orgId, targetFilter as RescueReportFilter)
-      setReports(data)
+      let allReports: RescueReport[] = []
+      if (targetFilter === 'in_progress') {
+        const [inProgressReports, attendedReports] = await Promise.all([
+          getRescueReports(db, orgId, 'in_progress'),
+          getRescueReports(db, orgId, 'completed'),
+        ])
+        const attendedOnly = (attendedReports || []).filter((r) => r.status === 'attended')
+        allReports = [...(inProgressReports || []), ...attendedOnly]
+      } else {
+        allReports = (await getRescueReports(db, orgId, targetFilter as RescueReportFilter)) || []
+      }
+
+      // Deduplicate reports by id
+      const seenReportIds = new Set<string>()
+      const uniqueReports: RescueReport[] = []
+      for (const r of allReports) {
+        if (!seenReportIds.has(r.id)) {
+          seenReportIds.add(r.id)
+          uniqueReports.push(r)
+        }
+      }
+      allReports = uniqueReports
+
+      const compMap = await getBatchReportCompletionMap(db, allReports)
+      setCompletionMap(compMap)
+
+      let finalReports = allReports
+      if (targetFilter === 'completed') {
+        finalReports = allReports.filter((r) => {
+          if (r.status === 'cancelled') return true
+          if (r.disposition_type === 'spot_released' || r.disposition_type === 'deceased_doa') return true
+          return compMap.get(r.id)?.isCompleted === true
+        })
+      } else if (targetFilter === 'in_progress') {
+        finalReports = allReports.filter((r) => {
+          if (r.status === 'accepted' || r.status === 'dispatched') return true
+          if (r.status === 'attended') {
+            return compMap.get(r.id)?.isCompleted === false
+          }
+          return false
+        })
+        setInProgressCount(finalReports.length)
+      } else if (targetFilter === 'all') {
+        const inProg = allReports.filter((r) => {
+          if (r.status === 'accepted' || r.status === 'dispatched') return true
+          if (r.status === 'attended') {
+            return compMap.get(r.id)?.isCompleted === false
+          }
+          return false
+        }).length
+        setInProgressCount(inProg)
+      }
+
+      if (targetFilter !== 'in_progress' && targetFilter !== 'all') {
+        void (async () => {
+          try {
+            const attendedReports = await getRescueReports(db, orgId, 'completed')
+            const attendedOnly = (attendedReports || []).filter((r) => r.status === 'attended')
+            if (attendedOnly.length > 0) {
+              const comp = await getBatchReportCompletionMap(db, attendedOnly)
+              const attendedInCare = attendedOnly.filter((r) => comp.get(r.id)?.isCompleted === false).length
+              const inFieldCount = sum?.inField ?? summary?.inField ?? 0
+              setInProgressCount(inFieldCount + attendedInCare)
+            }
+          } catch {
+            // Ignore background count failure
+          }
+        })()
+      }
+
+      finalReports.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+      setReports(finalReports)
 
       const existingCache = getCachedReports(orgId)
       const reportsByFilter = existingCache?.reportsByFilter ?? {}
-      reportsByFilter[targetFilter] = data
+      reportsByFilter[targetFilter] = finalReports
 
       setCachedReports(orgId, {
-        reports: data,
+        reports: finalReports,
         reportsByFilter,
         summary: existingCache?.summary ?? null,
         activeFilter: targetFilter,
@@ -177,27 +252,33 @@ export function ReportsListScreen() {
     })
   }, [reports, deferredQuery])
 
-  // Reset display limit when query or filter changes
-  useEffect(() => {
-    setDisplayLimit(PAGE_BATCH_SIZE)
-  }, [deferredQuery, activeFilter])
+  const targetReportId = useMemo(() => getLastClickedReportId(), [])
+
+  const {
+    visibleItems: visibleReports,
+    hasMore,
+    remainingCount,
+    loadMore,
+    sentinelRef,
+    displayLimit,
+  } = useIncrementalList(filteredReports, {
+    batchSize: PAGE_BATCH_SIZE,
+    initialLimit: initialCache?.displayLimit,
+    targetId: targetReportId,
+    getId: (r) => r.id,
+    resetDeps: [deferredQuery, activeFilter],
+  })
+
+  displayLimitRef.current = displayLimit
 
   // Restore scroll position when returning to the reports list
   useEffect(() => {
-    if (loading || filteredReports.length === 0 || scrollRestoredRef.current) return
+    if (loading || visibleReports.length === 0 || scrollRestoredRef.current) return
 
     const targetId = getLastClickedReportId()
     const savedTop = getReportsScrollPosition()
 
     if (!targetId && (!savedTop || savedTop <= 0)) return
-
-    // If target report is outside current batch limit, expand limit so the DOM element exists
-    if (targetId) {
-      const targetIndex = filteredReports.findIndex((r) => r.id === targetId)
-      if (targetIndex >= 0 && targetIndex >= displayLimit) {
-        setDisplayLimit(Math.ceil((targetIndex + 10) / PAGE_BATCH_SIZE) * PAGE_BATCH_SIZE)
-      }
-    }
 
     scrollRestoredRef.current = true
 
@@ -238,33 +319,7 @@ export function ReportsListScreen() {
     requestAnimationFrame(() => {
       tryRestore()
     })
-  }, [loading, filteredReports, displayLimit])
-
-  // Sliced reports for high-performance DOM rendering
-  const visibleReports = useMemo(() => {
-    return filteredReports.slice(0, displayLimit)
-  }, [filteredReports, displayLimit])
-
-  // Automatically increment batch limit as user approaches bottom
-  useEffect(() => {
-    if (visibleReports.length >= filteredReports.length) return
-    const sentinel = sentinelRef.current
-    if (!sentinel) return
-
-    if (typeof IntersectionObserver === 'undefined') return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setDisplayLimit((prev) => Math.min(filteredReports.length, prev + PAGE_BATCH_SIZE))
-        }
-      },
-      { rootMargin: '400px' },
-    )
-
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [visibleReports.length, filteredReports.length])
+  }, [loading, visibleReports.length])
 
   // Compute date strings for grouping
   const { todayStr, yesterdayStr } = useMemo(() => {
@@ -317,7 +372,7 @@ export function ReportsListScreen() {
         title="Reports"
         subtitle={subtitle}
         actions={
-          filteredReports.length > 0 ? (
+          loading || filteredReports.length > 0 ? (
             <Button to="/reports/new" variant="accent">
               <Plus size={18} weight="bold" />
               <span>Log report</span>
@@ -355,7 +410,9 @@ export function ReportsListScreen() {
             key === 'new'
               ? (summary?.awaitingTriage ?? 0)
               : key === 'in_progress'
-                ? (summary?.inField ?? 0)
+                ? (activeFilter === 'in_progress'
+                    ? (!loading || reports.length > 0 ? reports.length : (inProgressCount ?? summary?.inProgress ?? summary?.inField ?? 0))
+                    : (inProgressCount ?? summary?.inProgress ?? summary?.inField ?? 0))
                 : 0
 
           return (
@@ -411,37 +468,23 @@ export function ReportsListScreen() {
               <div className="timeline-date-header">{group.label}</div>
               <div className="timeline-cards-list">
                 {group.reports.map((report) => (
-                  <ReportTimelineCard key={report.id} report={report} />
+                  <ReportTimelineCard
+                    key={report.id}
+                    report={report}
+                    outcomeStatus={completionMap.get(report.id) ?? null}
+                  />
                 ))}
               </div>
             </div>
           ))}
 
-          {visibleReports.length < filteredReports.length && (
-            <div
-              ref={sentinelRef}
-              className="timeline-load-more"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '1.25rem 0 2rem',
-                gap: '0.5rem',
-              }}
-            >
-              <button
-                type="button"
-                className="chip"
-                onClick={() =>
-                  setDisplayLimit((prev) => Math.min(filteredReports.length, prev + PAGE_BATCH_SIZE))
-                }
-                style={{ cursor: 'pointer', padding: '0.45rem 1rem' }}
-              >
-                Load more ({filteredReports.length - visibleReports.length} remaining)
-              </button>
-            </div>
-          )}
+          <LoadMoreSentinel
+            sentinelRef={sentinelRef}
+            hasMore={hasMore}
+            remainingCount={remainingCount}
+            onLoadMore={loadMore}
+            className="timeline-load-more"
+          />
         </div>
       )}
     </section>

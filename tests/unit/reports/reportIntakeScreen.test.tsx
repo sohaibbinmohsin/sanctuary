@@ -35,7 +35,7 @@ describe('ReportIntakeScreen', () => {
 
     // Verify Welfare check is NOT present in category options
     expect(screen.queryByRole('button', { name: /Welfare check/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Medical emergency/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Injured\/sick animal/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Animal cruelty/i })).toBeInTheDocument()
 
     // Select Cat species
@@ -85,14 +85,15 @@ describe('ReportIntakeScreen', () => {
         city: 'Lahore',
         locationArea: 'Gulberg III',
         locationLandmark: 'Near Main Market',
-        latitude: null,
-        longitude: null,
+        latitude: 31.509,
+        longitude: 74.347,
         reporterName: 'Kamran',
         reporterPhone: '0300 1122334',
         reporterCnic: null,
         intakeSource: 'citizen',
         animalCount: 1,
         groupBreakdown: null,
+        createdAt: expect.any(String),
       })
     })
   })
@@ -168,6 +169,7 @@ describe('ReportIntakeScreen', () => {
         intakeSource: 'citizen',
         animalCount: 1,
         groupBreakdown: null,
+        createdAt: expect.any(String),
       })
     })
   })
@@ -241,6 +243,7 @@ describe('ReportIntakeScreen', () => {
         intakeSource: 'citizen',
         animalCount: 1,
         groupBreakdown: null,
+        createdAt: expect.any(String),
       })
     })
   })
@@ -275,6 +278,7 @@ describe('ReportIntakeScreen', () => {
       stage_accepted_at: null,
       stage_dispatched_at: null,
       stage_attended_at: null,
+      archived: 0,
       created_at: '2026-10-22T10:00:00Z',
       updated_at: '2026-10-22T10:00:00Z',
     })
@@ -325,6 +329,31 @@ describe('ReportIntakeScreen', () => {
         }),
       )
     })
+  })
+
+  it('automatically reverse-geocodes detected GPS coordinates to area and city with notice banner', async () => {
+    // Coordinates near Liberty Market / Gulberg III Lahore: 31.510, 74.348
+    vi.spyOn(domainModule, 'requestCurrentPosition').mockResolvedValue({
+      latitude: 31.510,
+      longitude: 74.348,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/new']}>
+        <Routes>
+          <Route path="/reports/new" element={<ReportIntakeScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const detectBtn = screen.getByRole('button', { name: /Detect current location/i })
+    fireEvent.click(detectBtn)
+
+    // Should detect and reverse geocode
+    expect(await screen.findByText(/31\.5100° N, 74\.3480° E/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Auto-resolved to Gulberg III, Lahore/i)).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Lahore')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Gulberg III')).toBeInTheDocument()
   })
 
   it('supports avian presets under Bird and multi-animal litter count', async () => {
@@ -482,5 +511,25 @@ describe('ReportIntakeScreen', () => {
         }),
       )
     })
+  })
+
+  it('places Photos & Proof section directly after Date & Time picker', () => {
+    render(
+      <MemoryRouter>
+        <ReportIntakeScreen />
+      </MemoryRouter>,
+    )
+
+    const dateTimeInput = screen.getByLabelText(/Report Date & Time/i)
+    const photosHeader = screen.getByText(/Photos & Proof/i)
+    const categoryHeader = screen.getByText(/Report Category & Animal/i)
+
+    expect(dateTimeInput).toBeInTheDocument()
+    expect(photosHeader).toBeInTheDocument()
+    expect(categoryHeader).toBeInTheDocument()
+
+    expect(photosHeader.compareDocumentPosition(categoryHeader)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
   })
 })
