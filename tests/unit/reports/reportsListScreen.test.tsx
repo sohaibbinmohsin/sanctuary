@@ -1,8 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { ReportsListScreen } from '@/features/reports/screens/ReportsListScreen'
 import * as domainModule from '@/features/reports/domain/rescueReports'
+import { invalidateReportsCache, setCachedReports } from '@/features/reports/domain/reportsCache'
 
 vi.mock('@/shared/hooks/useDb', () => ({ useDb: () => ({}) }))
 vi.mock('@/shared/hooks/useCurrentMember', () => ({
@@ -12,6 +13,9 @@ vi.mock('@/shared/hooks/useCurrentMember', () => ({
 }))
 
 describe('ReportsListScreen', () => {
+  beforeEach(() => {
+    invalidateReportsCache()
+  })
   it('renders timeline grouped reports, search bar, and header link', async () => {
     vi.spyOn(domainModule, 'getRescueReports').mockResolvedValue([
       {
@@ -291,6 +295,46 @@ describe('ReportsListScreen', () => {
     const inProgressChip = screen.getByRole('button', { name: /In progress/i })
     expect(inProgressChip).toHaveAttribute('aria-pressed', 'true')
     expect(inProgressChip).toHaveTextContent('6')
+  })
+
+  it('renders instantly from cache without loading skeletons when navigating back', () => {
+    const cachedReports = [
+      {
+        id: 'rep-cached-1',
+        org_id: 'org-1',
+        report_number: 'PARC-CACHED-1',
+        species: 'cat',
+        chief_complaint: 'Previously cached report',
+        status: 'logged',
+        location_area: 'Defense Phase 5',
+        created_at: new Date().toISOString(),
+      } as any,
+    ]
+
+    setCachedReports('org-1', {
+      reports: cachedReports,
+      reportsByFilter: { all: cachedReports },
+      summary: null,
+      activeFilter: 'all',
+      displayLimit: 60,
+      searchQuery: '',
+      lastFetchedAt: Date.now(),
+    })
+
+    // Mock network fetch to never resolve immediately
+    vi.spyOn(domainModule, 'getRescueReports').mockImplementation(() => new Promise(() => {}))
+
+    render(
+      <MemoryRouter>
+        <ReportsListScreen />
+      </MemoryRouter>,
+    )
+
+    // Cached report MUST be immediately present in the DOM (0ms) without waiting for fetch
+    expect(screen.getByText('PARC-CACHED-1')).toBeInTheDocument()
+    expect(screen.getByText(/Previously cached report/i)).toBeInTheDocument()
+    // No skeletons should be rendered
+    expect(document.querySelector('.skeleton')).toBeNull()
   })
 })
 

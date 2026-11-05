@@ -46,6 +46,7 @@ import {
   type CreateRescueReportInput,
 } from '@/features/reports/domain/rescueReports'
 import { getLocalPhoto } from '@/features/photos/domain/photos'
+import { invalidateReportsCache } from '@/features/reports/domain/reportsCache'
 import { useConfirm } from '@/shared/ui/ConfirmDialog'
 import { publicPhotoUrl } from '@/shared/lib/r2/upload'
 
@@ -529,6 +530,7 @@ export function ReportIntakeScreen() {
         }
 
         const report = await createRescueReport(db, createInput)
+        invalidateReportsCache(orgId)
 
         // Attach any staged photos to this report
         if (stagedPhotos.length > 0) {

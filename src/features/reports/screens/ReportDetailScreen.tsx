@@ -26,6 +26,7 @@ import {
   createAnimalFromRescueReport,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
+import { updateReportInCache } from '@/features/reports/domain/reportsCache'
 import {
   getReportCompletionStatus,
   type ReportCompletionResult,
@@ -62,6 +63,7 @@ export function ReportDetailScreen() {
       const data = await getRescueReportById(db, id)
       setReport(data)
       if (data) {
+        updateReportInCache(data)
         try {
           const outcome = await getReportCompletionStatus(db, data)
           setOutcomeStatus(outcome)

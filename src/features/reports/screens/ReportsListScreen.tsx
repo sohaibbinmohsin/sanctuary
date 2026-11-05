@@ -15,6 +15,11 @@ import {
   type RescueOperationsSummary,
 } from '@/features/reports/domain/rescueReports'
 import {
+  getCachedReports,
+  setCachedReports,
+  type FilterKey,
+} from '@/features/reports/domain/reportsCache'
+import {
   getBatchReportCompletionMap,
   type ReportCompletionResult,
 } from '@/features/reports/domain/reportOutcomes'
@@ -29,8 +34,6 @@ import {
   setAppScrollTop,
 } from '@/shared/lib/scroll'
 import '@/features/reports/reports.css'
-
-type FilterKey = 'all' | 'new' | 'in_progress' | 'completed'
 
 const FILTER_CONFIG: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -58,18 +61,23 @@ const PAGE_BATCH_SIZE = 60
 export function ReportsListScreen() {
   const db = useDb()
   const { member } = useCurrentMember()
-  const [reports, setReports] = useState<RescueReport[]>([])
-  const [completionMap, setCompletionMap] = useState<Map<string, ReportCompletionResult>>(new Map())
-  const [summary, setSummary] = useState<RescueOperationsSummary | null>(null)
-  const [inProgressCount, setInProgressCount] = useState<number | null>(null)
-  const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const deferredQuery = useDeferredValue(searchQuery)
-  const [loading, setLoading] = useState(true)
-  const scrollRestoredRef = useRef(false)
-  const defaultSelectedRef = useRef(false)
-
   const orgId = member?.orgId ?? ''
+
+  const initialCache = orgId ? getCachedReports(orgId) : null
+
+  const [reports, setReports] = useState<RescueReport[]>(() => initialCache?.reports ?? [])
+  const [completionMap, setCompletionMap] = useState<Map<string, ReportCompletionResult>>(new Map())
+  const [summary, setSummary] = useState<RescueOperationsSummary | null>(() => initialCache?.summary ?? null)
+  const [inProgressCount, setInProgressCount] = useState<number | null>(null)
+  const [activeFilter, setActiveFilter] = useState<FilterKey>(() => initialCache?.activeFilter ?? 'all')
+  const [searchQuery, setSearchQuery] = useState(() => initialCache?.searchQuery ?? '')
+  const deferredQuery = useDeferredValue(searchQuery)
+  const [loading, setLoading] = useState(() => !initialCache || initialCache.reports.length === 0)
+  const scrollRestoredRef = useRef(false)
+  const defaultSelectedRef = useRef(Boolean(initialCache))
+  const displayLimitRef = useRef(initialCache?.displayLimit ?? PAGE_BATCH_SIZE)
+  const searchQueryRef = useRef(searchQuery)
+  searchQueryRef.current = searchQuery
 
   // Track scroll position while browsing reports
   useEffect(() => {
@@ -88,9 +96,11 @@ export function ReportsListScreen() {
     }
   }, [])
 
-  const fetchReports = useCallback(async () => {
+  const fetchReports = useCallback(async (isSilent = false) => {
     if (!db || !orgId) return
-    setLoading(true)
+    if (!isSilent) {
+      setLoading(true)
+    }
     try {
       let targetFilter = activeFilter
 
@@ -189,6 +199,20 @@ export function ReportsListScreen() {
 
       finalReports.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
       setReports(finalReports)
+
+      const existingCache = getCachedReports(orgId)
+      const reportsByFilter = existingCache?.reportsByFilter ?? {}
+      reportsByFilter[targetFilter] = finalReports
+
+      setCachedReports(orgId, {
+        reports: finalReports,
+        reportsByFilter,
+        summary: existingCache?.summary ?? null,
+        activeFilter: targetFilter,
+        displayLimit: displayLimitRef.current,
+        searchQuery: searchQueryRef.current,
+        lastFetchedAt: Date.now(),
+      })
     } catch (err) {
       console.error('Failed to load rescue reports', err)
     } finally {
@@ -197,8 +221,13 @@ export function ReportsListScreen() {
   }, [db, orgId, activeFilter])
 
   useEffect(() => {
-    fetchReports()
-  }, [fetchReports])
+    const cached = orgId ? getCachedReports(orgId) : null
+    const hasData = Boolean(
+      cached?.reportsByFilter[activeFilter]?.length ||
+      (cached?.activeFilter === activeFilter && cached?.reports?.length)
+    )
+    fetchReports(hasData)
+  }, [fetchReports, orgId, activeFilter])
 
   // Filter reports by search query
   const filteredReports = useMemo(() => {
@@ -231,12 +260,16 @@ export function ReportsListScreen() {
     remainingCount,
     loadMore,
     sentinelRef,
+    displayLimit,
   } = useIncrementalList(filteredReports, {
     batchSize: PAGE_BATCH_SIZE,
+    initialLimit: initialCache?.displayLimit,
     targetId: targetReportId,
     getId: (r) => r.id,
     resetDeps: [deferredQuery, activeFilter],
   })
+
+  displayLimitRef.current = displayLimit
 
   // Restore scroll position when returning to the reports list
   useEffect(() => {
@@ -390,6 +423,12 @@ export function ReportsListScreen() {
               aria-pressed={activeFilter === key}
               onClick={() => {
                 defaultSelectedRef.current = true
+                const cached = orgId ? getCachedReports(orgId) : null
+                const cachedFilterList = cached?.reportsByFilter[key]
+                if (cachedFilterList && cachedFilterList.length > 0) {
+                  setReports(cachedFilterList)
+                  setLoading(false)
+                }
                 setActiveFilter(key)
               }}
             >

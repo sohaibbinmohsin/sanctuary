@@ -4362,10 +4362,7 @@ a.primary {
 
 @media (max-width: 640px) {
   .overview-card {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    padding: 0;
+    padding: var(--space-4);
   }
 }
 

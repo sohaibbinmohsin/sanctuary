@@ -8,6 +8,12 @@ export interface UseIncrementalListOptions<T> {
   batchSize?: number
 
   /**
+   * Optional initial display limit (e.g. restored from navigation cache).
+   * Defaults to batchSize.
+   */
+  initialLimit?: number
+
+  /**
    * IntersectionObserver rootMargin (e.g. '400px').
    * Allows pre-fetching/pre-rendering the next slice before the user scrolls to the absolute bottom.
    * Defaults to '400px'.
@@ -83,7 +89,8 @@ export function useIncrementalList<T>(
   const getId = options?.getId ?? ((item: T) => (item as Record<string, unknown>)?.id as string | undefined)
   const resetDeps = options?.resetDeps
 
-  const [displayLimit, setDisplayLimit] = useState<number>(batchSize)
+  const initialLimit = options?.initialLimit ?? batchSize
+  const [displayLimit, setDisplayLimit] = useState<number>(initialLimit)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
 
   // Reset limit when filter/search dependencies change
