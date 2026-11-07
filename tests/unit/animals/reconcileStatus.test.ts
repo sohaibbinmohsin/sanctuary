@@ -2,45 +2,28 @@ import { describe, it, expect, vi } from 'vitest'
 import { searchAnimals } from '@/features/animals/domain/animals'
 import type { SanctuaryDb } from '@/shared/lib/db'
 
-describe('reconcileAnimalsWithTimelineStatuses', () => {
-  it('does NOT overwrite status to Transferred when a Transferred timeline treatment exists', async () => {
+describe('searchAnimals direct status resolution', () => {
+  it('resolves animal status directly from animal_statuses without querying treatments or rewriting status', async () => {
     const executeMock = vi.fn(async () => {})
+    const getAllMock = vi.fn(async (sql: string) => {
+      if (sql.includes('FROM animals a')) {
+        return [
+          {
+            id: 'animal-1',
+            org_id: 'org-1',
+            name: 'Leo',
+            status_id: 'status-in-care',
+            status_label: 'In sanctuary',
+            intake_date: '2026-10-29',
+            shelter_code: 'TOSC-0282',
+          },
+        ]
+      }
+      return []
+    }) as any
+
     const mockDb: Partial<SanctuaryDb> = {
-      getAll: vi.fn(async (sql: string) => {
-        if (sql.includes('FROM animals a')) {
-          return [
-            {
-              id: 'animal-1',
-              org_id: 'org-1',
-              name: 'Leo',
-              status_id: 'status-in-care',
-              status_label: 'In sanctuary',
-              intake_date: '2026-10-29',
-              shelter_code: 'TOSC-0282',
-            },
-          ]
-        }
-        if (sql.includes('FROM treatments') && sql.includes("treatment_type = 'status'")) {
-          return [
-            {
-              animal_id: 'animal-1',
-              notes: 'Transferred',
-              treated_at: '2026-11-05T10:00:00.000Z',
-              created_at: '2026-11-01T21:52:52.000Z',
-            },
-          ]
-        }
-        if (sql.includes('FROM treatments') && sql.includes("treatment_type IN ('arrived', 'intake')")) {
-          return []
-        }
-        if (sql.includes('FROM animal_statuses')) {
-          return [
-            { id: 'status-in-care', label: 'In sanctuary' },
-            { id: 'status-transferred', label: 'Transferred' },
-          ]
-        }
-        return []
-      }) as any,
+      getAll: getAllMock,
       execute: executeMock,
     }
 
@@ -50,9 +33,14 @@ describe('reconcileAnimalsWithTimelineStatuses', () => {
     expect(animals[0].status_label).toBe('In sanctuary')
     expect(animals[0].status_labels).toEqual(['In sanctuary'])
     expect(executeMock).not.toHaveBeenCalled()
+    // Verify no treatments queries were issued
+    const treatmentQueries = getAllMock.mock.calls.filter(([sql]: [string]) =>
+      sql.includes('treatments'),
+    )
+    expect(treatmentQueries).toHaveLength(0)
   })
 
-  it('reconciles valid in-care statuses like Treatment when status note differs', async () => {
+  it('preserves assigned status without running side-effect writes', async () => {
     const executeMock = vi.fn(async () => {})
     const mockDb: Partial<SanctuaryDb> = {
       getAll: vi.fn(async (sql: string) => {
@@ -62,30 +50,11 @@ describe('reconcileAnimalsWithTimelineStatuses', () => {
               id: 'animal-2',
               org_id: 'org-1',
               name: 'Casper',
-              status_id: 'status-intake',
-              status_label: 'Intake',
+              status_id: 'status-treatment',
+              status_label: 'Treatment',
               intake_date: '2026-10-29',
               shelter_code: 'TOSC-0283',
             },
-          ]
-        }
-        if (sql.includes('FROM treatments') && sql.includes("treatment_type = 'status'")) {
-          return [
-            {
-              animal_id: 'animal-2',
-              notes: 'Treatment',
-              treated_at: '2026-10-30T10:00:00.000Z',
-              created_at: '2026-10-30T10:00:00.000Z',
-            },
-          ]
-        }
-        if (sql.includes('FROM treatments') && sql.includes("treatment_type IN ('arrived', 'intake')")) {
-          return []
-        }
-        if (sql.includes('FROM animal_statuses')) {
-          return [
-            { id: 'status-intake', label: 'Intake' },
-            { id: 'status-treatment', label: 'Treatment' },
           ]
         }
         return []
@@ -98,5 +67,6 @@ describe('reconcileAnimalsWithTimelineStatuses', () => {
     expect(animals[0].status_id).toBe('status-treatment')
     expect(animals[0].status_label).toBe('Treatment')
     expect(animals[0].status_labels).toEqual(['Treatment'])
+    expect(executeMock).not.toHaveBeenCalled()
   })
 })

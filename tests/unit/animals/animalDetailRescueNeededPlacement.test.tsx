@@ -9,12 +9,14 @@ vi.mock('@/shared/ui/ConfirmDialog', () => ({
 
 const mockGetOptional = vi.fn()
 
+const mockDb = {
+  getOptional: mockGetOptional,
+  getAll: vi.fn().mockResolvedValue([]),
+  execute: vi.fn().mockResolvedValue(undefined),
+}
+
 vi.mock('@/shared/hooks/useDb', () => ({
-  useDb: () => ({
-    getOptional: mockGetOptional,
-    getAll: vi.fn().mockResolvedValue([]),
-    execute: vi.fn().mockResolvedValue(undefined),
-  }),
+  useDb: () => mockDb,
 }))
 
 vi.mock('@/shared/hooks/useCurrentMember', () => ({
