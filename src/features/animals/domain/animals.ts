@@ -278,7 +278,11 @@ async function reconcileAnimalsWithTimelineStatuses(
           ? latestNote.split(' - ')[0]!.trim()
           : latestNote.trim()
         const matched = statusByLowerLabel.get(candidateLabel.toLowerCase())
-        if (matched && animal.status_id !== matched.id) {
+        if (
+          matched &&
+          candidateLabel.toLowerCase() !== 'transferred' &&
+          animal.status_id !== matched.id
+        ) {
           void setSingleStatusAssignment(db, {
             orgId,
             animalId: animal.id,

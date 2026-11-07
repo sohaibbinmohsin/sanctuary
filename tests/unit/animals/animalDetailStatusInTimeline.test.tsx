@@ -240,19 +240,24 @@ describe('AnimalDetailScreen status moved inside Timeline tab', () => {
   })
 
   it('when animal is out of care (transferred/adopted), hides Daily Care and replaces Update status with Re-intake button', async () => {
-    mockGetOptional.mockResolvedValueOnce({
-      id: 'anim-1',
-      org_id: 'org-1',
-      shelter_code: 'MS-0001',
-      name: 'Barnaby',
-      species: 'Dog',
-      intake_date: '2026-10-06',
-      status_id: 'st-3',
-      status_label: 'Transferred',
-      status_labels: ['Transferred'],
-      archived: 0,
-      created_at: '2026-10-06T00:00:00Z',
-      updated_at: '2026-10-06T00:00:00Z',
+    mockGetOptional.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM animals a')) {
+        return {
+          id: 'anim-1',
+          org_id: 'org-1',
+          shelter_code: 'MS-0001',
+          name: 'Barnaby',
+          species: 'Dog',
+          intake_date: '2026-10-06',
+          status_id: 'st-3',
+          status_label: 'Transferred',
+          status_labels: ['Transferred'],
+          archived: 0,
+          created_at: '2026-10-06T00:00:00Z',
+          updated_at: '2026-10-06T00:00:00Z',
+        }
+      }
+      return null
     })
 
     mockGetAll.mockImplementation(async (sql: string) => {
