@@ -184,6 +184,7 @@ export function AnimalsListScreen() {
         })
         if (cancelled) return
         setAnimals(rows)
+        setLoading(false)
 
         const photoRows = await db.getAll<{
           id: string
@@ -199,8 +200,9 @@ export function AnimalsListScreen() {
         const verified: Record<string, boolean> = {}
         const needLocal: { animalId: string; photoId: string }[] = []
 
+        const animalIdSet = new Set(rows.map((r) => r.id))
         for (const p of photoRows) {
-          if (!p.animal_id) continue
+          if (!p.animal_id || !animalIdSet.has(p.animal_id)) continue
           if (p.verified) verified[p.animal_id] = true
           if (!urls[p.animal_id]) {
             const remote = publicPhotoUrl(p.r2_key)
@@ -212,14 +214,18 @@ export function AnimalsListScreen() {
           }
         }
 
-        for (const item of needLocal) {
-          if (urls[item.animalId]) continue
-          const local = await getLocalPhoto(item.photoId)
-          if (local) {
-            urls[item.animalId] = URL.createObjectURL(local)
-          } else {
-            urls[item.animalId] = localPhotoUrl(item.photoId)
-          }
+        if (needLocal.length > 0) {
+          await Promise.all(
+            needLocal.map(async (item) => {
+              if (urls[item.animalId]) return
+              const local = await getLocalPhoto(item.photoId)
+              if (local) {
+                urls[item.animalId] = URL.createObjectURL(local)
+              } else {
+                urls[item.animalId] = localPhotoUrl(item.photoId)
+              }
+            }),
+          )
         }
 
         if (!cancelled) {

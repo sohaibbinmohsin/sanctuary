@@ -7,7 +7,6 @@ import { removeChecklistItemForAnimal } from '@/features/checklist/domain/checkl
 import { addTreatment } from '@/features/treatments/domain/treatments'
 import {
   replaceAnimalStatuses,
-  setSingleStatusAssignment,
 } from '@/features/statuses/domain/assignments'
 import { listStatuses } from '@/features/statuses/domain/statuses'
 import { queuePhoto } from '@/features/photos/domain/photos'
@@ -217,105 +216,6 @@ export async function createQuickAnimalStub(
   }
 }
 
-async function reconcileAnimalsWithTimelineStatuses(
-  db: SanctuaryDb,
-  orgId: string,
-  animals: AnimalWithStatus[],
-): Promise<AnimalWithStatus[]> {
-  if (animals.length === 0 || !orgId) return animals
-  try {
-    const placeholders = animals.map(() => '?').join(', ')
-    const animalIds = animals.map((a) => a.id)
-
-    const [statusTreatments, arrivalRows, statuses] = await Promise.all([
-      db.getAll<{
-        animal_id: string
-        notes: string | null
-        treated_at: string | null
-        created_at: string | null
-      }>(
-        `SELECT animal_id, notes, treated_at, created_at
-         FROM treatments
-         WHERE animal_id IN (${placeholders}) AND treatment_type = 'status'
-         ORDER BY treated_at DESC, created_at DESC`,
-        animalIds,
-      ),
-      db.getAll<{ animal_id: string }>(
-        `SELECT DISTINCT animal_id
-         FROM treatments
-         WHERE animal_id IN (${placeholders}) AND treatment_type IN ('arrived', 'intake')`,
-        animalIds,
-      ),
-      db.getAll<{ id: string; label: string }>(
-        `SELECT id, label FROM animal_statuses WHERE org_id = ? AND archived = 0`,
-        [orgId],
-      ),
-    ])
-
-    if (!statuses || statuses.length === 0) return animals
-
-    const statusByLowerLabel = new Map<string, { id: string; label: string }>()
-    for (const s of statuses) {
-      if (s.label) {
-        statusByLowerLabel.set(s.label.trim().toLowerCase(), s)
-      }
-    }
-
-    const latestStatusNoteByAnimal = new Map<string, string>()
-    for (const t of statusTreatments ?? []) {
-      if (!latestStatusNoteByAnimal.has(t.animal_id) && t.notes?.trim()) {
-        latestStatusNoteByAnimal.set(t.animal_id, t.notes.trim())
-      }
-    }
-
-    const hasArrivalSet = new Set((arrivalRows ?? []).map((r) => r.animal_id))
-    const intakeStatus = statusByLowerLabel.get('intake')
-
-    return animals.map((animal) => {
-      const latestNote = latestStatusNoteByAnimal.get(animal.id)
-      if (latestNote) {
-        const candidateLabel = latestNote.includes(' - ')
-          ? latestNote.split(' - ')[0]!.trim()
-          : latestNote.trim()
-        const matched = statusByLowerLabel.get(candidateLabel.toLowerCase())
-        if (matched && animal.status_id !== matched.id) {
-          void setSingleStatusAssignment(db, {
-            orgId,
-            animalId: animal.id,
-            statusId: matched.id,
-          }).catch(() => {})
-          return {
-            ...animal,
-            status_id: matched.id,
-            status_label: matched.label,
-            status_labels: [matched.label],
-          }
-        }
-      } else if (
-        hasArrivalSet.has(animal.id) &&
-        intakeStatus &&
-        animal.status_label?.trim().toLowerCase() === 'quarantine' &&
-        animal.status_id !== intakeStatus.id
-      ) {
-        void setSingleStatusAssignment(db, {
-          orgId,
-          animalId: animal.id,
-          statusId: intakeStatus.id,
-        }).catch(() => {})
-        return {
-          ...animal,
-          status_id: intakeStatus.id,
-          status_label: intakeStatus.label,
-          status_labels: [intakeStatus.label],
-        }
-      }
-      return animal
-    })
-  } catch {
-    return animals
-  }
-}
-
 export async function searchAnimals(
   db: SanctuaryDb,
   orgId: string,
@@ -363,12 +263,10 @@ export async function searchAnimals(
   )
   if (rows.length === 0) return []
 
-  const enriched = rows.map((row) => ({
+  return rows.map((row) => ({
     ...row,
     status_labels: row.status_label ? [row.status_label] : [],
   }))
-
-  return reconcileAnimalsWithTimelineStatuses(db, orgId, enriched)
 }
 
 export async function getAnimal(
@@ -384,17 +282,10 @@ export async function getAnimal(
   )
   if (!animal) return null
 
-  const enriched: AnimalWithStatus = {
+  return {
     ...animal,
     status_labels: animal.status_label ? [animal.status_label] : [],
   }
-  if (!animal.org_id) return enriched
-  const [reconciled] = await reconcileAnimalsWithTimelineStatuses(
-    db,
-    animal.org_id,
-    [enriched],
-  )
-  return reconciled ?? enriched
 }
 
 export async function updateAnimalStatus(
