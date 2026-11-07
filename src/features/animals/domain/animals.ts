@@ -217,7 +217,7 @@ export async function createQuickAnimalStub(
   }
 }
 
-async function reconcileAnimalsWithTimelineStatuses(
+export async function reconcileAnimalsWithTimelineStatuses(
   db: SanctuaryDb,
   orgId: string,
   animals: AnimalWithStatus[],
@@ -278,6 +278,18 @@ async function reconcileAnimalsWithTimelineStatuses(
           ? latestNote.split(' - ')[0]!.trim()
           : latestNote.trim()
         const matched = statusByLowerLabel.get(candidateLabel.toLowerCase())
+
+        // Stop the auto-rewrite: never force status_id from a timeline note that
+        // starts with "Transferred" or matches a Transferred status without an explicit user tap.
+        const isTransferredNote =
+          candidateLabel.toLowerCase().startsWith('transfer') ||
+          latestNote.trim().toLowerCase().startsWith('transfer') ||
+          (matched ? matched.label.trim().toLowerCase().includes('transfer') : false)
+
+        if (isTransferredNote) {
+          return animal
+        }
+
         if (matched && animal.status_id !== matched.id) {
           void setSingleStatusAssignment(db, {
             orgId,
