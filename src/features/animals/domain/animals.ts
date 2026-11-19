@@ -10,6 +10,7 @@ import {
 } from '@/features/statuses/domain/assignments'
 import { listStatuses } from '@/features/statuses/domain/statuses'
 import { queuePhoto } from '@/features/photos/domain/photos'
+import { assertAnimalAge } from '@/features/animals/domain/age'
 
 export function pickDefaultIntakeStatusId(
   statuses: readonly {
@@ -142,6 +143,8 @@ export async function createAnimal(
     species: input.species.trim(),
     sex: input.sex?.trim() || null,
     life_stage,
+    age_years: null,
+    age_months: null,
     markings: input.markings?.trim() || null,
     intake_date,
     status_id: created.status_id,
@@ -302,6 +305,18 @@ export async function updateAnimalStatus(
     animalId: id,
     statusIds: [statusId],
   })
+}
+
+export async function setAnimalAge(
+  db: SanctuaryDb,
+  id: string,
+  age: { years: number; months: number },
+): Promise<void> {
+  assertAnimalAge(age.years, age.months)
+  await db.execute(
+    `UPDATE animals SET age_years = ?, age_months = ?, updated_at = ? WHERE id = ?`,
+    [age.years, age.months, new Date().toISOString(), id],
+  )
 }
 
 export type UpdateAnimalInput = {

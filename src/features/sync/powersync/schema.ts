@@ -42,6 +42,8 @@ const animals = new Table(
     species: column.text,
     sex: column.text,
     life_stage: column.text,
+    age_years: column.integer,
+    age_months: column.integer,
     markings: column.text,
     intake_date: column.text,
     status_id: column.text,
@@ -247,8 +249,10 @@ export type Database = (typeof AppSchema)['types']
 export type OrganizationRecord = Database['organizations']
 export type OrgMemberRecord = Database['org_members']
 export type AnimalStatusRecord = Database['animal_statuses']
-export type AnimalRecord = Omit<Database['animals'], 'life_stage'> & {
+export type AnimalRecord = Omit<Database['animals'], 'life_stage' | 'age_years' | 'age_months'> & {
   life_stage?: 'adult' | 'child' | null
+  age_years?: number | null
+  age_months?: number | null
 }
 export type AnimalRelationshipRecord = Database['animal_relationships']
 export type TreatmentRecord = Database['treatments']
