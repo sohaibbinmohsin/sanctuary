@@ -308,7 +308,9 @@ describe('domain rescueReports backdating support', () => {
     const cols = String(animalInsertCall![0])
     const vals = animalInsertCall![1]
     expect(cols).toContain('life_stage')
+    expect(cols).toMatch(/life_stage,\s*sterilized/)
     expect(vals).toContain('child')
-    expect(vals[vals.length - 1]).toBe('child')
+    expect(vals[vals.length - 2]).toBe('child')
+    expect(vals[vals.length - 1]).toBe('unknown')
   })
 })
