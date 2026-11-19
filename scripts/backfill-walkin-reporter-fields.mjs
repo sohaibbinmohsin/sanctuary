@@ -49,12 +49,13 @@ function isBlank(value) {
   return value == null || String(value).trim() === ''
 }
 
-function redactSample(reportNumber, shelterCode, recovered) {
+function redactSample(reportId, reportNumber, shelterCode, recovered) {
   return {
+    report_id: reportId || '(unknown)',
     report_number: reportNumber || '(unknown)',
     animal: shelterCode || '(unknown)',
-    recovered_name: recovered?.name ? '[redacted]' : null,
-    recovered_phone: recovered?.phone ? '[redacted]' : null,
+    recovered_name: recovered?.name ? true : false,
+    recovered_phone: recovered?.phone ? true : false,
   }
 }
 
@@ -164,7 +165,9 @@ async function main() {
         reporter_phone: nextPhone,
       })
       if (redactedSamples.length < 5) {
-        redactedSamples.push(redactSample(row.report_number, row.shelter_code, parsed))
+        redactedSamples.push(
+          redactSample(row.report_id, row.report_number, row.shelter_code, parsed),
+        )
       }
     }
   }
@@ -179,10 +182,10 @@ async function main() {
   console.log(`  (CNIC cannot be recovered from intake notes — leave empty)\n`)
 
   if (redactedSamples.length > 0) {
-    console.log('Redacted sample of recoverable rows:')
+    console.log('Sample of recoverable rows (IDs only, no PII):')
     for (const sample of redactedSamples) {
       console.log(
-        `  - ${sample.report_number} ↔ ${sample.animal}: name=${sample.recovered_name}, phone=${sample.recovered_phone}`,
+        `  - id=${sample.report_id} report=${sample.report_number} animal=${sample.animal} name=${sample.recovered_name} phone=${sample.recovered_phone}`,
       )
     }
     console.log('')
