@@ -1,4 +1,5 @@
 import { formatAgePhrase } from '@/features/animals/domain/age'
+import { vaccinationCareTitle } from '@/features/treatments/domain/vaccines'
 
 export { formatAgePhrase }
 
@@ -13,7 +14,8 @@ export const PUBLIC_CARE_LABELS: Record<string, string> = {
   status: 'Status',
 }
 
-export function publicCareLabel(treatmentType: string): string {
+export function publicCareLabel(treatmentType: string, vaccine?: string | null): string {
+  if (treatmentType === 'vaccination') return vaccinationCareTitle(vaccine)
   return PUBLIC_CARE_LABELS[treatmentType] ?? treatmentType
 }
 

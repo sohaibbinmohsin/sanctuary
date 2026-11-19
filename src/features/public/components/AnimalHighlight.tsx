@@ -227,7 +227,7 @@ export function AnimalHighlight({
                       {formatPublicWhen(entry.treatedAt)}
                     </span>
                     <span className="public-shelter__care-type">
-                      {publicCareLabel(entry.treatmentType)}
+                      {publicCareLabel(entry.treatmentType, entry.vaccine)}
                     </span>
                     {entry.notes ? (
                       <span className="public-shelter__care-notes">

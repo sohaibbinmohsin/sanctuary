@@ -46,6 +46,7 @@ import {
   updateTreatment,
   type TreatmentType,
 } from '@/features/treatments/domain/treatments'
+import { isVaccineId, vaccinationCareTitle, VACCINE_OPTIONS } from '@/features/treatments/domain/vaccines'
 import type { PhotoRecord, TreatmentRecord } from '@/features/sync/powersync/schema'
 import { PhotoCapture } from '@/features/animals/components/PhotoCapture'
 import { AnimalLineArt } from '@/features/animals/components/AnimalLineArt'
@@ -125,7 +126,7 @@ const TREATMENT_LABELS: Record<TreatmentType, string> = {
 
 type AnimalDetailTab = 'care' | 'timeline' | 'details'
 
-const CARE_FORM_TYPES: TreatmentType[] = ['meds', 'vet', 'procedure', 'other']
+const CARE_FORM_TYPES: TreatmentType[] = ['meds', 'vet', 'procedure', 'vaccination', 'other']
 const SYSTEM_CARE_TYPES: TreatmentType[] = ['arrived', 'intake', 'status']
 
 type PhotoItem = {
@@ -192,6 +193,7 @@ export function AnimalDetailScreen() {
     id ? [id] : [],
   )
   const [treatmentType, setTreatmentType] = useState<TreatmentType>('meds')
+  const [vaccine, setVaccine] = useState('')
   const [notes, setNotes] = useState('')
   const [hideFromPublic, setHideFromPublic] = useState(false)
   const [treatedAt, setTreatedAt] = useState(
@@ -532,6 +534,7 @@ export function AnimalDetailScreen() {
     setShowCareForm(false)
     setEditingTreatmentId(null)
     setTreatmentType('meds')
+    setVaccine('')
     setNotes('')
     setTreatedAt(toDatetimeLocalValue(new Date().toISOString()))
     setHideFromPublic(false)
@@ -541,6 +544,7 @@ export function AnimalDetailScreen() {
   function openCreateCareForm() {
     setEditingTreatmentId(null)
     setTreatmentType('meds')
+    setVaccine('')
     setNotes('')
     setTreatedAt(toDatetimeLocalValue(new Date().toISOString()))
     setHideFromPublic(false)
@@ -556,6 +560,7 @@ export function AnimalDetailScreen() {
         ? type
         : 'other',
     )
+    setVaccine(isVaccineId(treatment.vaccine) ? treatment.vaccine : '')
     setNotes(treatment.notes ?? '')
     setTreatedAt(toDatetimeLocalValue(treatment.treated_at))
     setHideFromPublic(Boolean(treatment.hide_from_public))
@@ -820,11 +825,17 @@ export function AnimalDetailScreen() {
   async function onSaveTreatment(e: FormEvent) {
     e.preventDefault()
     if (!db || !member || !id) return
-    if (!notes.trim()) {
+    if (treatmentType === 'vaccination') {
+      if (!isVaccineId(vaccine)) {
+        setError('Choose a vaccine.')
+        return
+      }
+    } else if (!notes.trim()) {
       setError('Add a note before saving.')
       return
     }
     setError(null)
+    const vaccineId = treatmentType === 'vaccination' && isVaccineId(vaccine) ? vaccine : undefined
     try {
       if (editingTreatmentId) {
         await updateTreatment(db, editingTreatmentId, {
@@ -832,6 +843,7 @@ export function AnimalDetailScreen() {
           notes: notes.trim(),
           treatedAt: new Date(treatedAt).toISOString(),
           hideFromPublic,
+          vaccine: vaccineId ?? null,
         })
         setToast('Care note updated')
       } else {
@@ -842,6 +854,7 @@ export function AnimalDetailScreen() {
           notes: notes.trim(),
           treatedAt: new Date(treatedAt).toISOString(),
           hideFromPublic,
+          vaccine: vaccineId,
         })
         setToast(pickMessage(TREATMENT_MESSAGES))
       }
@@ -1213,7 +1226,10 @@ export function AnimalDetailScreen() {
           <div style={{ marginTop: '0.5rem' }}>
             {careTreatments.map((t) => {
               const type = t.treatment_type as TreatmentType
-              const title = TREATMENT_LABELS[type] ?? t.treatment_type
+              const title =
+                type === 'vaccination'
+                  ? vaccinationCareTitle(t.vaccine)
+                  : (TREATMENT_LABELS[type] ?? t.treatment_type)
               return (
                 <div className="list-item list-item--row" key={t.id}>
                   <div
@@ -1724,8 +1740,23 @@ export function AnimalDetailScreen() {
               value: key,
               label: TREATMENT_LABELS[key],
             }))}
-            onChange={(value) => setTreatmentType(value as TreatmentType)}
+            onChange={(value) => {
+              const next = value as TreatmentType
+              setTreatmentType(next)
+              if (next !== 'vaccination') setVaccine('')
+            }}
           />
+          {treatmentType === 'vaccination' ? (
+            <SelectField
+              label="Vaccine"
+              value={vaccine}
+              options={VACCINE_OPTIONS.map((option) => ({
+                value: option.id,
+                label: option.label,
+              }))}
+              onChange={setVaccine}
+            />
+          ) : null}
           <TextField
             label="When"
             type="datetime-local"
@@ -1735,7 +1766,8 @@ export function AnimalDetailScreen() {
           <TextareaField
             label="Notes"
             rows={3}
-            required
+            required={treatmentType !== 'vaccination'}
+            hint={treatmentType === 'vaccination' ? 'optional' : undefined}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="What was done, medicine given, next steps…"
@@ -1750,7 +1782,11 @@ export function AnimalDetailScreen() {
           </label>
           {error ? <p className="form-error">{error}</p> : null}
           <div className="responsive-modal__actions">
-            <Button type="submit" variant="primary" disabled={!notes.trim()}>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={treatmentType === 'vaccination' ? !isVaccineId(vaccine) : !notes.trim()}
+            >
               {editingTreatmentId ? 'Save changes' : 'Save care note'}
             </Button>
             <Button type="button" variant="secondary" onClick={resetCareForm}>

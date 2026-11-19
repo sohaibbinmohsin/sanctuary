@@ -12,6 +12,7 @@ export type PublicCareDto = {
   treatedAt: string
   treatmentType: string
   notes: string | null
+  vaccine: string | null
 }
 
 export type PublicAnimalDto = {
@@ -97,11 +98,12 @@ export function buildPublicShelterDto(input: PublicShelterInput): PublicShelterD
         }) => {
           const publicCare = care
             .filter((entry) => !entry.hideFromPublic)
-            .map(({ id, treatedAt, treatmentType, notes }) => ({
+            .map(({ id, treatedAt, treatmentType, notes, vaccine }) => ({
               id,
               treatedAt,
               treatmentType,
               notes,
+              vaccine: vaccine ?? null,
             }))
 
           const hasArrival = publicCare.some((entry) =>
@@ -115,6 +117,7 @@ export function buildPublicShelterDto(input: PublicShelterInput): PublicShelterD
                 : arrivalTimestampFromIntakeDate(intakeDate),
               treatmentType: 'arrived',
               notes: null,
+              vaccine: null,
             })
           }
 

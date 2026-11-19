@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
               age_years, age_months,
               status:animal_statuses ( label, sort_order, counts_as_in_care ),
               photos ( id, r2_key, verified ),
-              treatments ( id, treated_at, treatment_type, notes, hide_from_public )
+              treatments ( id, treated_at, treatment_type, notes, hide_from_public, vaccine )
             `,
         )
         .eq('org_id', org.id)
@@ -197,6 +197,7 @@ Deno.serve(async (req) => {
             treatment_type: string
             notes: string | null
             hide_from_public: boolean
+            vaccine: string | null
           }[]
         | null
     }
@@ -211,6 +212,7 @@ Deno.serve(async (req) => {
             treatedAt: treatment.treated_at,
             treatmentType: treatment.treatment_type,
             notes: treatment.notes,
+            vaccine: treatment.vaccine,
           }))
 
         const hasArrival = care.some(
@@ -225,6 +227,7 @@ Deno.serve(async (req) => {
               : `${row.intake_date}T12:00:00.000Z`,
             treatmentType: 'arrived',
             notes: null,
+            vaccine: null,
           })
         }
 
