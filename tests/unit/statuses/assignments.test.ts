@@ -182,6 +182,7 @@ describe('replaceAnimalStatuses', () => {
       null,
       0,
       expect.any(String),
+      null,
     ])
   })
 })

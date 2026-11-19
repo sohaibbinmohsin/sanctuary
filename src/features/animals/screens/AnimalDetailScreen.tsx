@@ -116,6 +116,7 @@ const TREATMENT_LABELS: Record<TreatmentType, string> = {
   meds: 'Medicine',
   vet: 'Vet visit',
   procedure: 'Procedure',
+  vaccination: 'Vaccination',
   other: 'Other care',
   intake: 'Intake',
   arrived: 'Intake',

@@ -1,5 +1,6 @@
 import type { SanctuaryDb } from '@/shared/lib/db'
 import type { TreatmentRecord } from '@/features/sync/powersync/schema'
+import { isVaccineId, type VaccineId } from '@/features/treatments/domain/vaccines'
 
 export type TreatmentType =
   | 'meds'
@@ -9,6 +10,7 @@ export type TreatmentType =
   | 'intake'
   | 'arrived'
   | 'status'
+  | 'vaccination'
 
 export function isArrivalTreatmentType(type: string | null | undefined): boolean {
   return type === 'arrived' || type === 'intake'
@@ -21,8 +23,21 @@ export type AddTreatmentInput = {
   notes?: string
   treatedAt?: string
   ledgerEntryId?: string
+  vaccine?: VaccineId
   /** Hide this care note from the public shelter page. Defaults to 0. */
   hideFromPublic?: boolean
+}
+
+function vaccineForWrite(
+  treatmentType: TreatmentType,
+  vaccine: VaccineId | null | undefined,
+): string | null {
+  if (treatmentType === 'vaccination') {
+    if (!isVaccineId(vaccine)) throw new Error('Choose a vaccine.')
+    return vaccine
+  }
+  if (vaccine != null) throw new Error('Vaccine is only stored on vaccination entries.')
+  return null
 }
 
 export async function addTreatment(
@@ -33,11 +48,12 @@ export async function addTreatment(
   const created_at = new Date().toISOString()
   const treated_at = input.treatedAt ?? created_at
   const hideFromPublic = input.hideFromPublic ? 1 : 0
+  const vaccine = vaccineForWrite(input.treatmentType, input.vaccine)
 
   await db.execute(
     `INSERT INTO treatments (
-      id, org_id, animal_id, treated_at, treatment_type, notes, ledger_entry_id, hide_from_public, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, org_id, animal_id, treated_at, treatment_type, notes, ledger_entry_id, hide_from_public, created_at, vaccine
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.orgId,
@@ -48,6 +64,7 @@ export async function addTreatment(
       input.ledgerEntryId ?? null,
       hideFromPublic,
       created_at,
+      vaccine,
     ],
   )
 
@@ -61,6 +78,7 @@ export async function addTreatment(
     ledger_entry_id: input.ledgerEntryId ?? null,
     hide_from_public: hideFromPublic,
     created_at,
+    vaccine,
   }
 }
 
@@ -79,6 +97,7 @@ export type UpdateTreatmentInput = {
   notes?: string
   treatedAt?: string
   ledgerEntryId?: string | null
+  vaccine?: VaccineId | null
   hideFromPublic?: boolean
 }
 
@@ -102,6 +121,7 @@ export async function updateTreatment(
       : input.hideFromPublic
         ? 1
         : 0
+  const vaccine = vaccineForWrite(input.treatmentType, input.vaccine ?? null)
 
   await db.execute(
     `UPDATE treatments SET
@@ -109,7 +129,8 @@ export async function updateTreatment(
       treatment_type = ?,
       notes = ?,
       ledger_entry_id = ?,
-      hide_from_public = ?
+      hide_from_public = ?,
+      vaccine = ?
      WHERE id = ?`,
     [
       treated_at,
@@ -117,6 +138,7 @@ export async function updateTreatment(
       notes,
       ledgerEntryId,
       hideFromPublic,
+      vaccine,
       id,
     ],
   )

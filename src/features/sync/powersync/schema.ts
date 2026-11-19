@@ -80,6 +80,7 @@ const treatments = new Table(
     animal_id: column.text,
     treated_at: column.text,
     treatment_type: column.text,
+    vaccine: column.text,
     notes: column.text,
     ledger_entry_id: column.text,
     hide_from_public: column.integer, // 0/1
