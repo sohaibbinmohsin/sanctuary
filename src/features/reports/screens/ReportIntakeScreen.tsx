@@ -39,6 +39,7 @@ import {
   getAreaCentroid,
   getAllSupportedCities,
   AVIAN_PRESETS,
+  INTAKE_SOURCE_LABELS,
   type IntakeSource,
   type FrequentCaller,
   type ReportPhoto,
@@ -57,12 +58,13 @@ const CATEGORY_OPTIONS = [
   { value: 'cruelty', label: 'Animal cruelty' },
 ] as const
 
+/** Selectable intake sources for the intake form (legacy direct_intake maps to walk_in). */
 const INTAKE_SOURCES: { value: IntakeSource; label: string }[] = [
-  { value: 'citizen', label: 'Citizen Call' },
-  { value: 'walk_in', label: 'Walk-in / Direct' },
-  { value: 'rescue_1122', label: 'Rescue 1122' },
-  { value: 'field_patrol', label: 'Field Patrol (Self)' },
-  { value: 'partner_transfer', label: 'Partner Transfer' },
+  { value: 'citizen', label: INTAKE_SOURCE_LABELS.citizen },
+  { value: 'walk_in', label: INTAKE_SOURCE_LABELS.walk_in },
+  { value: 'rescue_1122', label: INTAKE_SOURCE_LABELS.rescue_1122 },
+  { value: 'field_patrol', label: INTAKE_SOURCE_LABELS.field_patrol },
+  { value: 'partner_transfer', label: INTAKE_SOURCE_LABELS.partner_transfer },
 ]
 
 

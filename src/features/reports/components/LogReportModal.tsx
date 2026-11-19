@@ -10,6 +10,7 @@ import {
   formatPhoneNumber,
   validatePhoneNumber,
   AVIAN_PRESETS,
+  INTAKE_SOURCE_LABELS,
   type IntakeSource,
   type RescueReport,
 } from '@/features/reports/domain/rescueReports'
@@ -24,11 +25,12 @@ export type LogReportModalProps = {
 
 const SPECIES_OPTIONS = ['Dog', 'Cat', 'Donkey', 'Horse', 'Bird', 'Other'] as const
 
+/** Field-call sources for the quick log modal (walk-in uses ReportIntakeScreen). */
 const INTAKE_SOURCES: { value: IntakeSource; label: string }[] = [
-  { value: 'citizen', label: 'Citizen Call' },
-  { value: 'rescue_1122', label: 'Rescue 1122' },
-  { value: 'field_patrol', label: 'Field Patrol (Self)' },
-  { value: 'partner_transfer', label: 'Partner Transfer' },
+  { value: 'citizen', label: INTAKE_SOURCE_LABELS.citizen },
+  { value: 'rescue_1122', label: INTAKE_SOURCE_LABELS.rescue_1122 },
+  { value: 'field_patrol', label: INTAKE_SOURCE_LABELS.field_patrol },
+  { value: 'partner_transfer', label: INTAKE_SOURCE_LABELS.partner_transfer },
 ]
 
 export function LogReportModal({

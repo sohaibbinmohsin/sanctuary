@@ -496,6 +496,38 @@ describe('ReportDetailScreen', () => {
     })
   })
 
+  it('labels walk-in intake source as Walk-in / Direct on the report view', async () => {
+    vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
+      id: 'rep-walkin',
+      org_id: 'org-1',
+      report_number: 'TEST-R601',
+      category: 'emergency',
+      species: 'dog',
+      chief_complaint: 'Limping',
+      status: 'attended',
+      intake_source: 'walk_in',
+      location_area: 'Test Area',
+      reporter_name: 'Walk-in Reporter',
+      reporter_phone: '0300-0000000',
+      stage_logged_at: '2026-10-13T14:10:00Z',
+      stage_attended_at: '2026-10-13T14:10:00Z',
+      disposition_type: 'admitted_shelter',
+      created_at: '2026-10-13T14:10:00Z',
+    } as any)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/rep-walkin']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportDetailScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('TEST-R601')).toBeInTheDocument()
+    expect(screen.getByText('Walk-in / Direct')).toBeInTheDocument()
+    expect(screen.queryByText('Citizen Call')).not.toBeInTheDocument()
+  })
+
   it('renders Legal Action & Notice and Dismissal Reason cards in ReportFactsGrid', async () => {
     vi.spyOn(domainModule, 'getRescueReportById').mockResolvedValue({
       id: 'rep-c4',
