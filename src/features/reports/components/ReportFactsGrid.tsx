@@ -8,6 +8,7 @@ import {
   formatPhoneNumber,
   formatCnic,
   formatCoordinates,
+  formatIntakeSourceLabel,
   getNavigationUrl,
   isCentroidCoordinates,
 } from '@/features/reports/domain/rescueReports'
@@ -403,13 +404,7 @@ export function ReportFactsGrid({ report }: ReportFactsGridProps) {
           <div className="fact-row">
             <span className="fact-label">Intake Source</span>
             <span className="fact-value font-medium">
-              {report.intake_source === 'rescue_1122'
-                ? 'Rescue 1122'
-                : report.intake_source === 'field_patrol'
-                  ? 'Field Patrol (Self)'
-                  : report.intake_source === 'partner_transfer'
-                    ? 'Partner Transfer'
-                    : 'Citizen Call'}
+              {formatIntakeSourceLabel(report.intake_source)}
             </span>
           </div>
           <div className="fact-row">

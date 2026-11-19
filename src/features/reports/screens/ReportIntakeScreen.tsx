@@ -39,6 +39,7 @@ import {
   getAreaCentroid,
   getAllSupportedCities,
   AVIAN_PRESETS,
+  INTAKE_SOURCE_LABELS,
   type IntakeSource,
   type FrequentCaller,
   type ReportPhoto,
@@ -57,13 +58,24 @@ const CATEGORY_OPTIONS = [
   { value: 'cruelty', label: 'Animal cruelty' },
 ] as const
 
+/** Selectable intake sources for the intake form (legacy direct_intake maps to walk_in). */
 const INTAKE_SOURCES: { value: IntakeSource; label: string }[] = [
-  { value: 'citizen', label: 'Citizen Call' },
-  { value: 'walk_in', label: 'Walk-in / Direct' },
-  { value: 'rescue_1122', label: 'Rescue 1122' },
-  { value: 'field_patrol', label: 'Field Patrol (Self)' },
-  { value: 'partner_transfer', label: 'Partner Transfer' },
+  { value: 'citizen', label: INTAKE_SOURCE_LABELS.citizen },
+  { value: 'walk_in', label: INTAKE_SOURCE_LABELS.walk_in },
+  { value: 'rescue_1122', label: INTAKE_SOURCE_LABELS.rescue_1122 },
+  { value: 'field_patrol', label: INTAKE_SOURCE_LABELS.field_patrol },
+  { value: 'partner_transfer', label: INTAKE_SOURCE_LABELS.partner_transfer },
 ]
+
+/** True when the reporter ID field is a Pakistan CNIC (not a free-text case/ref #). */
+function isCnicIntakeSource(source: IntakeSource): boolean {
+  return (
+    source === 'citizen' ||
+    source === 'walk_in' ||
+    source === 'direct_intake' ||
+    source === 'field_patrol'
+  )
+}
 
 
 export function ReportIntakeScreen() {
@@ -379,7 +391,7 @@ export function ReportIntakeScreen() {
       return
     }
 
-    if (intakeSource === 'citizen' && reporterCnic.trim() && !cnicValidation.isValid) {
+    if (isCnicIntakeSource(intakeSource) && reporterCnic.trim() && !cnicValidation.isValid) {
       setError(cnicValidation.error || 'Please enter a valid 13-digit CNIC (e.g. 42101-1234567-1).')
       return
     }
@@ -456,7 +468,7 @@ export function ReportIntakeScreen() {
           reporterName: reporterName.trim() || null,
           reporterPhone: reporterPhone.trim() ? formatPhoneNumber(reporterPhone) : null,
           reporterCnic: reporterCnic.trim()
-            ? intakeSource === 'citizen' || intakeSource === 'field_patrol'
+            ? isCnicIntakeSource(intakeSource)
               ? formatCnic(reporterCnic)
               : reporterCnic.trim()
             : null,
@@ -513,7 +525,7 @@ export function ReportIntakeScreen() {
           reporterName: reporterName.trim() || null,
           reporterPhone: reporterPhone.trim() ? formatPhoneNumber(reporterPhone) : null,
           reporterCnic: reporterCnic.trim()
-            ? effectiveIntakeSource === 'citizen' || effectiveIntakeSource === 'field_patrol'
+            ? isCnicIntakeSource(effectiveIntakeSource)
               ? formatCnic(reporterCnic)
               : reporterCnic.trim()
             : null,
@@ -1266,15 +1278,11 @@ export function ReportIntakeScreen() {
               value={reporterCnic}
               onChange={(e) => {
                 const val = e.target.value
-                setReporterCnic(
-                  intakeSource === 'citizen' || intakeSource === 'field_patrol'
-                    ? formatCnic(val)
-                    : val,
-                )
+                setReporterCnic(isCnicIntakeSource(intakeSource) ? formatCnic(val) : val)
                 if (error) setError(null)
               }}
             />
-            {intakeSource === 'citizen' && reporterCnic.trim() ? (
+            {isCnicIntakeSource(intakeSource) && reporterCnic.trim() ? (
               cnicValidation.isValid ? (
                 <span
                   className="field__hint"

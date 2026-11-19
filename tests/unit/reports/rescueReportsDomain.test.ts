@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   createRescueReport,
   updateReportStage,
@@ -10,7 +10,11 @@ import {
   archiveRescueReport,
   deduplicateReportNumbers,
   createAnimalFromRescueReport,
+  updateRescueReport,
+  formatIntakeSourceLabel,
+  INTAKE_SOURCE_LABELS,
   type CreateRescueReportInput,
+  type IntakeSource,
 } from '@/features/reports/domain/rescueReports'
 
 describe('rescueReports domain', () => {
@@ -561,6 +565,159 @@ describe('rescueReports domain', () => {
       expect(animal2Relations).toHaveLength(2)
       expect(animal2Relations.map((r) => r.related_animal_id)).toContain(createdAnimals[0].id)
       expect(animal2Relations.map((r) => r.related_animal_id)).toContain(createdAnimals[1].id)
+    })
+  })
+
+  describe('updateRescueReport partial updates', () => {
+    function mockDbForUpdate() {
+      const execute = vi.fn(async (_sql: string, _params?: unknown[]) => {})
+      return {
+        execute,
+        getAll: vi.fn(async () => [
+          { name: 'life_stage' },
+          { name: 'city' },
+          { name: 'latitude' },
+          { name: 'longitude' },
+          { name: 'reporter_cnic' },
+          { name: 'legal_notes' },
+          { name: 'intake_source' },
+          { name: 'animal_count' },
+          { name: 'group_breakdown' },
+          { name: 'archived' },
+        ]),
+        getOptional: vi.fn(async () => null),
+      }
+    }
+
+    it('linking animalId alone does not null reporter or landmark fields', async () => {
+      const db = mockDbForUpdate()
+      await updateRescueReport(db as any, 'report-walk-in', { animalId: 'animal-1' })
+
+      const updateCall = db.execute.mock.calls.find((c) =>
+        String(c[0]).includes('UPDATE rescue_reports'),
+      ) as [string, unknown[]] | undefined
+      expect(updateCall).toBeDefined()
+      const sql = updateCall![0]
+      const params = updateCall![1]
+
+      expect(sql).toContain('animal_id = ?')
+      expect(sql).toContain('updated_at = ?')
+      expect(sql).not.toContain('reporter_name')
+      expect(sql).not.toContain('reporter_phone')
+      expect(sql).not.toContain('reporter_cnic')
+      expect(sql).not.toContain('location_landmark')
+      expect(sql).not.toContain('latitude')
+      expect(sql).not.toContain('longitude')
+      expect(sql).not.toContain('group_breakdown')
+      expect(sql).not.toContain('category')
+      expect(params).toEqual([
+        'animal-1',
+        expect.any(String),
+        'report-walk-in',
+      ])
+    })
+
+    it('preserves reporter fields across walk-in create then animal-link update', async () => {
+      const executeCalls: { sql: string; params?: unknown[] }[] = []
+      const db = {
+        execute: async (sql: string, params?: unknown[]) => {
+          executeCalls.push({ sql, params })
+        },
+        getAll: async () => [
+          { name: 'life_stage' },
+          { name: 'city' },
+          { name: 'latitude' },
+          { name: 'longitude' },
+          { name: 'reporter_cnic' },
+          { name: 'legal_notes' },
+          { name: 'intake_source' },
+          { name: 'animal_count' },
+          { name: 'group_breakdown' },
+          { name: 'archived' },
+        ],
+        getOptional: async () => null,
+      } as any
+
+      const report = await createRescueReport(db, {
+        orgId: 'org-1',
+        reportNumber: 'TEST-R501',
+        species: 'dog',
+        chiefComplaint: 'Limping',
+        locationArea: 'Test Area',
+        reporterName: 'Walk-in Reporter',
+        reporterPhone: '0300-0000000',
+        reporterCnic: '00000-0000000-0',
+        intakeSource: 'walk_in',
+        status: 'attended',
+        dispositionType: 'admitted_shelter',
+      })
+
+      expect(report.reporter_name).toBe('Walk-in Reporter')
+      expect(report.reporter_phone).toBe('0300-0000000')
+      expect(report.reporter_cnic).toBe('00000-0000000-0')
+
+      await updateRescueReport(db, report.id, { animalId: 'animal-linked' })
+
+      const linkUpdate = executeCalls.find(
+        (c) => c.sql.includes('UPDATE rescue_reports') && c.sql.includes('animal_id = ?'),
+      )
+      expect(linkUpdate).toBeDefined()
+      expect(linkUpdate?.sql).not.toContain('reporter_name')
+      expect(linkUpdate?.sql).not.toContain('reporter_phone')
+      expect(linkUpdate?.sql).not.toContain('reporter_cnic')
+      expect(linkUpdate?.params?.[0]).toBe('animal-linked')
+    })
+
+    it('writes reporter fields when they are explicitly provided', async () => {
+      const db = mockDbForUpdate()
+      await updateRescueReport(db as any, 'report-edit', {
+        reporterName: 'Edited Name',
+        reporterPhone: '0311-1111111',
+        reporterCnic: null,
+        locationLandmark: null,
+      })
+
+      const updateCall = db.execute.mock.calls.find((c) =>
+        String(c[0]).includes('UPDATE rescue_reports'),
+      ) as [string, unknown[]] | undefined
+      expect(updateCall).toBeDefined()
+      const sql = updateCall![0]
+      const params = updateCall![1]
+
+      expect(sql).toContain('location_landmark = ?')
+      expect(sql).toContain('reporter_name = ?')
+      expect(sql).toContain('reporter_phone = ?')
+      expect(sql).toContain('reporter_cnic = ?')
+      expect(params).toEqual([
+        null, // location_landmark cleared
+        'Edited Name',
+        '0311-1111111',
+        null, // reporter_cnic cleared
+        expect.any(String),
+        'report-edit',
+      ])
+    })
+  })
+
+  describe('formatIntakeSourceLabel', () => {
+    it('covers every IntakeSource including walk-in and direct_intake', () => {
+      const sources: IntakeSource[] = [
+        'citizen',
+        'walk_in',
+        'direct_intake',
+        'rescue_1122',
+        'field_patrol',
+        'partner_transfer',
+      ]
+      for (const source of sources) {
+        expect(INTAKE_SOURCE_LABELS[source]).toBeTruthy()
+        expect(formatIntakeSourceLabel(source)).toBe(INTAKE_SOURCE_LABELS[source])
+      }
+      expect(formatIntakeSourceLabel('walk_in')).toBe('Walk-in / Direct')
+      expect(formatIntakeSourceLabel('direct_intake')).toBe('Walk-in / Direct')
+      expect(formatIntakeSourceLabel('citizen')).toBe('Citizen Call')
+      expect(formatIntakeSourceLabel(null)).toBe('Citizen Call')
+      expect(formatIntakeSourceLabel('unknown')).toBe('Citizen Call')
     })
   })
 })

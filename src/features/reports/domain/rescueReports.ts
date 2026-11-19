@@ -13,6 +13,7 @@ import { listStatuses } from '@/features/statuses/domain/statuses'
 import { localDateString } from '@/shared/lib/checklist/missedStreak'
 import { toSentenceCase } from '@/shared/lib/text'
 import { getBatchReportCompletionMap } from '@/features/reports/domain/reportOutcomes'
+import { formatReporterNotesLine } from '@/features/reports/domain/reporterNotes'
 
 export type RescueReportStage =
   | 'logged'
@@ -34,6 +35,25 @@ export type IntakeSource =
   | 'partner_transfer'
   | 'walk_in'
   | 'direct_intake'
+
+/** Human-readable labels for every IntakeSource value. */
+export const INTAKE_SOURCE_LABELS: Record<IntakeSource, string> = {
+  citizen: 'Citizen Call',
+  walk_in: 'Walk-in / Direct',
+  direct_intake: 'Walk-in / Direct',
+  rescue_1122: 'Rescue 1122',
+  field_patrol: 'Field Patrol (Self)',
+  partner_transfer: 'Partner Transfer',
+}
+
+/** Returns the display label for an intake source, defaulting to Citizen Call. */
+export function formatIntakeSourceLabel(source: string | null | undefined): string {
+  if (!source) return INTAKE_SOURCE_LABELS.citizen
+  if (source in INTAKE_SOURCE_LABELS) {
+    return INTAKE_SOURCE_LABELS[source as IntakeSource]
+  }
+  return INTAKE_SOURCE_LABELS.citizen
+}
 
 export const AVIAN_PRESETS = [
   'Black Kite',
@@ -721,9 +741,7 @@ export async function createAnimalFromRescueReport(
   const notesText = [
     `Rescue report: ${report.report_number || ''}`,
     report.chief_complaint ? `Complaint: ${report.chief_complaint}` : null,
-    report.reporter_name
-      ? `Reporter: ${report.reporter_name}${report.reporter_phone ? ` (${report.reporter_phone})` : ''}`
-      : null,
+    formatReporterNotesLine(report.reporter_name, report.reporter_phone),
   ]
     .filter(Boolean)
     .join('\n')
@@ -1075,6 +1093,7 @@ export type UpdateRescueReportInput = {
 
 /**
  * Updates rescue report details without modifying lifecycle status or timeline milestones (unless explicitly supplied).
+ * Partial update: omitted keys are left unchanged. Explicit null clears a nullable field.
  */
 export async function updateRescueReport(
   db: SanctuaryDb,
@@ -1085,105 +1104,89 @@ export async function updateRescueReport(
   const cols = await getExistingColumns(db, 'rescue_reports')
   const now = new Date().toISOString()
 
-  const setClauses: string[] = [
-    'category = COALESCE(?, category)',
-    'species = COALESCE(?, species)',
-    'chief_complaint = COALESCE(?, chief_complaint)',
-    'location_area = COALESCE(?, location_area)',
-    'location_landmark = ?',
-    'reporter_name = ?',
-    'reporter_phone = ?',
-  ]
-  const params: any[] = [
-    input.category ?? null,
-    input.species ?? null,
-    input.chiefComplaint ?? null,
-    input.locationArea ?? null,
-    input.locationLandmark ?? null,
-    input.reporterName ?? null,
-    input.reporterPhone ?? null,
-  ]
+  const setClauses: string[] = []
+  const params: any[] = []
 
-  if (cols.size === 0 || cols.has('life_stage')) {
-    setClauses.push('life_stage = COALESCE(?, life_stage)')
-    params.push(input.lifeStage ?? null)
+  const columnReady = (column: string) => cols.size === 0 || cols.has(column)
+
+  const setColumn = (column: string, value: unknown) => {
+    setClauses.push(`${column} = ?`)
+    params.push(value ?? null)
   }
 
-  if (cols.size === 0 || cols.has('city')) {
-    setClauses.push('city = COALESCE(?, city)')
-    params.push(input.city ?? null)
+  if (input.category !== undefined) setColumn('category', input.category)
+  if (input.species !== undefined) setColumn('species', input.species)
+  if (input.chiefComplaint !== undefined) setColumn('chief_complaint', input.chiefComplaint)
+  if (input.locationArea !== undefined) setColumn('location_area', input.locationArea)
+  if (input.locationLandmark !== undefined) setColumn('location_landmark', input.locationLandmark)
+  if (input.reporterName !== undefined) setColumn('reporter_name', input.reporterName)
+  if (input.reporterPhone !== undefined) setColumn('reporter_phone', input.reporterPhone)
+
+  if (input.lifeStage !== undefined && columnReady('life_stage')) {
+    setColumn('life_stage', input.lifeStage)
   }
 
-  if (cols.size === 0 || cols.has('latitude')) {
-    setClauses.push('latitude = ?')
-    params.push(input.latitude ?? null)
+  if (input.city !== undefined && columnReady('city')) {
+    setColumn('city', input.city)
   }
 
-  if (cols.size === 0 || cols.has('longitude')) {
-    setClauses.push('longitude = ?')
-    params.push(input.longitude ?? null)
+  if (input.latitude !== undefined && columnReady('latitude')) {
+    setColumn('latitude', input.latitude)
   }
 
-  if (cols.size === 0 || cols.has('reporter_cnic')) {
-    setClauses.push('reporter_cnic = ?')
-    params.push(input.reporterCnic ?? null)
+  if (input.longitude !== undefined && columnReady('longitude')) {
+    setColumn('longitude', input.longitude)
   }
 
-  if (cols.size === 0 || cols.has('legal_notes')) {
-    setClauses.push('legal_notes = COALESCE(?, legal_notes)')
-    params.push(input.legalNotes ?? null)
+  if (input.reporterCnic !== undefined && columnReady('reporter_cnic')) {
+    setColumn('reporter_cnic', input.reporterCnic)
   }
 
-  if (cols.size === 0 || cols.has('intake_source')) {
-    setClauses.push('intake_source = COALESCE(?, intake_source)')
-    params.push(input.intakeSource ?? null)
+  if (input.legalNotes !== undefined && columnReady('legal_notes')) {
+    setColumn('legal_notes', input.legalNotes)
   }
 
-  if (cols.size === 0 || cols.has('animal_count')) {
-    setClauses.push('animal_count = COALESCE(?, animal_count)')
-    params.push(input.animalCount ?? null)
+  if (input.intakeSource !== undefined && columnReady('intake_source')) {
+    setColumn('intake_source', input.intakeSource)
   }
 
-  if (cols.size === 0 || cols.has('group_breakdown')) {
-    setClauses.push('group_breakdown = ?')
-    params.push(input.groupBreakdown ?? null)
+  if (input.animalCount !== undefined && columnReady('animal_count')) {
+    setColumn('animal_count', input.animalCount)
+  }
+
+  if (input.groupBreakdown !== undefined && columnReady('group_breakdown')) {
+    setColumn('group_breakdown', input.groupBreakdown)
   }
 
   if (input.createdAt !== undefined && input.createdAt !== null) {
     const parsedIso = Number.isNaN(new Date(input.createdAt).getTime())
       ? input.createdAt
       : new Date(input.createdAt).toISOString()
-    setClauses.push('created_at = ?')
-    params.push(parsedIso)
-    setClauses.push('stage_logged_at = ?')
-    params.push(parsedIso)
+    setColumn('created_at', parsedIso)
+    setColumn('stage_logged_at', parsedIso)
   }
 
   if (input.stageAttendedAt !== undefined && input.stageAttendedAt !== null) {
     const parsedIso = Number.isNaN(new Date(input.stageAttendedAt).getTime())
       ? input.stageAttendedAt
       : new Date(input.stageAttendedAt).toISOString()
-    setClauses.push('stage_attended_at = ?')
-    params.push(parsedIso)
+    setColumn('stage_attended_at', parsedIso)
   }
 
   if (input.status !== undefined) {
-    setClauses.push('status = ?')
-    params.push(input.status)
+    setColumn('status', input.status)
   }
 
   if (input.dispositionType !== undefined) {
-    setClauses.push('disposition_type = ?')
-    params.push(input.dispositionType)
+    setColumn('disposition_type', input.dispositionType)
   }
 
   if (input.animalId !== undefined) {
-    setClauses.push('animal_id = ?')
-    params.push(input.animalId)
+    setColumn('animal_id', input.animalId)
   }
 
-  setClauses.push('updated_at = ?')
-  params.push(now)
+  // Always touch updated_at so callers get a consistent write even if only linking.
+  setColumn('updated_at', now)
   params.push(reportId)
 
   await db.execute(
