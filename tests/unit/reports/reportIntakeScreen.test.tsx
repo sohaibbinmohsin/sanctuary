@@ -462,6 +462,55 @@ describe('ReportIntakeScreen', () => {
     })
   })
 
+  it('formats and validates CNIC for Walk-in / Direct like Citizen Call', async () => {
+    vi.spyOn(domainModule, 'generateReportNumber').mockResolvedValue('PARC-R105')
+    const createReportSpy = vi.spyOn(domainModule, 'createRescueReport').mockResolvedValue({
+      id: 'rep-walkin-cnic',
+      org_id: 'org-1',
+      report_number: 'PARC-R105',
+      intake_source: 'walk_in',
+    } as any)
+    vi.spyOn(domainModule, 'createAnimalFromRescueReport').mockResolvedValue('animal-walkin')
+    vi.spyOn(domainModule, 'updateRescueReport').mockResolvedValue(undefined)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/new?type=walk-in']}>
+        <Routes>
+          <Route path="/reports/new" element={<ReportIntakeScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('button', { name: /Walk-in \/ Direct/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    const cnicInput = screen.getByLabelText(/^CNIC/i)
+    fireEvent.change(cnicInput, { target: { value: '4210112345671' } })
+    expect(screen.getByDisplayValue('42101-1234567-1')).toBeInTheDocument()
+    expect(screen.getByText(/Valid 13-digit CNIC/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/Chief complaint \/ Injury/i), {
+      target: { value: 'Limping' },
+    })
+    fireEvent.change(screen.getByLabelText(/Area \/ Neighborhood/i), {
+      target: { value: 'Gulberg III' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Log walk-in intake/i }))
+
+    await waitFor(() => {
+      expect(createReportSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          intakeSource: 'walk_in',
+          reporterCnic: '42101-1234567-1',
+        }),
+      )
+    })
+  })
+
   it('supports Rescue 1122 intake source with dynamic labels', async () => {
     vi.spyOn(domainModule, 'generateReportNumber').mockResolvedValue('PARC-R104')
     const createReportSpy = vi.spyOn(domainModule, 'createRescueReport').mockResolvedValue({
