@@ -1,0 +1,135 @@
+# Manual data backfills against sanctuary-prod.
+# Default mode is dry-run (counts only). Apply writes only when mode=apply.
+#
+# Reuses the same production DB secrets as Deploy Supabase (production):
+#   SUPABASE_ACCESS_TOKEN, PRODUCTION_PROJECT_ID, PRODUCTION_DB_PASSWORD
+#
+# After merging a PR that includes a backfill script, run this workflow
+# (dry-run first, then apply after Commander review).
+
+name: Data backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: Backfill script under scripts/
+        required: true
+        type: choice
+        options:
+          - backfill-walkin-reporter-fields.mjs
+          - backfill-report-coordinates.mjs
+      mode:
+        description: dry-run (counts only) or apply (write to production)
+        required: true
+        type: choice
+        default: dry-run
+        options:
+          - dry-run
+          - apply
+
+concurrency:
+  group: data-backfill-production
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ secrets.PRODUCTION_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required secrets
+        run: |
+          missing=0
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing GitHub secret: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Add secrets in repo Settings → Secrets and variables → Actions"
+            echo "  SUPABASE_ACCESS_TOKEN  — https://supabase.com/dashboard/account/tokens"
+            echo "  PRODUCTION_PROJECT_ID  — sanctuary-prod project ref"
+            echo "  PRODUCTION_DB_PASSWORD — Database password for sanctuary-prod"
+            exit 1
+          fi
+          if [ "$SUPABASE_PROJECT_ID" = "nsplqqaihekmmfznbkzb" ]; then
+            echo "::error::PRODUCTION_PROJECT_ID points at the DEV project. Use sanctuary-prod."
+            exit 1
+          fi
+
+      - name: Guard apply mode
+        if: ${{ inputs.mode == 'apply' }}
+        run: |
+          echo "::warning::APPLY mode will write to production (script=${{ inputs.script }})"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve production DATABASE_PROD_URL
+        id: db
+        run: |
+          set -euo pipefail
+          ENCODED_PASSWORD=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['SUPABASE_DB_PASSWORD'], safe=''))")
+          REGION=$(curl -fsS \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_ID}" \
+            | python3 -c "import sys, json; print(json.load(sys.stdin)['region'])")
+          # Session mode (port 5432) via Supavisor IPv4 pooler — same as deploy workflow.
+          DB_URL="postgresql://postgres.${SUPABASE_PROJECT_ID}:${ENCODED_PASSWORD}@aws-0-${REGION}.pooler.supabase.com:5432/postgres"
+          echo "DATABASE_PROD_URL=${DB_URL}" >> "$GITHUB_ENV"
+          echo "region=${REGION}" >> "$GITHUB_OUTPUT"
+          echo "Using session pooler (region=${REGION}, project=${SUPABASE_PROJECT_ID})"
+
+      - name: Run backfill
+        id: run
+        run: |
+          set -euo pipefail
+          SCRIPT="scripts/${{ inputs.script }}"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::error::Script not found: $SCRIPT"
+            exit 1
+          fi
+
+          ARGS=()
+          if [ "${{ inputs.mode }}" = "apply" ]; then
+            ARGS+=(--apply)
+          fi
+
+          {
+            echo "## Data backfill"
+            echo ""
+            echo "- Script: \`${{ inputs.script }}\`"
+            echo "- Mode: \`${{ inputs.mode }}\`"
+            echo "- Project: \`${SUPABASE_PROJECT_ID}\`"
+            echo "- Region: \`${{ steps.db.outputs.region }}\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo ""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Capture output for the job summary without printing secrets.
+          # Scripts print counts / IDs only (no reporter PII).
+          set +e
+          node "$SCRIPT" "${ARGS[@]}" 2>&1 | tee /tmp/backfill-output.txt
+          STATUS=${PIPESTATUS[0]}
+          set -e
+
+          cat /tmp/backfill-output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$STATUS" -ne 0 ]; then
+            echo "::error::Backfill script exited with status $STATUS"
+            exit "$STATUS"
+          fi
