@@ -19,6 +19,11 @@ import {
   type AnimalLifeStage,
 } from '@/features/animals/domain/animals'
 import { formatAgePhrase } from '@/features/animals/domain/age'
+import {
+  sterilizedLabel,
+  sterilizedOrUnknown,
+  type Sterilized,
+} from '@/features/animals/domain/sterilized'
 import { AgeWheelSheet } from '@/features/animals/components/AgeWheelSheet'
 import {
   getAnimalRelationships,
@@ -222,6 +227,7 @@ export function AnimalDetailScreen() {
   const [editLifeStage, setEditLifeStage] = useState<AnimalLifeStage>('adult')
   const [editName, setEditName] = useState('')
   const [editSex, setEditSex] = useState('')
+  const [editSterilized, setEditSterilized] = useState<Sterilized>('unknown')
   const [editMarkings, setEditMarkings] = useState('')
   const [editDetailsBusy, setEditDetailsBusy] = useState(false)
 
@@ -262,6 +268,7 @@ export function AnimalDetailScreen() {
     setEditLifeStage(animal.life_stage ?? 'adult')
     setEditName(animal.name ?? '')
     setEditSex(animal.sex ?? '')
+    setEditSterilized(sterilizedOrUnknown(animal.sterilized))
     setEditMarkings(animal.markings ?? '')
     setError(null)
     setShowEditDetailsModal(true)
@@ -290,6 +297,7 @@ export function AnimalDetailScreen() {
         life_stage: editLifeStage,
         name: editName.trim() || undefined,
         sex: editSex.trim() || undefined,
+        sterilized: editSterilized,
         markings: editMarkings.trim() || undefined,
       })
       setToast('Animal details updated.')
@@ -1503,10 +1511,16 @@ export function AnimalDetailScreen() {
                   )}
                 </span>
               </div>
-              <div className="characteristic-item">
+              <div className="characteristic-item characteristic-item--full">
                 <span className="characteristic-label">Sex</span>
                 <span className="characteristic-value">
                   {animal.sex?.trim() || 'Unknown'}
+                </span>
+              </div>
+              <div className="characteristic-item characteristic-item--full">
+                <span className="characteristic-label">Sterilized</span>
+                <span className="characteristic-value">
+                  {sterilizedLabel(animal.sterilized)}
                 </span>
               </div>
               <div className="characteristic-item characteristic-item--full">
@@ -1981,6 +1995,27 @@ export function AnimalDetailScreen() {
                   }
                 >
                   {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <span>Sterilized</span>
+            <div className="segmented" role="group" aria-label="Sterilized">
+              {([
+                { value: 'yes', label: 'Yes' },
+                { value: 'no', label: 'No' },
+                { value: 'unknown', label: 'Unknown' },
+              ] as const).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className="segmented__btn"
+                  aria-pressed={editSterilized === option.value}
+                  onClick={() => setEditSterilized(option.value)}
+                >
+                  {option.label}
                 </button>
               ))}
             </div>
