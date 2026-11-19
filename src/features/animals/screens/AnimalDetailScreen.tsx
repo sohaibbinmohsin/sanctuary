@@ -13,10 +13,13 @@ import { useDb } from '@/shared/hooks/useDb'
 import {
   archiveAnimal,
   getAnimal,
+  setAnimalAge,
   updateAnimal,
   type AnimalWithStatus,
   type AnimalLifeStage,
 } from '@/features/animals/domain/animals'
+import { formatAgePhrase } from '@/features/animals/domain/age'
+import { AgeWheelSheet } from '@/features/animals/components/AgeWheelSheet'
 import {
   getAnimalRelationships,
   linkAnimals,
@@ -212,6 +215,7 @@ export function AnimalDetailScreen() {
   const [partnerContact, setPartnerContact] = useState('')
   const [selectedTab, setSelectedTab] = useState<AnimalDetailTab | null>(null)
 
+  const [ageSheetOpen, setAgeSheetOpen] = useState(false)
   const [showEditDetailsModal, setShowEditDetailsModal] = useState(false)
   const [editSpeciesPreset, setEditSpeciesPreset] = useState('Dog')
   const [editSpeciesOther, setEditSpeciesOther] = useState('')
@@ -299,6 +303,19 @@ export function AnimalDetailScreen() {
       )
     } finally {
       setEditDetailsBusy(false)
+    }
+  }
+
+  async function onDoneAge(value: { years: number; months: number }) {
+    if (!db || !animal) return
+    setError(null)
+    try {
+      await setAnimalAge(db, animal.id, value)
+      setAgeSheetOpen(false)
+      setToast('Age saved')
+      await reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save age. Try again.')
     }
   }
 
@@ -1458,10 +1475,32 @@ export function AnimalDetailScreen() {
           </div>
           <div className="tab-panel__content characteristics-card panel">
             <div className="characteristics-grid">
-              <div className="characteristic-item">
+              <div className="characteristic-item characteristic-item--full">
                 <span className="characteristic-label">Species & Life Stage</span>
                 <span className="characteristic-value">
                   {animal.species} · {animal.life_stage === 'child' ? 'Child' : 'Adult'}
+                </span>
+              </div>
+              <div className="characteristic-item characteristic-item--full">
+                <span className="characteristic-label">Age</span>
+                <span className="characteristic-value">
+                  {member ? (
+                    (() => {
+                      const phrase = formatAgePhrase(animal.age_years, animal.age_months)
+                      return (
+                        <button
+                          type="button"
+                          className="btn btn--ghost"
+                          onClick={() => setAgeSheetOpen(true)}
+                          aria-label={phrase ? `Age, ${phrase}` : 'Add age'}
+                        >
+                          {phrase ?? 'Add age'}
+                        </button>
+                      )
+                    })()
+                  ) : (
+                    (formatAgePhrase(animal.age_years, animal.age_months) ?? 'Unknown')
+                  )}
                 </span>
               </div>
               <div className="characteristic-item">
@@ -2112,6 +2151,14 @@ export function AnimalDetailScreen() {
           </div>
         </form>
       </ResponsiveSheetModal>
+
+      <AgeWheelSheet
+        open={ageSheetOpen}
+        years={animal.age_years ?? 0}
+        months={animal.age_months ?? 0}
+        onCancel={() => setAgeSheetOpen(false)}
+        onDone={(value) => void onDoneAge(value)}
+      />
 
       {lightboxUrl ? (
         <div
