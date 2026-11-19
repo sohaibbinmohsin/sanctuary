@@ -13,6 +13,8 @@ describe('buildPublicShelterDto', () => {
         name: 'Barnaby',
         species: 'dog',
         sex: 'male',
+        ageYears: null,
+        ageMonths: null,
         markings: null,
         statusLabel: 'In sanctuary',
         archived: false,
@@ -44,6 +46,8 @@ describe('buildPublicShelterDto', () => {
         name: 'Gone',
         species: 'cat',
         sex: null,
+        ageYears: null,
+        ageMonths: null,
         markings: null,
         statusLabel: 'Adopted',
         archived: false,
@@ -163,5 +167,20 @@ describe('buildPublicShelterDto', () => {
     expect(dto.ledger[0]!.isAnonymous).toBe(true)
     expect(dto.ledger[0]!.notes).toBeNull()
     expect(dto.ledger[1]!.notes).toBe('Clinic')
+  })
+
+  it('passes age numbers through and does not require sterilized', () => {
+    const dto = buildPublicShelterDto({
+      ...base,
+      animals: [
+        {
+          ...base.animals[0]!,
+          ageYears: 2,
+          ageMonths: 6,
+        },
+      ],
+    })
+    expect(dto.animals[0]).toMatchObject({ ageYears: 2, ageMonths: 6 })
+    expect(dto.animals[0]).not.toHaveProperty('sterilized')
   })
 })

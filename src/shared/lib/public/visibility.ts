@@ -20,6 +20,8 @@ export type PublicAnimalDto = {
   name: string | null
   species: string | null
   sex: string | null
+  ageYears: number | null
+  ageMonths: number | null
   markings: string | null
   statusLabel: string
   photos: PublicPhotoDto[]

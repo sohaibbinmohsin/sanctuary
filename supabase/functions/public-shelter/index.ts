@@ -153,6 +153,7 @@ Deno.serve(async (req) => {
         .select(
           `
               id, shelter_code, name, species, sex, markings, archived, intake_date,
+              age_years, age_months,
               status:animal_statuses ( label, sort_order, counts_as_in_care ),
               photos ( id, r2_key, verified ),
               treatments ( id, treated_at, treatment_type, notes, hide_from_public )
@@ -178,6 +179,8 @@ Deno.serve(async (req) => {
       name: string | null
       species: string | null
       sex: string | null
+      age_years: number | null
+      age_months: number | null
       markings: string | null
       archived: boolean
       intake_date: string | null
@@ -233,6 +236,8 @@ Deno.serve(async (req) => {
           name: row.name,
           species: row.species,
           sex: row.sex,
+          ageYears: row.age_years,
+          ageMonths: row.age_months,
           markings: row.markings,
           statusLabel: row.status?.label ?? '',
           photos: (row.photos ?? [])

@@ -1,3 +1,7 @@
+import { formatAgePhrase } from '@/features/animals/domain/age'
+
+export { formatAgePhrase }
+
 /** Friendly labels for care entries on the public shelter page. */
 export const PUBLIC_CARE_LABELS: Record<string, string> = {
   meds: 'Medicine',
@@ -50,4 +54,21 @@ export function compareCareNewestFirst(
   b: { treatedAt: string },
 ): number {
   return b.treatedAt.localeCompare(a.treatedAt)
+}
+
+export function publicAnimalMetaLine(animal: {
+  species: string | null
+  sex: string | null
+  statusLabel: string
+  ageYears: number | null
+  ageMonths: number | null
+}): string {
+  return [
+    animal.species,
+    animal.sex,
+    formatAgePhrase(animal.ageYears, animal.ageMonths),
+    animal.statusLabel,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
