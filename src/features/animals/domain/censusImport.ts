@@ -24,11 +24,11 @@ export type CensusSkipReason =
   | 'unparsed_vaccine'
 
 export class CensusCellError extends Error {
-  constructor(
-    readonly reason: CensusSkipReason,
-    message: string,
-  ) {
+  readonly reason: CensusSkipReason
+
+  constructor(reason: CensusSkipReason, message: string) {
     super(message)
+    this.reason = reason
   }
 }
 

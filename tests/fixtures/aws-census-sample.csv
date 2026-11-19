@@ -1,0 +1,6 @@
+Name,Picture,Marking,Age,Sex,Rabies Vaccination,Calci/FPV Vaccination,Neutered/Spayed
+Mona,https://cdn.example/mona.jpg,"white, paw",5 years,Female,Yes,No,Unknown
+monia + child,https://cdn.example/group.jpg,,<6 months,Female,Yes,Yes,Yes
+Kit,,black ear,8 months,Male,No,Yes,No
+,,,,,,,
+Nope,,,"about 2",Female,Yes,No,No
