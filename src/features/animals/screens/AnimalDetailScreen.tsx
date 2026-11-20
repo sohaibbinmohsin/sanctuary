@@ -20,6 +20,7 @@ import {
 } from '@/features/animals/domain/animals'
 import { formatAgePhrase } from '@/features/animals/domain/age'
 import {
+  STERILIZED_OPTIONS,
   sterilizedLabel,
   sterilizedOrUnknown,
   type Sterilized,
@@ -2040,11 +2041,7 @@ export function AnimalDetailScreen() {
           <div className="field">
             <span>Sterilized</span>
             <div className="segmented" role="group" aria-label="Sterilized">
-              {([
-                { value: 'yes', label: 'Yes' },
-                { value: 'no', label: 'No' },
-                { value: 'unknown', label: 'Unknown' },
-              ] as const).map((option) => (
+              {STERILIZED_OPTIONS.map((option) => (
                 <button
                   key={option.value}
                   type="button"

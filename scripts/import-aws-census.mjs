@@ -94,14 +94,16 @@ async function main() {
     process.exit(1)
   }
   const plan = planCensusImport(parseCensusCsv(text))
-  const preview = assignCensusShelterCodes('AWS', [], plan.animals)
-  console.log(apply ? 'AWS LUMS census apply' : 'AWS LUMS census dry-run')
-  printPlan(preview, plan)
   if (!apply) {
+    const preview = assignCensusShelterCodes('AWS', [], plan.animals)
+    console.log('AWS LUMS census dry-run')
+    printPlan(preview, plan)
     console.log('DRY-RUN')
     return
   }
-  if (preview.length === 0) {
+
+  console.log('AWS LUMS census apply')
+  if (plan.animals.length === 0) {
     console.log('No animals to import.')
     return
   }
@@ -150,6 +152,7 @@ async function main() {
       codeRows.map((row) => row.shelter_code),
       plan.animals,
     )
+    printPlan(writes, plan)
     const intakeDate = censusIntakeDate(new Date())
     const treatedAt = censusTreatedAt(intakeDate)
     const now = new Date().toISOString()

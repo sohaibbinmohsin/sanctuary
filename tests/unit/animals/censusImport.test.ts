@@ -4,6 +4,7 @@ import {
   censusIntakeDate,
   censusTreatedAt,
   isManualSplitName,
+  parseCensusAge,
   parseCensusCsv,
   pickCensusStatusId,
   planCensusImport,
@@ -19,6 +20,13 @@ const csv = [
   'Coco,, ,2 years 6 months,F,Yes,Yes,Spayed',
   'Coco,, , , , , , ',
 ].join('\n')
+
+describe('parseCensusAge', () => {
+  it('parses under-six-months ages without an under flag', () => {
+    expect(parseCensusAge('<6 months')).toEqual({ years: 0, months: 6 })
+    expect(parseCensusAge('<6 months')).not.toHaveProperty('under')
+  })
+})
 
 describe('census csv', () => {
   it('rejects a header that is not the Sheet1 contract', () => {

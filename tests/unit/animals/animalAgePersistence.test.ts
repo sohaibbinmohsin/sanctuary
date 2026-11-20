@@ -24,7 +24,10 @@ function animalRow(overrides: Record<string, unknown> = {}) {
 describe('setAnimalAge', () => {
   it('stores years and months together', async () => {
     const execute = vi.fn().mockResolvedValue(undefined)
-    const db = { execute } as unknown as SanctuaryDb
+    const db = {
+      execute,
+      getOptional: vi.fn().mockResolvedValue(animalRow()),
+    } as unknown as SanctuaryDb
 
     await setAnimalAge(db, 'animal-1', { years: 2, months: 6 })
 
@@ -33,6 +36,19 @@ describe('setAnimalAge', () => {
     expect(String(sql)).toContain('age_years')
     expect(String(sql)).toContain('age_months')
     expect(params).toEqual([2, 6, expect.any(String), 'animal-1'])
+  })
+
+  it('throws when the animal row is missing', async () => {
+    const execute = vi.fn().mockResolvedValue(undefined)
+    const db = {
+      execute,
+      getOptional: vi.fn().mockResolvedValue(null),
+    } as unknown as SanctuaryDb
+
+    await expect(setAnimalAge(db, 'missing', { years: 1, months: 0 })).rejects.toThrow(
+      'Animal not found',
+    )
+    expect(execute).not.toHaveBeenCalled()
   })
 
   it('rejects a year the wheel cannot show', async () => {

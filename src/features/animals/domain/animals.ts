@@ -319,6 +319,8 @@ export async function setAnimalAge(
   age: { years: number; months: number },
 ): Promise<void> {
   assertAnimalAge(age.years, age.months)
+  const existing = await getAnimal(db, id)
+  if (!existing) throw new Error('Animal not found')
   await db.execute(
     `UPDATE animals SET age_years = ?, age_months = ?, updated_at = ? WHERE id = ?`,
     [age.years, age.months, new Date().toISOString(), id],
