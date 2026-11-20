@@ -1,0 +1,28 @@
+.age-wheels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.age-wheels__col {
+  display: flex;
+  flex-direction: column;
+  max-height: 11rem;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  border: 1px solid var(--color-line, #e4e0d8);
+  border-radius: 12px;
+}
+
+.age-wheels__option {
+  scroll-snap-align: center;
+  min-height: 2.75rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+}
+
+.age-wheels__option[aria-selected='true'] {
+  font-weight: 700;
+  background: var(--color-surface, #f6f3ee);
+}

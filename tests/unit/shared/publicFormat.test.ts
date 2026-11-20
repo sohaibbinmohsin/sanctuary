@@ -26,4 +26,11 @@ describe('publicCareLabel', () => {
     expect(publicCareLabel('intake')).toBe('Arrived')
     expect(publicCareLabel('status')).toBe('Status')
   })
+
+  it('labels a vaccination with its vaccine', () => {
+    expect(publicCareLabel('vaccination', 'rabies')).toBe('Vaccination · Rabies')
+    expect(publicCareLabel('vaccination', 'calci_fpv')).toBe('Vaccination · Calci/FPV')
+    expect(publicCareLabel('vaccination', null)).toBe('Vaccination')
+    expect(publicCareLabel('meds')).toBe('Medicine')
+  })
 })

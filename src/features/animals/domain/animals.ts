@@ -10,6 +10,8 @@ import {
 } from '@/features/statuses/domain/assignments'
 import { listStatuses } from '@/features/statuses/domain/statuses'
 import { queuePhoto } from '@/features/photos/domain/photos'
+import { assertAnimalAge } from '@/features/animals/domain/age'
+import { sterilizedOrUnknown, type Sterilized } from '@/features/animals/domain/sterilized'
 
 export function pickDefaultIntakeStatusId(
   statuses: readonly {
@@ -42,6 +44,7 @@ export type CreateAnimalInput = {
   statusIds: string[]
   name?: string
   sex?: string
+  sterilized?: Sterilized
   markings?: string
   notes?: string
   intakeDate?: string
@@ -87,12 +90,14 @@ export async function createAnimal(
   const notes = input.notes?.trim() || null
 
   const life_stage: AnimalLifeStage = input.life_stage ?? input.lifeStage ?? 'adult'
+  const sterilized = sterilizedOrUnknown(input.sterilized)
 
   await db.execute(
     `INSERT INTO animals (
       id, org_id, shelter_code, name, species, sex, markings,
-      intake_date, status_id, notes, archived, created_at, updated_at, life_stage
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+      intake_date, status_id, notes, archived, created_at, updated_at, life_stage,
+      sterilized
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
     [
       id,
       input.orgId,
@@ -107,6 +112,7 @@ export async function createAnimal(
       now,
       now,
       life_stage,
+      sterilized,
     ],
   )
 
@@ -142,6 +148,9 @@ export async function createAnimal(
     species: input.species.trim(),
     sex: input.sex?.trim() || null,
     life_stage,
+    sterilized,
+    age_years: null,
+    age_months: null,
     markings: input.markings?.trim() || null,
     intake_date,
     status_id: created.status_id,
@@ -304,10 +313,25 @@ export async function updateAnimalStatus(
   })
 }
 
+export async function setAnimalAge(
+  db: SanctuaryDb,
+  id: string,
+  age: { years: number; months: number },
+): Promise<void> {
+  assertAnimalAge(age.years, age.months)
+  const existing = await getAnimal(db, id)
+  if (!existing) throw new Error('Animal not found')
+  await db.execute(
+    `UPDATE animals SET age_years = ?, age_months = ?, updated_at = ? WHERE id = ?`,
+    [age.years, age.months, new Date().toISOString(), id],
+  )
+}
+
 export type UpdateAnimalInput = {
   species: string
   name?: string
   sex?: string
+  sterilized?: Sterilized
   life_stage?: AnimalLifeStage
   lifeStage?: AnimalLifeStage
   markings?: string
@@ -347,12 +371,14 @@ export async function updateAnimal(
   const life_stage: AnimalLifeStage = touchLifeStage
     ? (input.life_stage ?? input.lifeStage ?? 'adult')
     : (existing.life_stage ?? 'adult')
+  const sterilized = input.sterilized ?? sterilizedOrUnknown(existing.sterilized)
 
   await db.execute(
     `UPDATE animals SET
       name = ?,
       species = ?,
       sex = ?,
+      sterilized = ?,
       life_stage = ?,
       markings = ?,
       intake_date = ?,
@@ -363,6 +389,7 @@ export async function updateAnimal(
       input.name?.trim() || null,
       input.species.trim(),
       input.sex?.trim() || null,
+      sterilized,
       life_stage,
       input.markings?.trim() || null,
       intake_date,

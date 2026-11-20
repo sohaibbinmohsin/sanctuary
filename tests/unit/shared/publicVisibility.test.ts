@@ -13,6 +13,8 @@ describe('buildPublicShelterDto', () => {
         name: 'Barnaby',
         species: 'dog',
         sex: 'male',
+        ageYears: null,
+        ageMonths: null,
         markings: null,
         statusLabel: 'In sanctuary',
         archived: false,
@@ -27,6 +29,7 @@ describe('buildPublicShelterDto', () => {
             treatedAt: '2026-01-01',
             treatmentType: 'meds',
             notes: 'visible',
+            vaccine: null,
             hideFromPublic: false,
           },
           {
@@ -34,6 +37,7 @@ describe('buildPublicShelterDto', () => {
             treatedAt: '2026-01-02',
             treatmentType: 'vet',
             notes: 'secret',
+            vaccine: null,
             hideFromPublic: true,
           },
         ],
@@ -44,6 +48,8 @@ describe('buildPublicShelterDto', () => {
         name: 'Gone',
         species: 'cat',
         sex: null,
+        ageYears: null,
+        ageMonths: null,
         markings: null,
         statusLabel: 'Adopted',
         archived: false,
@@ -113,6 +119,7 @@ describe('buildPublicShelterDto', () => {
               treatedAt: '2026-01-05T10:00:00.000Z',
               treatmentType: 'status',
               notes: 'In sanctuary',
+              vaccine: null,
               hideFromPublic: false,
             },
           ],
@@ -126,6 +133,7 @@ describe('buildPublicShelterDto', () => {
     expect(dto.animals[0]!.care[1]!.treatedAt).toBe(
       new Date('2026-01-01T12:00:00').toISOString(),
     )
+    expect(dto.animals[0]!.care.find((entry) => entry.treatmentType === 'arrived')!.vaccine).toBeNull()
   })
 
   it('does not synthesize Arrived when an arrival care row already exists', () => {
@@ -141,6 +149,7 @@ describe('buildPublicShelterDto', () => {
               treatedAt: '2026-01-01T12:00:00.000Z',
               treatmentType: 'arrived',
               notes: 'Friendly',
+              vaccine: null,
               hideFromPublic: false,
             },
           ],
@@ -163,5 +172,56 @@ describe('buildPublicShelterDto', () => {
     expect(dto.ledger[0]!.isAnonymous).toBe(true)
     expect(dto.ledger[0]!.notes).toBeNull()
     expect(dto.ledger[1]!.notes).toBe('Clinic')
+  })
+
+  it('keeps a vaccination vaccine and drops a hidden one', () => {
+    const dto = buildPublicShelterDto({
+      ...base,
+      animals: [
+        {
+          ...base.animals[0]!,
+          care: [
+            {
+              id: 'v1',
+              treatedAt: '2026-11-20T12:00:00.000Z',
+              treatmentType: 'vaccination',
+              vaccine: 'rabies',
+              notes: null,
+              hideFromPublic: false,
+            },
+            {
+              id: 'v2',
+              treatedAt: '2026-11-19T12:00:00.000Z',
+              treatmentType: 'vaccination',
+              vaccine: 'calci_fpv',
+              notes: null,
+              hideFromPublic: true,
+            },
+          ],
+        },
+      ],
+    })
+    expect(dto.animals[0]!.care.map((entry) => entry.id)).toContain('v1')
+    expect(dto.animals[0]!.care.find((entry) => entry.id === 'v1')).toMatchObject({
+      treatmentType: 'vaccination',
+      vaccine: 'rabies',
+      notes: null,
+    })
+    expect(dto.animals[0]!.care.map((entry) => entry.id)).not.toContain('v2')
+  })
+
+  it('passes age numbers through and does not require sterilized', () => {
+    const dto = buildPublicShelterDto({
+      ...base,
+      animals: [
+        {
+          ...base.animals[0]!,
+          ageYears: 2,
+          ageMonths: 6,
+        },
+      ],
+    })
+    expect(dto.animals[0]).toMatchObject({ ageYears: 2, ageMonths: 6 })
+    expect(dto.animals[0]).not.toHaveProperty('sterilized')
   })
 })

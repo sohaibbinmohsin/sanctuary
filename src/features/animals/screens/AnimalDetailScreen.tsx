@@ -13,10 +13,19 @@ import { useDb } from '@/shared/hooks/useDb'
 import {
   archiveAnimal,
   getAnimal,
+  setAnimalAge,
   updateAnimal,
   type AnimalWithStatus,
   type AnimalLifeStage,
 } from '@/features/animals/domain/animals'
+import { formatAgePhrase } from '@/features/animals/domain/age'
+import {
+  STERILIZED_OPTIONS,
+  sterilizedLabel,
+  sterilizedOrUnknown,
+  type Sterilized,
+} from '@/features/animals/domain/sterilized'
+import { AgeWheelSheet } from '@/features/animals/components/AgeWheelSheet'
 import {
   getAnimalRelationships,
   linkAnimals,
@@ -38,6 +47,7 @@ import {
   updateTreatment,
   type TreatmentType,
 } from '@/features/treatments/domain/treatments'
+import { isVaccineId, vaccinationCareTitle, VACCINE_OPTIONS } from '@/features/treatments/domain/vaccines'
 import type { PhotoRecord, TreatmentRecord } from '@/features/sync/powersync/schema'
 import { PhotoCapture } from '@/features/animals/components/PhotoCapture'
 import { AnimalLineArt } from '@/features/animals/components/AnimalLineArt'
@@ -108,6 +118,7 @@ const TREATMENT_LABELS: Record<TreatmentType, string> = {
   meds: 'Medicine',
   vet: 'Vet visit',
   procedure: 'Procedure',
+  vaccination: 'Vaccination',
   other: 'Other care',
   intake: 'Intake',
   arrived: 'Intake',
@@ -116,7 +127,7 @@ const TREATMENT_LABELS: Record<TreatmentType, string> = {
 
 type AnimalDetailTab = 'care' | 'timeline' | 'details'
 
-const CARE_FORM_TYPES: TreatmentType[] = ['meds', 'vet', 'procedure', 'other']
+const CARE_FORM_TYPES: TreatmentType[] = ['meds', 'vet', 'procedure', 'vaccination', 'other']
 const SYSTEM_CARE_TYPES: TreatmentType[] = ['arrived', 'intake', 'status']
 
 type PhotoItem = {
@@ -183,6 +194,7 @@ export function AnimalDetailScreen() {
     id ? [id] : [],
   )
   const [treatmentType, setTreatmentType] = useState<TreatmentType>('meds')
+  const [vaccine, setVaccine] = useState('')
   const [notes, setNotes] = useState('')
   const [hideFromPublic, setHideFromPublic] = useState(false)
   const [treatedAt, setTreatedAt] = useState(
@@ -212,12 +224,14 @@ export function AnimalDetailScreen() {
   const [partnerContact, setPartnerContact] = useState('')
   const [selectedTab, setSelectedTab] = useState<AnimalDetailTab | null>(null)
 
+  const [ageSheetOpen, setAgeSheetOpen] = useState(false)
   const [showEditDetailsModal, setShowEditDetailsModal] = useState(false)
   const [editSpeciesPreset, setEditSpeciesPreset] = useState('Dog')
   const [editSpeciesOther, setEditSpeciesOther] = useState('')
   const [editLifeStage, setEditLifeStage] = useState<AnimalLifeStage>('adult')
   const [editName, setEditName] = useState('')
   const [editSex, setEditSex] = useState('')
+  const [editSterilized, setEditSterilized] = useState<Sterilized>('unknown')
   const [editMarkings, setEditMarkings] = useState('')
   const [editDetailsBusy, setEditDetailsBusy] = useState(false)
 
@@ -258,6 +272,7 @@ export function AnimalDetailScreen() {
     setEditLifeStage(animal.life_stage ?? 'adult')
     setEditName(animal.name ?? '')
     setEditSex(animal.sex ?? '')
+    setEditSterilized(sterilizedOrUnknown(animal.sterilized))
     setEditMarkings(animal.markings ?? '')
     setError(null)
     setShowEditDetailsModal(true)
@@ -286,6 +301,7 @@ export function AnimalDetailScreen() {
         life_stage: editLifeStage,
         name: editName.trim() || undefined,
         sex: editSex.trim() || undefined,
+        sterilized: editSterilized,
         markings: editMarkings.trim() || undefined,
       })
       setToast('Animal details updated.')
@@ -299,6 +315,19 @@ export function AnimalDetailScreen() {
       )
     } finally {
       setEditDetailsBusy(false)
+    }
+  }
+
+  async function onDoneAge(value: { years: number; months: number }) {
+    if (!db || !animal) return
+    setError(null)
+    try {
+      await setAnimalAge(db, animal.id, value)
+      setAgeSheetOpen(false)
+      setToast('Age saved')
+      await reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save age. Try again.')
     }
   }
 
@@ -506,6 +535,7 @@ export function AnimalDetailScreen() {
     setShowCareForm(false)
     setEditingTreatmentId(null)
     setTreatmentType('meds')
+    setVaccine('')
     setNotes('')
     setTreatedAt(toDatetimeLocalValue(new Date().toISOString()))
     setHideFromPublic(false)
@@ -515,6 +545,7 @@ export function AnimalDetailScreen() {
   function openCreateCareForm() {
     setEditingTreatmentId(null)
     setTreatmentType('meds')
+    setVaccine('')
     setNotes('')
     setTreatedAt(toDatetimeLocalValue(new Date().toISOString()))
     setHideFromPublic(false)
@@ -530,6 +561,7 @@ export function AnimalDetailScreen() {
         ? type
         : 'other',
     )
+    setVaccine(isVaccineId(treatment.vaccine) ? treatment.vaccine : '')
     setNotes(treatment.notes ?? '')
     setTreatedAt(toDatetimeLocalValue(treatment.treated_at))
     setHideFromPublic(Boolean(treatment.hide_from_public))
@@ -794,11 +826,17 @@ export function AnimalDetailScreen() {
   async function onSaveTreatment(e: FormEvent) {
     e.preventDefault()
     if (!db || !member || !id) return
-    if (!notes.trim()) {
+    if (treatmentType === 'vaccination') {
+      if (!isVaccineId(vaccine)) {
+        setError('Choose a vaccine.')
+        return
+      }
+    } else if (!notes.trim()) {
       setError('Add a note before saving.')
       return
     }
     setError(null)
+    const vaccineId = treatmentType === 'vaccination' && isVaccineId(vaccine) ? vaccine : undefined
     try {
       if (editingTreatmentId) {
         await updateTreatment(db, editingTreatmentId, {
@@ -806,6 +844,7 @@ export function AnimalDetailScreen() {
           notes: notes.trim(),
           treatedAt: new Date(treatedAt).toISOString(),
           hideFromPublic,
+          vaccine: vaccineId ?? null,
         })
         setToast('Care note updated')
       } else {
@@ -816,6 +855,7 @@ export function AnimalDetailScreen() {
           notes: notes.trim(),
           treatedAt: new Date(treatedAt).toISOString(),
           hideFromPublic,
+          vaccine: vaccineId,
         })
         setToast(pickMessage(TREATMENT_MESSAGES))
       }
@@ -1187,7 +1227,10 @@ export function AnimalDetailScreen() {
           <div style={{ marginTop: '0.5rem' }}>
             {careTreatments.map((t) => {
               const type = t.treatment_type as TreatmentType
-              const title = TREATMENT_LABELS[type] ?? t.treatment_type
+              const title =
+                type === 'vaccination'
+                  ? vaccinationCareTitle(t.vaccine)
+                  : (TREATMENT_LABELS[type] ?? t.treatment_type)
               return (
                 <div className="list-item list-item--row" key={t.id}>
                   <div
@@ -1458,16 +1501,44 @@ export function AnimalDetailScreen() {
           </div>
           <div className="tab-panel__content characteristics-card panel">
             <div className="characteristics-grid">
-              <div className="characteristic-item">
+              <div className="characteristic-item characteristic-item--full">
                 <span className="characteristic-label">Species & Life Stage</span>
                 <span className="characteristic-value">
                   {animal.species} · {animal.life_stage === 'child' ? 'Child' : 'Adult'}
                 </span>
               </div>
-              <div className="characteristic-item">
+              <div className="characteristic-item characteristic-item--full">
+                <span className="characteristic-label">Age</span>
+                <span className="characteristic-value">
+                  {member ? (
+                    (() => {
+                      const phrase = formatAgePhrase(animal.age_years, animal.age_months)
+                      return (
+                        <button
+                          type="button"
+                          className="btn btn--ghost"
+                          onClick={() => setAgeSheetOpen(true)}
+                          aria-label={phrase ? `Age, ${phrase}` : 'Add age'}
+                        >
+                          {phrase ?? 'Add age'}
+                        </button>
+                      )
+                    })()
+                  ) : (
+                    (formatAgePhrase(animal.age_years, animal.age_months) ?? 'Unknown')
+                  )}
+                </span>
+              </div>
+              <div className="characteristic-item characteristic-item--full">
                 <span className="characteristic-label">Sex</span>
                 <span className="characteristic-value">
                   {animal.sex?.trim() || 'Unknown'}
+                </span>
+              </div>
+              <div className="characteristic-item characteristic-item--full">
+                <span className="characteristic-label">Sterilized</span>
+                <span className="characteristic-value">
+                  {sterilizedLabel(animal.sterilized)}
                 </span>
               </div>
               <div className="characteristic-item characteristic-item--full">
@@ -1670,8 +1741,23 @@ export function AnimalDetailScreen() {
               value: key,
               label: TREATMENT_LABELS[key],
             }))}
-            onChange={(value) => setTreatmentType(value as TreatmentType)}
+            onChange={(value) => {
+              const next = value as TreatmentType
+              setTreatmentType(next)
+              if (next !== 'vaccination') setVaccine('')
+            }}
           />
+          {treatmentType === 'vaccination' ? (
+            <SelectField
+              label="Vaccine"
+              value={vaccine}
+              options={VACCINE_OPTIONS.map((option) => ({
+                value: option.id,
+                label: option.label,
+              }))}
+              onChange={setVaccine}
+            />
+          ) : null}
           <TextField
             label="When"
             type="datetime-local"
@@ -1681,7 +1767,8 @@ export function AnimalDetailScreen() {
           <TextareaField
             label="Notes"
             rows={3}
-            required
+            required={treatmentType !== 'vaccination'}
+            hint={treatmentType === 'vaccination' ? 'optional' : undefined}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="What was done, medicine given, next steps…"
@@ -1696,7 +1783,11 @@ export function AnimalDetailScreen() {
           </label>
           {error ? <p className="form-error">{error}</p> : null}
           <div className="responsive-modal__actions">
-            <Button type="submit" variant="primary" disabled={!notes.trim()}>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={treatmentType === 'vaccination' ? !isVaccineId(vaccine) : !notes.trim()}
+            >
               {editingTreatmentId ? 'Save changes' : 'Save care note'}
             </Button>
             <Button type="button" variant="secondary" onClick={resetCareForm}>
@@ -1947,6 +2038,23 @@ export function AnimalDetailScreen() {
             </div>
           </div>
 
+          <div className="field">
+            <span>Sterilized</span>
+            <div className="segmented" role="group" aria-label="Sterilized">
+              {STERILIZED_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className="segmented__btn"
+                  aria-pressed={editSterilized === option.value}
+                  onClick={() => setEditSterilized(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <TextareaField
             label="Markings"
             hint="optional"
@@ -2112,6 +2220,14 @@ export function AnimalDetailScreen() {
           </div>
         </form>
       </ResponsiveSheetModal>
+
+      <AgeWheelSheet
+        open={ageSheetOpen}
+        years={animal.age_years ?? 0}
+        months={animal.age_months ?? 0}
+        onCancel={() => setAgeSheetOpen(false)}
+        onDone={(value) => void onDoneAge(value)}
+      />
 
       {lightboxUrl ? (
         <div
