@@ -4,7 +4,9 @@
  *
  * Spreadsheet: 1CWAi4_hm9OTpJruJohew9D7BOFKYbdCXsRNLfCZ2XwA
  * Tab: Sheet1
- * Photos are not imported. Group rows are printed and skipped.
+ * Photos are not imported. Group rows are counted and skipped.
+ * Logs are counts and the mode only. Names, shelter codes, markings, and
+ * notes are not printed. --apply is the only path that opens a connection.
  *
  *   node --experimental-strip-types scripts/import-aws-census.mjs --csv ./census.csv
  *   node --experimental-strip-types scripts/import-aws-census.mjs --csv ./census.csv --apply
@@ -14,9 +16,6 @@ import { readFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import postgres from 'postgres'
 import { loadEnvFiles } from './load-env.mjs'
-import { formatAgePhrase } from '../src/features/animals/domain/age.ts'
-import { sterilizedLabel } from '../src/features/animals/domain/sterilized.ts'
-import { vaccineLabel } from '../src/features/treatments/domain/vaccines.ts'
 import {
   AWS_LUMS_ORG_NAME,
   assignCensusShelterCodes,
@@ -49,34 +48,37 @@ function argValue(flag) {
   return process.argv[index + 1] ?? null
 }
 
-function vaccineText(ids) {
-  if (ids.length === 0) return 'none'
-  return ids.map((id) => vaccineLabel(id) ?? id).join(', ')
+function printCounts(animalCount, plan) {
+  const skippedByReason = new Map()
+  for (const skip of plan.skipped) {
+    skippedByReason.set(skip.reason, (skippedByReason.get(skip.reason) ?? 0) + 1)
+  }
+  console.log(`Animals to import: ${animalCount}`)
+  console.log(`Manual splits: ${plan.manualSplits.length}`)
+  console.log(`Skipped: ${plan.skipped.length}`)
+  for (const reason of [...skippedByReason.keys()].sort()) {
+    console.log(`Skipped ${reason}: ${skippedByReason.get(reason)}`)
+  }
 }
 
-function printPlan(writes, plan) {
-  console.log(`Animals to import: ${writes.length}`)
-  for (const write of writes) {
-    const age = formatAgePhrase(write.ageYears, write.ageMonths) ?? 'unknown'
-    const sex = write.sex ?? 'Unknown'
-    console.log(
-      `${write.shelterCode} | ${write.name} | ${write.species} | ${write.lifeStage} | ${sex} | ${age} | sterilized ${sterilizedLabel(write.sterilized)} | vaccines ${vaccineText(write.vaccines)}`,
-    )
+function publicError(err) {
+  const message = err instanceof Error ? err.message : ''
+  if (
+    message === 'Missing --csv' ||
+    message === 'CSV not found' ||
+    message === 'No database connection string found in the environment or .env.local' ||
+    message === 'AWS LUMS organization has no initials.' ||
+    message === 'AWS LUMS has no animal status to assign.' ||
+    /^Expected one organization match\. Found \d+\.$/.test(message) ||
+    /^Census names already in AWS LUMS: \d+$/.test(message)
+  ) {
+    return message
   }
-  console.log('Manual splits (not imported):')
-  if (plan.manualSplits.length === 0) console.log('  none')
-  for (const split of plan.manualSplits) {
-    console.log(`  row ${split.rowNumber}: ${split.name}`)
-  }
-  console.log('Skipped:')
-  if (plan.skipped.length === 0) console.log('  none')
-  for (const skip of plan.skipped) {
-    if (skip.reason === 'blank_name') {
-      console.log(`  row ${skip.rowNumber}: blank name`)
-    } else {
-      console.log(`  row ${skip.rowNumber}: ${skip.name}: ${skip.reason.replaceAll('_', ' ')}`)
-    }
-  }
+  const code =
+    err && typeof err === 'object' && typeof err.code === 'string' && /^[0-9A-Z]{5}$/.test(err.code)
+      ? ` (${err.code})`
+      : ''
+  return `Import failed${code}`
 }
 
 async function main() {
@@ -89,22 +91,27 @@ async function main() {
   let text
   try {
     text = readFileSync(csvPath, 'utf8')
-  } catch (err) {
-    console.error(`CSV not found: ${csvPath}`)
+  } catch {
+    console.error('CSV not found')
     process.exit(1)
   }
-  const plan = planCensusImport(parseCensusCsv(text))
-  if (!apply) {
-    const preview = assignCensusShelterCodes('AWS', [], plan.animals)
-    console.log('AWS LUMS census dry-run')
-    printPlan(preview, plan)
-    console.log('DRY-RUN')
-    return
+  let plan
+  try {
+    plan = planCensusImport(parseCensusCsv(text))
+  } catch (err) {
+    const message = err instanceof Error ? err.message : ''
+    if (message === 'Census CSV is empty.' || message.startsWith('Census CSV header must be ')) {
+      console.error('Census CSV header was refused')
+      process.exit(1)
+    }
+    throw err
   }
+  console.log(apply ? 'Mode: apply' : 'Mode: dry-run')
+  printCounts(plan.animals.length, plan)
+  if (!apply) return
 
-  console.log('AWS LUMS census apply')
   if (plan.animals.length === 0) {
-    console.log('No animals to import.')
+    console.log('Imported: 0')
     return
   }
 
@@ -124,9 +131,7 @@ async function main() {
       where lower(btrim(name)) = lower(btrim(${AWS_LUMS_ORG_NAME}))
     `
     if (orgs.length !== 1) {
-      console.error(
-        `Expected one organization named ${AWS_LUMS_ORG_NAME}. Found ${orgs.length}.`,
-      )
+      console.error(`Expected one organization match. Found ${orgs.length}.`)
       process.exit(1)
     }
     const org = orgs[0]
@@ -152,7 +157,6 @@ async function main() {
       codeRows.map((row) => row.shelter_code),
       plan.animals,
     )
-    printPlan(writes, plan)
     const intakeDate = censusIntakeDate(new Date())
     const treatedAt = censusTreatedAt(intakeDate)
     const now = new Date().toISOString()
@@ -160,14 +164,14 @@ async function main() {
 
     await sql.begin(async (tx) => {
       const existing = await tx`
-        select name from animals
+        select 1 as present
+        from animals
         where org_id = ${org.id}
           and archived = false
           and lower(btrim(name)) in ${tx(keys)}
       `
       if (existing.length > 0) {
-        const names = existing.map((row) => row.name).join(', ')
-        throw new Error(`Census name already in AWS LUMS: ${names}`)
+        throw new Error(`Census names already in AWS LUMS: ${existing.length}`)
       }
       for (const write of writes) {
         const animalId = randomUUID()
@@ -205,13 +209,13 @@ async function main() {
         }
       }
     })
-    console.log(`Imported ${writes.length} animals into ${org.name}.`)
+    console.log(`Imported: ${writes.length}`)
   } finally {
     await sql.end()
   }
 }
 
 main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err)
+  console.error(publicError(err))
   process.exit(1)
 })
