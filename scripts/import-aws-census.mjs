@@ -4,9 +4,11 @@
  *
  * Spreadsheet: 1CWAi4_hm9OTpJruJohew9D7BOFKYbdCXsRNLfCZ2XwA
  * Tab: Sheet1
- * Photos are not imported. Group rows are counted and skipped.
- * Logs are counts and the mode only. Names, shelter codes, markings, and
- * notes are not printed. --apply is the only path that opens a connection.
+ * Photos are not imported. A row that names more than one cat becomes one
+ * animal per cat. An age or sex that cannot be read still imports the
+ * animal, with age left unset and sex unknown. Logs are counts and the
+ * mode only. Names, shelter codes, markings, and notes are not printed.
+ * --apply is the only path that opens a connection.
  *
  *   node --experimental-strip-types scripts/import-aws-census.mjs --csv ./census.csv
  *   node --experimental-strip-types scripts/import-aws-census.mjs --csv ./census.csv --apply
@@ -54,7 +56,6 @@ function printCounts(animalCount, plan) {
     skippedByReason.set(skip.reason, (skippedByReason.get(skip.reason) ?? 0) + 1)
   }
   console.log(`Animals to import: ${animalCount}`)
-  console.log(`Manual splits: ${plan.manualSplits.length}`)
   console.log(`Skipped: ${plan.skipped.length}`)
   for (const reason of [...skippedByReason.keys()].sort()) {
     console.log(`Skipped ${reason}: ${skippedByReason.get(reason)}`)

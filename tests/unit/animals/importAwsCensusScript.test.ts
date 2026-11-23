@@ -24,14 +24,12 @@ describe('import-aws-census script', () => {
     expect(result.status).toBe(0)
     expect(result.stdout.trim().split('\n')).toEqual([
       'Mode: dry-run',
-      'Animals to import: 2',
-      'Manual splits: 1',
-      'Skipped: 2',
+      'Animals to import: 5',
+      'Skipped: 1',
       'Skipped blank_name: 1',
-      'Skipped unparsed_age: 1',
     ])
     const combined = `${result.stdout}\n${result.stderr}`
-    expect(combined).not.toMatch(/Mona|Kit|monia|Nope|AWS-|cdn\.example|https:\/\/|postgres:\/\/|postgresql:\/\/|127\.0\.0\.1|white|black ear|Rabies/)
+    expect(combined).not.toMatch(/Mona|Kit|monia|child|Nope|AWS-|cdn\.example|https:\/\/|postgres:\/\/|postgresql:\/\/|127\.0\.0\.1|white|black ear|Rabies|Manual splits/)
   })
 
   it('refuses a bad header without printing the row', () => {

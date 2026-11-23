@@ -3,11 +3,12 @@ import {
   assignCensusShelterCodes,
   censusIntakeDate,
   censusTreatedAt,
-  isManualSplitName,
   parseCensusAge,
   parseCensusCsv,
+  parseCensusSex,
   pickCensusStatusId,
   planCensusImport,
+  splitCensusNames,
 } from '@/features/animals/domain/censusImport'
 
 const csv = [
@@ -25,6 +26,24 @@ describe('parseCensusAge', () => {
   it('parses under-six-months ages without an under flag', () => {
     expect(parseCensusAge('<6 months')).toEqual({ years: 0, months: 6 })
     expect(parseCensusAge('<6 months')).not.toHaveProperty('under')
+  })
+
+  it('leaves a dash and any other unreadable age unset', () => {
+    expect(parseCensusAge('-')).toBeNull()
+    expect(parseCensusAge('—')).toBeNull()
+    expect(parseCensusAge('about 2')).toBeNull()
+    expect(parseCensusAge('21 years')).toBeNull()
+  })
+})
+
+describe('parseCensusSex', () => {
+  it('reads a dash as the same unknown value as a blank sex', () => {
+    expect(parseCensusSex('-')).toBeNull()
+    expect(parseCensusSex('—')).toBeNull()
+    expect(parseCensusSex('-')).toBe(parseCensusSex(''))
+    expect(parseCensusSex('-')).toBe(parseCensusSex('unknown'))
+    expect(parseCensusSex('Female')).toBe('Female')
+    expect(parseCensusSex('m')).toBe('Male')
   })
 })
 
@@ -90,8 +109,16 @@ describe('census csv', () => {
 describe('planCensusImport', () => {
   const plan = planCensusImport(parseCensusCsv(csv))
 
-  it('maps age, sex, sterilized, and yes vaccines for one cat per row', () => {
-    expect(plan.animals.map((animal) => animal.name)).toEqual(['Mona', 'Kit', 'Coco', 'Coco'])
+  it('maps age, sex, sterilized, and yes vaccines onto each imported cat', () => {
+    expect(plan.animals.map((animal) => animal.name)).toEqual([
+      'Mona',
+      'monia',
+      'child',
+      'Kit',
+      'Nope',
+      'Coco',
+      'Coco',
+    ])
     expect(plan.animals[0]).toMatchObject({
       rowNumber: 2,
       species: 'Cat',
@@ -102,7 +129,7 @@ describe('planCensusImport', () => {
       sterilized: 'unknown',
       vaccines: ['rabies'],
     })
-    expect(plan.animals[1]).toMatchObject({
+    expect(plan.animals[3]).toMatchObject({
       rowNumber: 4,
       sex: 'Male',
       markings: 'black ear',
@@ -111,7 +138,16 @@ describe('planCensusImport', () => {
       sterilized: 'no',
       vaccines: ['calci_fpv'],
     })
-    expect(plan.animals[2]).toMatchObject({
+    expect(plan.animals[4]).toMatchObject({
+      rowNumber: 6,
+      name: 'Nope',
+      ageYears: null,
+      ageMonths: null,
+      sex: 'Female',
+      sterilized: 'no',
+      vaccines: ['rabies'],
+    })
+    expect(plan.animals[5]).toMatchObject({
       ageYears: 2,
       ageMonths: 6,
       sex: 'Female',
@@ -119,7 +155,7 @@ describe('planCensusImport', () => {
       vaccines: ['rabies', 'calci_fpv'],
       markings: null,
     })
-    expect(plan.animals[3]).toMatchObject({
+    expect(plan.animals[6]).toMatchObject({
       name: 'Coco',
       ageYears: null,
       ageMonths: null,
@@ -133,25 +169,112 @@ describe('planCensusImport', () => {
       expect(animal).not.toHaveProperty('picture')
     }
     expect(JSON.stringify(plan)).not.toContain('cdn.example')
+    expect(plan).not.toHaveProperty('manualSplits')
   })
 
-  it('calls out group rows and does not split them', () => {
-    expect(isManualSplitName('monia + child')).toBe(true)
-    expect(isManualSplitName('Tom and Jerry')).toBe(true)
-    expect(isManualSplitName('Mona & kitten')).toBe(true)
-    expect(isManualSplitName('Mona/Kit')).toBe(true)
-    expect(isManualSplitName('Mona')).toBe(false)
-    expect(plan.manualSplits).toEqual([
-      { rowNumber: 3, name: 'monia + child', reason: 'manual_split' },
-    ])
-    expect(plan.animals.some((animal) => animal.name.toLowerCase().includes('child'))).toBe(false)
+  it('splits a name + child row into two animals that share the row', () => {
+    expect(splitCensusNames('monia + child')).toEqual(['monia', 'child'])
+    expect(splitCensusNames('Tom and Jerry')).toEqual(['Tom', 'Jerry'])
+    expect(splitCensusNames('Tom AND Jerry')).toEqual(['Tom', 'Jerry'])
+    expect(splitCensusNames('Mona & kitten')).toEqual(['Mona', 'kitten'])
+    expect(splitCensusNames('Mona/Kit')).toEqual(['Mona', 'Kit'])
+    expect(splitCensusNames('A + B and C')).toEqual(['A', 'B', 'C'])
+    expect(splitCensusNames('Mona')).toEqual(['Mona'])
+    expect(splitCensusNames('Sandy')).toEqual(['Sandy'])
+    const split = plan.animals.filter((animal) => animal.rowNumber === 3)
+    expect(split.map((animal) => animal.name)).toEqual(['monia', 'child'])
+    for (const animal of split) {
+      expect(animal).toMatchObject({
+        rowNumber: 3,
+        species: 'Cat',
+        sex: 'Female',
+        markings: null,
+        ageYears: 0,
+        ageMonths: 6,
+        sterilized: 'yes',
+        vaccines: ['rabies', 'calci_fpv'],
+      })
+    }
+    const writes = assignCensusShelterCodes('AWS', ['AWS-0002'], split)
+    expect(writes.map((write) => write.shelterCode)).toEqual(['AWS-0003', 'AWS-0004'])
+    expect(writes[0]!.name).toBe('monia')
+    expect(writes[1]!.name).toBe('child')
   })
 
-  it('skips blank names and unparsed ages', () => {
-    expect(plan.skipped).toEqual([
-      { rowNumber: 5, name: '', reason: 'blank_name' },
-      { rowNumber: 6, name: 'Nope', reason: 'unparsed_age' },
+  it('imports a dash age and a dash sex instead of skipping the cat', () => {
+    const imported = planCensusImport([
+      {
+        rowNumber: 10,
+        name: 'Dash',
+        picture: '',
+        marking: 'tabby',
+        age: '-',
+        sex: 'Female',
+        rabies: 'No',
+        calciFpv: 'Yes',
+        neuteredSpayed: 'No',
+      },
+      {
+        rowNumber: 11,
+        name: 'Que',
+        picture: '',
+        marking: '',
+        age: '2 years',
+        sex: '-',
+        rabies: 'Yes',
+        calciFpv: 'No',
+        neuteredSpayed: 'Unknown',
+      },
     ])
+    expect(imported.skipped).toEqual([])
+    expect(imported.animals).toMatchObject([
+      {
+        rowNumber: 10,
+        name: 'Dash',
+        sex: 'Female',
+        markings: 'tabby',
+        ageYears: null,
+        ageMonths: null,
+        sterilized: 'no',
+        vaccines: ['calci_fpv'],
+      },
+      {
+        rowNumber: 11,
+        name: 'Que',
+        sex: null,
+        markings: null,
+        ageYears: 2,
+        ageMonths: 0,
+        sterilized: 'unknown',
+        vaccines: ['rabies'],
+      },
+    ])
+  })
+
+  it('skips a blank name and still imports an age it cannot read', () => {
+    expect(plan.skipped).toEqual([{ rowNumber: 5, name: '', reason: 'blank_name' }])
+    expect(plan.animals.find((animal) => animal.name === 'Nope')).toMatchObject({
+      ageYears: null,
+      ageMonths: null,
+    })
+  })
+
+  it('still skips a sterilized value it cannot read', () => {
+    const imported = planCensusImport([
+      {
+        rowNumber: 12,
+        name: 'Nope',
+        picture: '',
+        marking: '',
+        age: '1 year',
+        sex: 'Female',
+        rabies: 'No',
+        calciFpv: 'No',
+        neuteredSpayed: 'maybe',
+      },
+    ])
+    expect(imported.animals).toEqual([])
+    expect(imported.skipped).toEqual([{ rowNumber: 12, name: 'Nope', reason: 'unparsed_sterilized' }])
   })
 })
 
@@ -159,10 +282,22 @@ describe('census writes', () => {
   it('assigns the next shelter codes and keeps every import adult', () => {
     const plan = planCensusImport(parseCensusCsv(csv))
     const writes = assignCensusShelterCodes('AWS', ['AWS-0002'], plan.animals)
-    expect(writes.map((write) => write.shelterCode)).toEqual(['AWS-0003', 'AWS-0004', 'AWS-0005', 'AWS-0006'])
+    expect(writes.map((write) => write.shelterCode)).toEqual([
+      'AWS-0003',
+      'AWS-0004',
+      'AWS-0005',
+      'AWS-0006',
+      'AWS-0007',
+      'AWS-0008',
+      'AWS-0009',
+    ])
+    expect(new Set(writes.map((write) => write.shelterCode)).size).toBe(writes.length)
     expect(writes.every((write) => write.lifeStage === 'adult')).toBe(true)
-    expect(writes[1]!.ageYears).toBe(0)
-    expect(writes[1]!.ageMonths).toBe(8)
+    expect(writes.find((write) => write.name === 'Kit')).toMatchObject({ ageYears: 0, ageMonths: 8 })
+    expect(writes.filter((write) => write.rowNumber === 3).map((write) => write.shelterCode)).toEqual([
+      'AWS-0004',
+      'AWS-0005',
+    ])
   })
 
   it('picks the Intake status for booleans and for 0/1 flags', () => {
