@@ -15,6 +15,7 @@ import { AddAnimalSplitButton } from '@/features/animals/components/AddAnimalSpl
 import { emptyAnimalListState } from '@/shared/lib/animals/emptyAnimalListState'
 import { AnimalCard } from '@/features/animals/components/AnimalCard'
 import {
+  animalsListHeaderCountQuery,
   searchAnimals,
   type AnimalWithStatus,
 } from '@/features/animals/domain/animals'
@@ -73,13 +74,16 @@ export function AnimalsListScreen() {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<AnimalsView>(() => readStoredView())
   const scrollRestoredRef = useRef(false)
-  const { data: animalCountRows } = useQuery<{ n: number }>(
-    member?.orgId
-      ? `SELECT COUNT(*) as n FROM animals WHERE org_id = ? AND archived = 0`
-      : `SELECT COUNT(*) as n FROM animals WHERE 0`,
-    member?.orgId ? [member.orgId] : [],
+  const headerCount = useMemo(
+    () => animalsListHeaderCountQuery(member?.orgId),
+    [member?.orgId],
   )
-  const localAnimalCount = Number(animalCountRows?.[0]?.n ?? 0)
+  const { data: animalCountRows } = useQuery<{ n: number; total: number }>(
+    headerCount.sql,
+    headerCount.params,
+  )
+  const inCareCount = Number(animalCountRows?.[0]?.n ?? 0)
+  const localAnimalCount = Number(animalCountRows?.[0]?.total ?? 0)
 
   // Track scroll position while browsing animals
   useEffect(() => {
@@ -254,6 +258,7 @@ export function AnimalsListScreen() {
     sync.hasSynced,
     sync.kind,
     localAnimalCount,
+    inCareCount,
   ])
 
   const hasFilters = Boolean(
@@ -278,7 +283,7 @@ export function AnimalsListScreen() {
       ? `${animals.length} match${animals.length === 1 ? '' : 'es'}`
       : emptyState === 'loading'
         ? `Loading animals at ${member.orgName}…`
-        : `${animals.length} in care at ${member.orgName}`
+        : `${inCareCount} in care at ${member.orgName}`
 
   const filterSearch = serializeAnimalFilterParams(filters)
   const listClassName = isListView ? 'animal-list' : 'animal-grid'
