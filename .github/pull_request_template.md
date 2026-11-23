@@ -7,3 +7,4 @@
 - [ ] Tests / typecheck pass locally (or CI is green)
 - [ ] No reporter PII in commits, tests, or this description
 - [ ] Includes a backfill? Run the **Data backfill** workflow after merge (Actions → Data backfill → dry-run first, then apply after Commander review)
+- [ ] Includes a sheet import? Run the **Data import** workflow after merge (Actions → Data import → dry-run first, then apply after Commander review). Do not commit the CSV.

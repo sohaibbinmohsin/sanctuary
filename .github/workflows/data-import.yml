@@ -1,0 +1,454 @@
+# Manual imports into sanctuary-prod. workflow_dispatch only — never on push.
+# Default mode is dry-run (counts only). Apply writes only when mode=apply.
+#
+# Reuses the same production DB secrets as Deploy Supabase (production):
+#   SUPABASE_ACCESS_TOKEN, PRODUCTION_PROJECT_ID, PRODUCTION_DB_PASSWORD
+#
+# Notes:
+# - Skip `supabase link`. This job does not use a second database client.
+# - Use Supavisor session-mode pooler (IPv4, port 5432), same URL shape as
+#   supabase-production.yml. Direct db.* hosts are IPv6-only and GitHub
+#   Actions cannot connect.
+# - Never the dev project (nsplqqaihekmmfznbkzb).
+# - source_url is a private https Google Sheet or Drive link. The CSV is
+#   downloaded to the runner temp directory and deleted. It is not committed
+#   and not uploaded as an artifact.
+# - Logs are counts and the mode only. The job does not print the database
+#   URL, the source link, row contents, names, shelter codes, or notes.
+#
+# scripts/import-aws-census.mjs:
+#   --csv <file>     required
+#   --apply          the only flag that opens a connection and writes
+#   DATABASE_PROD_URL (also SUPABASE_DB_URL / DATABASE_URL / POSTGRES_URL)
+# Dry-run returns before opening a connection.
+
+name: Data import
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: Existing scripts/import-*.mjs file. Other paths, including .. and absolute paths, are refused.
+        required: true
+        type: string
+        default: scripts/import-aws-census.mjs
+      source_url:
+        description: Private https Google Sheet or Drive link. The CSV is not committed or uploaded. Sheet links use gid when present, otherwise the first tab.
+        required: true
+        type: string
+      mode:
+        description: dry-run (counts only, no writes) or apply (write to production). Apply must be chosen explicitly.
+        required: true
+        type: choice
+        default: dry-run
+        options:
+          - dry-run
+          - apply
+
+concurrency:
+  group: data-import-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  import-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ secrets.PRODUCTION_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required secrets
+        run: |
+          missing=0
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing GitHub secret: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Add secrets in repo Settings → Secrets and variables → Actions"
+            echo "  SUPABASE_ACCESS_TOKEN  — https://supabase.com/dashboard/account/tokens"
+            echo "  PRODUCTION_PROJECT_ID  — azfzhbxyxnfqvjehemus (sanctuary-prod)"
+            echo "  PRODUCTION_DB_PASSWORD — Database password for sanctuary-prod"
+            exit 1
+          fi
+          if [ "$SUPABASE_PROJECT_ID" = "nsplqqaihekmmfznbkzb" ]; then
+            echo "::error::PRODUCTION_PROJECT_ID points at the DEV project. Use sanctuary-prod (azfzhbxyxnfqvjehemus)."
+            exit 1
+          fi
+
+      - name: Guard apply mode
+        if: ${{ inputs.mode == 'apply' }}
+        run: echo "::warning::APPLY mode will write to production. Dry-run does not."
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve script and download source
+        id: source
+        env:
+          IMPORT_SCRIPT: ${{ inputs.script }}
+          SOURCE_URL: ${{ inputs.source_url }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RUNNER_TEMP:-}" ]; then
+            echo "::error::RUNNER_TEMP is not set"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+          import sys
+          import tempfile
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          INITIAL_HOSTS = {"docs.google.com", "drive.google.com"}
+          REDIRECT_HOSTS = INITIAL_HOSTS | {"drive.usercontent.google.com"}
+          SCRIPT_RE = re.compile(r"scripts/import-[A-Za-z0-9][A-Za-z0-9._-]*\.mjs")
+          ID_RE = re.compile(r"[A-Za-z0-9_-]{10,128}")
+          GID_RE = re.compile(r"[0-9]{1,12}")
+          RESOURCEKEY_RE = re.compile(r"0-[A-Za-z0-9_-]{8,160}")
+          MAX_BYTES = 20 * 1024 * 1024
+
+          def fail(message):
+              raise SystemExit(message)
+
+          def add_mask(value):
+              encoded = value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              sys.stdout.write(f"::add-mask::{encoded}\n")
+
+          def hostname(url):
+              parts = urllib.parse.urlparse(url)
+              if parts.scheme != "https" or parts.username or parts.password:
+                  return None
+              if "\\" in parts.path or ".." in parts.path:
+                  return None
+              host = (parts.hostname or "").lower().rstrip(".")
+              return host or None
+
+          def host_allowed(url, first):
+              host = hostname(url)
+              if not host:
+                  return False
+              if first:
+                  return host in INITIAL_HOSTS
+              if host in REDIRECT_HOSTS:
+                  return True
+              return host.endswith(".googleusercontent.com")
+
+          def one_query(query, key, pattern):
+              values = query.get(key)
+              if not values:
+                  return None
+              if len(values) != 1 or not pattern.fullmatch(values[0]):
+                  fail("source_url was refused")
+              return values[0]
+
+          def sheet_download(sheet_id, gid):
+              return (
+                  "https://docs.google.com/spreadsheets/d/"
+                  f"{sheet_id}/export?format=csv&gid={gid}"
+              )
+
+          def drive_download(file_id):
+              return f"https://drive.google.com/uc?export=download&id={file_id}"
+
+          def to_download_url(raw):
+              if len(raw) > 2000 or "\n" in raw or "\r" in raw:
+                  fail("source_url must be an https Google Sheet or Drive link")
+              parts = urllib.parse.urlparse(raw.strip())
+              if not host_allowed(raw.strip(), first=True):
+                  fail("source_url must be an https Google Sheet or Drive link")
+              host = hostname(raw.strip())
+              query = urllib.parse.parse_qs(parts.query, keep_blank_values=False)
+              fragment = urllib.parse.parse_qs(parts.fragment, keep_blank_values=False)
+              gid = one_query(query, "gid", GID_RE) or one_query(fragment, "gid", GID_RE) or "0"
+              resourcekey = one_query(query, "resourcekey", RESOURCEKEY_RE)
+              extra = ""
+              if resourcekey:
+                  extra = "&resourcekey=" + urllib.parse.quote(resourcekey, safe="")
+              if host == "docs.google.com":
+                  match = re.fullmatch(
+                      r"/spreadsheets/(?:u/[0-9]+/)?d/([A-Za-z0-9_-]{10,128})(?:/.*)?",
+                      parts.path,
+                  )
+                  if not match:
+                      fail("source_url must be a Google Sheet link")
+                  return sheet_download(match.group(1), gid) + extra
+              file_match = re.fullmatch(
+                  r"/file/d/([A-Za-z0-9_-]{10,128})(?:/.*)?",
+                  parts.path,
+              )
+              file_id = file_match.group(1) if file_match else None
+              if file_id is None and parts.path.rstrip("/") in {"/open", "/uc"}:
+                  file_id = one_query(query, "id", ID_RE)
+              if not file_id:
+                  fail("source_url must be a Drive file link")
+              return drive_download(file_id) + extra
+
+          def resolve_script(script):
+              if (
+                  len(script) > 200
+                  or not SCRIPT_RE.fullmatch(script)
+                  or ".." in script
+                  or script.startswith("/")
+                  or "\\" in script
+              ):
+                  fail("script must be an existing scripts/import-*.mjs file")
+              path = pathlib.Path(script)
+              if not path.is_file() or path.is_symlink():
+                  fail("script must be an existing scripts/import-*.mjs file")
+              root = pathlib.Path("scripts").resolve()
+              resolved = path.resolve()
+              repo = pathlib.Path(".").resolve()
+              if root not in resolved.parents:
+                  fail("script must be an existing scripts/import-*.mjs file")
+              if resolved.relative_to(repo).as_posix() != script:
+                  fail("script must be an existing scripts/import-*.mjs file")
+              if not re.fullmatch(r"import-[A-Za-z0-9][A-Za-z0-9._-]*\.mjs", resolved.name):
+                  fail("script must be an existing scripts/import-*.mjs file")
+              return script
+
+          class Redirect(Exception):
+              def __init__(self, url):
+                  self.url = url
+
+          class CaptureRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  raise Redirect(urllib.parse.urljoin(req.full_url, newurl))
+
+          def read_limited(resp):
+              ctype = (resp.headers.get("Content-Type") or "").lower()
+              if "text/html" in ctype or "application/xhtml" in ctype:
+                  fail("source link did not return a CSV")
+              chunks = []
+              total = 0
+              while True:
+                  block = resp.read(64 * 1024)
+                  if not block:
+                      break
+                  total += len(block)
+                  if total > MAX_BYTES:
+                      fail("source CSV is too large")
+                  chunks.append(block)
+              return b"".join(chunks)
+
+          def fetch(url):
+              opener = urllib.request.build_opener(
+                  urllib.request.ProxyHandler({}),
+                  CaptureRedirect,
+              )
+              current = url
+              for hop in range(6):
+                  if not host_allowed(current, first=(hop == 0)):
+                      fail("source link could not be read")
+                  request = urllib.request.Request(
+                      current,
+                      headers={"User-Agent": "sanctuary-data-import"},
+                      method="GET",
+                  )
+                  try:
+                      with opener.open(request, timeout=60) as resp:
+                          return read_limited(resp)
+                  except Redirect as redirect:
+                      current = redirect.url
+                      continue
+                  except urllib.error.HTTPError as err:
+                      if err.code in {301, 302, 303, 307, 308}:
+                          location = err.headers.get("Location")
+                          if not location:
+                              fail("source link could not be read")
+                          current = urllib.parse.urljoin(current, location)
+                          err.close()
+                          continue
+                      fail("source link could not be read")
+              fail("source link could not be read")
+
+          def looks_like_csv(data):
+              if not data or b"\x00" in data or data.startswith(b"PK"):
+                  return False
+              sample = data.lstrip(b"\xef\xbb\xbf").lstrip()
+              head = sample[:400].lower()
+              if (
+                  not sample
+                  or head.startswith(b"<!doctype")
+                  or head.startswith(b"<html")
+                  or head.startswith(b"<head")
+                  or b"<html" in head
+              ):
+                  return False
+              first = sample.splitlines()[0] if sample.splitlines() else b""
+              return b"," in first
+
+          script = resolve_script(os.environ.get("IMPORT_SCRIPT", ""))
+          raw_url = os.environ.get("SOURCE_URL", "").strip()
+          download_url = to_download_url(raw_url)
+          add_mask(raw_url)
+          add_mask(download_url)
+          try:
+              data = fetch(download_url)
+          except SystemExit:
+              raise
+          except Exception:
+              fail("source link could not be read")
+          if not looks_like_csv(data):
+              fail("source link did not return a CSV")
+
+          runner_temp_raw = os.environ["RUNNER_TEMP"]
+          if not runner_temp_raw or not runner_temp_raw.startswith("/"):
+              fail("source file path refused")
+          runner_temp = pathlib.Path(runner_temp_raw).resolve()
+          fd, name = tempfile.mkstemp(
+              prefix="sanctuary-import-", suffix=".csv", dir=runner_temp_raw
+          )
+          os.chmod(name, 0o600)
+          try:
+              with os.fdopen(fd, "wb") as handle:
+                  handle.write(data)
+          except Exception:
+              os.unlink(name)
+              fail("source link could not be read")
+          dest = pathlib.Path(name).resolve()
+          prefix = runner_temp_raw.rstrip("/") + "/"
+          if (
+              runner_temp not in dest.parents
+              or not pathlib.Path(name).name.startswith("sanctuary-import-")
+              or not name.startswith(prefix)
+          ):
+              os.unlink(name)
+              fail("source file path refused")
+
+          output = os.environ["GITHUB_OUTPUT"]
+          with open(output, "a", encoding="utf-8") as handle:
+              handle.write(f"script={script}\n")
+              handle.write(f"source_csv={name}\n")
+          print(f"Script: {script}")
+          print(f"Source bytes: {len(data)}")
+          PY
+
+      - name: Import
+        env:
+          IMPORT_MODE: ${{ inputs.mode }}
+          IMPORT_SCRIPT: ${{ steps.source.outputs.script }}
+          SOURCE_CSV: ${{ steps.source.outputs.source_csv }}
+        run: |
+          set -euo pipefail
+          case "$IMPORT_MODE" in
+            dry-run) ;;
+            apply) ;;
+            *)
+              echo "::error::mode must be dry-run or apply"
+              exit 1
+              ;;
+          esac
+          case "$SOURCE_CSV" in
+            "$RUNNER_TEMP"/sanctuary-import-*.csv) ;;
+            *)
+              echo "::error::Source file path refused"
+              exit 1
+              ;;
+          esac
+          if [ ! -f "$SOURCE_CSV" ] || [ -L "$SOURCE_CSV" ]; then
+            echo "::error::Source CSV is missing"
+            exit 1
+          fi
+          case "$IMPORT_SCRIPT" in
+            scripts/import-*.mjs) ;;
+            *)
+              echo "::error::Script path refused"
+              exit 1
+              ;;
+          esac
+          if [ ! -f "$IMPORT_SCRIPT" ] || [ -L "$IMPORT_SCRIPT" ]; then
+            echo "::error::Script is missing"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os, pathlib, re, sys
+          script = os.environ["IMPORT_SCRIPT"]
+          if not re.fullmatch(r"scripts/import-[A-Za-z0-9][A-Za-z0-9._-]*\.mjs", script):
+              sys.exit("script path refused")
+          if ".." in script or script.startswith("/") or "\\" in script:
+              sys.exit("script path refused")
+          path = pathlib.Path(script)
+          if not path.is_file() or path.is_symlink():
+              sys.exit("script is missing")
+          root = pathlib.Path("scripts").resolve()
+          resolved = path.resolve()
+          if root not in resolved.parents:
+              sys.exit("script path refused")
+          if not re.fullmatch(r"import-[A-Za-z0-9][A-Za-z0-9._-]*\.mjs", resolved.name):
+              sys.exit("script path refused")
+          PY
+
+          ENCODED_PASSWORD=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['SUPABASE_DB_PASSWORD'], safe=''))")
+          REGION=$(curl -fsS \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_ID}" \
+            | python3 -c "import sys, json; print(json.load(sys.stdin)['region'])")
+          if ! [[ "$REGION" =~ ^[a-z0-9-]{1,40}$ ]]; then
+            echo "::error::Unexpected pooler region"
+            exit 1
+          fi
+          # Session mode (port 5432) via Supavisor IPv4 pooler — same as deploy workflow.
+          DB_URL="postgresql://postgres.${SUPABASE_PROJECT_ID}:${ENCODED_PASSWORD}@aws-0-${REGION}.pooler.supabase.com:5432/postgres"
+          export DB_URL ENCODED_PASSWORD
+          python3 - <<'PY'
+          import os, sys
+          def mask(name):
+              value = os.environ[name]
+              encoded = value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              sys.stdout.write(f"::add-mask::{encoded}\n")
+          mask("ENCODED_PASSWORD")
+          mask("DB_URL")
+          PY
+          export DATABASE_PROD_URL="$DB_URL"
+          unset DB_URL ENCODED_PASSWORD
+          echo "Using session pooler (region=${REGION})"
+          echo "Mode: ${IMPORT_MODE}"
+          {
+            echo "## Data import"
+            echo ""
+            echo "- Script: \`${IMPORT_SCRIPT}\`"
+            echo "- Mode: \`${IMPORT_MODE}\`"
+            echo "- Region: \`${REGION}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          ARGS=(--experimental-strip-types "$IMPORT_SCRIPT" --csv "$SOURCE_CSV")
+          if [ "$IMPORT_MODE" = "apply" ]; then
+            ARGS+=(--apply)
+          fi
+          node "${ARGS[@]}"
+
+      - name: Delete source CSV
+        if: always()
+        env:
+          SOURCE_CSV: ${{ steps.source.outputs.source_csv }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SOURCE_CSV:-}" ]; then
+            exit 0
+          fi
+          case "$SOURCE_CSV" in
+            "$RUNNER_TEMP"/sanctuary-import-*.csv) ;;
+            *)
+              echo "::error::Refusing to delete an unexpected source path"
+              exit 1
+              ;;
+          esac
+          rm -f "$SOURCE_CSV"

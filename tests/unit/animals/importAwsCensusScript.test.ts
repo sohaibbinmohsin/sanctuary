@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -8,18 +10,41 @@ describe('import-aws-census script', () => {
     const result = spawnSync(
       process.execPath,
       ['--experimental-strip-types', 'scripts/import-aws-census.mjs', '--csv', csv],
-      { encoding: 'utf8' },
+      {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          DATABASE_PROD_URL: 'postgres://127.0.0.1:1/postgres',
+          SUPABASE_DB_URL: 'postgres://127.0.0.1:1/postgres',
+          DATABASE_URL: 'postgres://127.0.0.1:1/postgres',
+          POSTGRES_URL: 'postgres://127.0.0.1:1/postgres',
+        },
+      },
     )
     expect(result.status).toBe(0)
-    const out = result.stdout
-    expect(out).toContain('AWS-0001 | Mona | Cat | adult | Female | 5 years | sterilized Unknown | vaccines Rabies')
-    expect(out).toContain('AWS-0002 | Kit | Cat | adult | Male | 8 months | sterilized No | vaccines Calci/FPV')
-    expect(out).toContain('row 3: monia + child')
-    expect(out).toContain('row 5: blank name')
-    expect(out).toContain('row 6: Nope: unparsed age')
-    expect(out).toContain('DRY-RUN')
-    expect(out).not.toContain('cdn.example')
-    expect(out).not.toContain('https://')
+    expect(result.stdout.trim().split('\n')).toEqual([
+      'Mode: dry-run',
+      'Animals to import: 2',
+      'Manual splits: 1',
+      'Skipped: 2',
+      'Skipped blank_name: 1',
+      'Skipped unparsed_age: 1',
+    ])
+    const combined = `${result.stdout}\n${result.stderr}`
+    expect(combined).not.toMatch(/Mona|Kit|monia|Nope|AWS-|cdn\.example|https:\/\/|postgres:\/\/|postgresql:\/\/|127\.0\.0\.1|white|black ear|Rabies/)
+  })
+
+  it('refuses a bad header without printing the row', () => {
+    const csv = path.join(mkdtempSync(path.join(tmpdir(), 'census-')), 'bad.csv')
+    writeFileSync(csv, 'Mona,secret medical note\n')
+    const result = spawnSync(
+      process.execPath,
+      ['--experimental-strip-types', 'scripts/import-aws-census.mjs', '--csv', csv],
+      { encoding: 'utf8' },
+    )
+    expect(result.status).toBe(1)
+    expect(result.stderr.trim()).toBe('Census CSV header was refused')
+    expect(`${result.stdout}\n${result.stderr}`).not.toMatch(/Mona|secret medical note/)
   })
 
   it('exits with an error when --csv is missing', () => {
