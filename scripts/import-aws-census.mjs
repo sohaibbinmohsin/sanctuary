@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Import the AWS Cat Census Sheet1 CSV into Animal Welfare Society LUMS.
+ * Import the AWS Cat Census Sheet1 CSV.
  *
  * Spreadsheet: 1CWAi4_hm9OTpJruJohew9D7BOFKYbdCXsRNLfCZ2XwA
  * Tab: Sheet1
@@ -8,10 +8,11 @@
  * animal per cat. An age or sex that cannot be read still imports the
  * animal, with age left unset and sex unknown. Logs are counts and the
  * mode only. Names, shelter codes, markings, and notes are not printed.
- * --apply is the only path that opens a connection.
+ * --apply is the only path that opens a connection. It selects the
+ * organization by --organization-id, not by name.
  *
  *   node --experimental-strip-types scripts/import-aws-census.mjs --csv ./census.csv
- *   node --experimental-strip-types scripts/import-aws-census.mjs --csv ./census.csv --apply
+ *   node --experimental-strip-types scripts/import-aws-census.mjs --csv ./census.csv --apply --organization-id <uuid>
  */
 
 import { readFileSync } from 'node:fs'
@@ -19,7 +20,6 @@ import { randomUUID } from 'node:crypto'
 import postgres from 'postgres'
 import { loadEnvFiles } from './load-env.mjs'
 import {
-  AWS_LUMS_ORG_NAME,
   assignCensusShelterCodes,
   censusIntakeDate,
   censusTreatedAt,
@@ -27,6 +27,9 @@ import {
   pickCensusStatusId,
   planCensusImport,
 } from '../src/features/animals/domain/censusImport.ts'
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 loadEnvFiles()
 
@@ -50,6 +53,13 @@ function argValue(flag) {
   return process.argv[index + 1] ?? null
 }
 
+function organizationIdFromArgs() {
+  const value = argValue('--organization-id')
+  if (value == null) return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
 function printCounts(animalCount, plan) {
   const skippedByReason = new Map()
   for (const skip of plan.skipped) {
@@ -66,6 +76,8 @@ function publicError(err) {
   const message = err instanceof Error ? err.message : ''
   if (
     message === 'Missing --csv' ||
+    message === 'Missing --organization-id' ||
+    message === '--organization-id must be a UUID' ||
     message === 'CSV not found' ||
     message === 'No database connection string found in the environment or .env.local' ||
     message === 'AWS LUMS organization has no initials.' ||
@@ -111,6 +123,16 @@ async function main() {
   printCounts(plan.animals.length, plan)
   if (!apply) return
 
+  const organizationId = organizationIdFromArgs()
+  if (!organizationId) {
+    console.error('Missing --organization-id')
+    process.exit(1)
+  }
+  if (!UUID_RE.test(organizationId)) {
+    console.error('--organization-id must be a UUID')
+    process.exit(1)
+  }
+
   if (plan.animals.length === 0) {
     console.log('Imported: 0')
     return
@@ -127,9 +149,9 @@ async function main() {
   })
   try {
     const orgs = await sql`
-      select id, name, initials
+      select id, initials
       from organizations
-      where lower(btrim(name)) = lower(btrim(${AWS_LUMS_ORG_NAME}))
+      where id = ${organizationId}::uuid
     `
     if (orgs.length !== 1) {
       console.error(`Expected one organization match. Found ${orgs.length}.`)
