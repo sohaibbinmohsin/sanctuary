@@ -1507,13 +1507,13 @@ export function AnimalDetailScreen() {
           </div>
           <div className="tab-panel__content characteristics-card panel">
             <div className="characteristics-grid">
-              <div className="characteristic-item">
+              <div className="characteristic-item characteristic-item--stack">
                 <span className="characteristic-label">Species & Life Stage</span>
                 <span className="characteristic-value">
                   {animal.species} · {animal.life_stage === 'child' ? 'Child' : 'Adult'}
                 </span>
               </div>
-              <div className="characteristic-item">
+              <div className="characteristic-item characteristic-item--stack">
                 <span className="characteristic-label">Age</span>
                 <span className="characteristic-value">
                   {formatAgePhrase(animal.age_years, animal.age_months) ?? 'Unknown'}
@@ -1951,7 +1951,7 @@ export function AnimalDetailScreen() {
         }}
         title="Edit details"
       >
-        <form className="stack" onSubmit={onSaveDetails}>
+        <form className="stack" data-sheet="animal-details" onSubmit={onSaveDetails}>
           <div className="field">
             <span>Animal species</span>
             <div className="filter-chips" role="group" aria-label="Animal species">
