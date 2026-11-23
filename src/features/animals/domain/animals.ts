@@ -436,6 +436,30 @@ export async function countInCare(
   return row?.n ?? 0
 }
 
+/**
+ * Animals list header ("N in care at …").
+ * `n` is animals whose current status counts as in care.
+ * `total` is every non-archived animal, so the list can refresh when an
+ * out-of-care animal is added without counting that animal as in care.
+ */
+export function animalsListHeaderCountQuery(orgId: string | null | undefined): {
+  sql: string
+  params: unknown[]
+} {
+  if (!orgId) {
+    return { sql: 'SELECT 0 AS n, 0 AS total', params: [] }
+  }
+  return {
+    sql: `SELECT
+      COALESCE(SUM(CASE WHEN s.counts_as_in_care = 1 THEN 1 ELSE 0 END), 0) AS n,
+      COUNT(*) AS total
+     FROM animals a
+     LEFT JOIN animal_statuses s ON s.id = a.status_id
+     WHERE a.org_id = ? AND a.archived = 0`,
+    params: [orgId],
+  }
+}
+
 export type StatusCount = {
   statusId: string
   label: string
@@ -481,10 +505,11 @@ export async function countAnimalsByLifeStage(
   orgId: string,
 ): Promise<AnimalLifeStageCount> {
   const rows = await db.getAll<{ life_stage: string | null; count: number }>(
-    `SELECT life_stage, COUNT(*) as count
-     FROM animals
-     WHERE org_id = ? AND archived = 0
-     GROUP BY life_stage`,
+    `SELECT a.life_stage AS life_stage, COUNT(*) AS count
+     FROM animals a
+     JOIN animal_statuses s ON s.id = a.status_id
+     WHERE a.org_id = ? AND a.archived = 0 AND s.counts_as_in_care = 1
+     GROUP BY a.life_stage`,
     [orgId],
   ).catch(() => [])
 
