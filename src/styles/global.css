@@ -5567,6 +5567,12 @@ a.primary {
   gap: var(--space-4);
 }
 
+@media (max-width: 640px) {
+  .characteristics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .characteristic-item {
   display: flex;
   flex-direction: column;

@@ -40,35 +40,41 @@ export function AgeWheelSheet({ open, years, months, onCancel, onDone }: AgeWhee
   return (
     <ResponsiveSheetModal isOpen={open} onClose={onCancel} title="Age">
       <div className="age-wheels">
-        <div ref={yearsColRef} className="age-wheels__col" role="listbox" aria-label="Years">
-          {YEARS.map((year) => (
-            <button
-              key={year}
-              type="button"
-              role="option"
-              className="age-wheels__option"
-              data-age-year={year}
-              aria-selected={draftYears === year}
-              onClick={() => setDraftYears(year)}
-            >
-              {year}
-            </button>
-          ))}
+        <div className="age-wheels__col">
+          <div className="age-wheels__label">Years</div>
+          <div ref={yearsColRef} className="age-wheels__scroller" role="listbox" aria-label="Years">
+            {YEARS.map((year) => (
+              <button
+                key={year}
+                type="button"
+                role="option"
+                className="age-wheels__option"
+                data-age-year={year}
+                aria-selected={draftYears === year}
+                onClick={() => setDraftYears(year)}
+              >
+                {year}
+              </button>
+            ))}
+          </div>
         </div>
-        <div ref={monthsColRef} className="age-wheels__col" role="listbox" aria-label="Months">
-          {MONTHS.map((month) => (
-            <button
-              key={month}
-              type="button"
-              role="option"
-              className="age-wheels__option"
-              data-age-month={month}
-              aria-selected={draftMonths === month}
-              onClick={() => setDraftMonths(month)}
-            >
-              {month}
-            </button>
-          ))}
+        <div className="age-wheels__col">
+          <div className="age-wheels__label">Months</div>
+          <div ref={monthsColRef} className="age-wheels__scroller" role="listbox" aria-label="Months">
+            {MONTHS.map((month) => (
+              <button
+                key={month}
+                type="button"
+                role="option"
+                className="age-wheels__option"
+                data-age-month={month}
+                aria-selected={draftMonths === month}
+                onClick={() => setDraftMonths(month)}
+              >
+                {month}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <div className="responsive-modal__actions">

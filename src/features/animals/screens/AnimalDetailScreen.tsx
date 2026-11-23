@@ -232,6 +232,8 @@ export function AnimalDetailScreen() {
   const [editName, setEditName] = useState('')
   const [editSex, setEditSex] = useState('')
   const [editSterilized, setEditSterilized] = useState<Sterilized>('unknown')
+  const [editAgeYears, setEditAgeYears] = useState<number | null>(null)
+  const [editAgeMonths, setEditAgeMonths] = useState<number | null>(null)
   const [editMarkings, setEditMarkings] = useState('')
   const [editDetailsBusy, setEditDetailsBusy] = useState(false)
 
@@ -273,6 +275,8 @@ export function AnimalDetailScreen() {
     setEditName(animal.name ?? '')
     setEditSex(animal.sex ?? '')
     setEditSterilized(sterilizedOrUnknown(animal.sterilized))
+    setEditAgeYears(animal.age_years ?? null)
+    setEditAgeMonths(animal.age_months ?? null)
     setEditMarkings(animal.markings ?? '')
     setError(null)
     setShowEditDetailsModal(true)
@@ -304,6 +308,15 @@ export function AnimalDetailScreen() {
         sterilized: editSterilized,
         markings: editMarkings.trim() || undefined,
       })
+      const savedYears = animal?.age_years ?? null
+      const savedMonths = animal?.age_months ?? null
+      if (
+        editAgeYears != null &&
+        editAgeMonths != null &&
+        (editAgeYears !== savedYears || editAgeMonths !== savedMonths)
+      ) {
+        await setAnimalAge(db, id, { years: editAgeYears, months: editAgeMonths })
+      }
       setToast('Animal details updated.')
       setShowEditDetailsModal(false)
       await reload()
@@ -318,17 +331,10 @@ export function AnimalDetailScreen() {
     }
   }
 
-  async function onDoneAge(value: { years: number; months: number }) {
-    if (!db || !animal) return
-    setError(null)
-    try {
-      await setAnimalAge(db, animal.id, value)
-      setAgeSheetOpen(false)
-      setToast('Age saved')
-      await reload()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save age. Try again.')
-    }
+  function onDoneAge(value: { years: number; months: number }) {
+    setEditAgeYears(value.years)
+    setEditAgeMonths(value.months)
+    setAgeSheetOpen(false)
   }
 
   async function onRemoveAnimal() {
@@ -1501,41 +1507,25 @@ export function AnimalDetailScreen() {
           </div>
           <div className="tab-panel__content characteristics-card panel">
             <div className="characteristics-grid">
-              <div className="characteristic-item characteristic-item--full">
+              <div className="characteristic-item">
                 <span className="characteristic-label">Species & Life Stage</span>
                 <span className="characteristic-value">
                   {animal.species} · {animal.life_stage === 'child' ? 'Child' : 'Adult'}
                 </span>
               </div>
-              <div className="characteristic-item characteristic-item--full">
+              <div className="characteristic-item">
                 <span className="characteristic-label">Age</span>
                 <span className="characteristic-value">
-                  {member ? (
-                    (() => {
-                      const phrase = formatAgePhrase(animal.age_years, animal.age_months)
-                      return (
-                        <button
-                          type="button"
-                          className="btn btn--ghost"
-                          onClick={() => setAgeSheetOpen(true)}
-                          aria-label={phrase ? `Age, ${phrase}` : 'Add age'}
-                        >
-                          {phrase ?? 'Add age'}
-                        </button>
-                      )
-                    })()
-                  ) : (
-                    (formatAgePhrase(animal.age_years, animal.age_months) ?? 'Unknown')
-                  )}
+                  {formatAgePhrase(animal.age_years, animal.age_months) ?? 'Unknown'}
                 </span>
               </div>
-              <div className="characteristic-item characteristic-item--full">
+              <div className="characteristic-item">
                 <span className="characteristic-label">Sex</span>
                 <span className="characteristic-value">
                   {animal.sex?.trim() || 'Unknown'}
                 </span>
               </div>
-              <div className="characteristic-item characteristic-item--full">
+              <div className="characteristic-item">
                 <span className="characteristic-label">Sterilized</span>
                 <span className="characteristic-value">
                   {sterilizedLabel(animal.sterilized)}
@@ -1955,7 +1945,10 @@ export function AnimalDetailScreen() {
 
       <ResponsiveSheetModal
         isOpen={showEditDetailsModal}
-        onClose={closeEditDetailsModal}
+        onClose={() => {
+          if (ageSheetOpen) return
+          closeEditDetailsModal()
+        }}
         title="Edit details"
       >
         <form className="stack" onSubmit={onSaveDetails}>
@@ -2006,6 +1999,22 @@ export function AnimalDetailScreen() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="field">
+            <span>Age</span>
+            <Button
+              type="button"
+              variant="secondary"
+              aria-label={
+                formatAgePhrase(editAgeYears, editAgeMonths)
+                  ? `Age, ${formatAgePhrase(editAgeYears, editAgeMonths)}`
+                  : 'Age, unknown'
+              }
+              onClick={() => setAgeSheetOpen(true)}
+            >
+              {formatAgePhrase(editAgeYears, editAgeMonths) ?? 'Unknown'}
+            </Button>
           </div>
 
           <TextField
@@ -2223,10 +2232,10 @@ export function AnimalDetailScreen() {
 
       <AgeWheelSheet
         open={ageSheetOpen}
-        years={animal.age_years ?? 0}
-        months={animal.age_months ?? 0}
+        years={editAgeYears ?? 0}
+        months={editAgeMonths ?? 0}
         onCancel={() => setAgeSheetOpen(false)}
-        onDone={(value) => void onDoneAge(value)}
+        onDone={onDoneAge}
       />
 
       {lightboxUrl ? (

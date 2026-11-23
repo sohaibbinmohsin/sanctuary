@@ -8,6 +8,9 @@ describe('AgeWheelSheet', () => {
       <AgeWheelSheet open years={0} months={0} onCancel={() => {}} onDone={() => {}} />,
     )
 
+    const yearsLabel = screen.getByText('Years')
+    const monthsLabel = screen.getByText('Months')
+    expect(yearsLabel.compareDocumentPosition(monthsLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const years = screen.getByRole('listbox', { name: 'Years' })
     const months = screen.getByRole('listbox', { name: 'Months' })
     expect(within(years).getByRole('option', { name: '0' })).toBeInTheDocument()

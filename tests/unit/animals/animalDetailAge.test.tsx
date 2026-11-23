@@ -70,20 +70,42 @@ describe('Animal detail age row', () => {
     }
   })
 
-  it('places Add age under adult/child and saves the wheels', async () => {
+  it('shows age beside species and saves it from Edit details', async () => {
     renderDetail()
     fireEvent.click(await screen.findByRole('tab', { name: /Details/i }))
 
-    const species = screen.getByText('Species & Life Stage')
-    const addAge = screen.getByRole('button', { name: 'Add age' })
-    expect(species.compareDocumentPosition(addAge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const grid = document.querySelector('.characteristics-grid')
+    expect(grid).toBeTruthy()
+    const species = within(grid as HTMLElement).getByText('Species & Life Stage')
+    const age = within(grid as HTMLElement).getByText('Age')
+    const sex = within(grid as HTMLElement).getByText('Sex')
+    const sterilized = within(grid as HTMLElement).getByText('Sterilized')
+    expect(species.compareDocumentPosition(age) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(sex.compareDocumentPosition(sterilized) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(species.closest('.characteristic-item')).not.toHaveClass('characteristic-item--full')
+    expect(age.closest('.characteristic-item')).not.toHaveClass('characteristic-item--full')
+    expect(sex.closest('.characteristic-item')).not.toHaveClass('characteristic-item--full')
+    expect(sterilized.closest('.characteristic-item')).not.toHaveClass('characteristic-item--full')
+    expect(age.closest('.characteristic-item')).toHaveTextContent('Unknown')
+    expect(within(grid as HTMLElement).queryByRole('button', { name: /age/i })).toBeNull()
     expect(screen.getByText(/Cat · Adult/)).toBeInTheDocument()
 
-    fireEvent.click(addAge)
-    const dialog = screen.getByRole('dialog')
-    fireEvent.click(within(within(dialog).getByRole('listbox', { name: 'Years' })).getByRole('option', { name: '2' }))
-    fireEvent.click(within(within(dialog).getByRole('listbox', { name: 'Months' })).getByRole('option', { name: '6' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit details' }))
+    const editDialog = screen.getByRole('dialog')
+    fireEvent.click(within(editDialog).getByRole('button', { name: 'Age, unknown' }))
+
+    const years = screen.getByRole('listbox', { name: 'Years' })
+    const months = screen.getByRole('listbox', { name: 'Months' })
+    expect(screen.getByText('Years').compareDocumentPosition(screen.getByText('Months')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    fireEvent.click(within(years).getByRole('option', { name: '2' }))
+    fireEvent.click(within(months).getByRole('option', { name: '6' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(mockExecute).not.toHaveBeenCalledWith(
+      expect.stringContaining('age_years'),
+      expect.anything(),
+    )
+    fireEvent.click(within(editDialog).getByRole('button', { name: 'Save' }))
 
     await waitFor(() => {
       expect(mockExecute).toHaveBeenCalledWith(
@@ -96,11 +118,13 @@ describe('Animal detail age row', () => {
   it('discards the wheels when Cancel is pressed', async () => {
     renderDetail()
     fireEvent.click(await screen.findByRole('tab', { name: /Details/i }))
-    fireEvent.click(screen.getByRole('button', { name: 'Add age' }))
-    const dialog = screen.getByRole('dialog')
-    fireEvent.click(within(within(dialog).getByRole('listbox', { name: 'Years' })).getByRole('option', { name: '5' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit details' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Age, unknown' }))
+    fireEvent.click(within(screen.getByRole('listbox', { name: 'Years' })).getByRole('option', { name: '5' }))
+    const ageDialog = screen.getByRole('heading', { name: 'Age' }).closest('[role="dialog"]') as HTMLElement
+    fireEvent.click(within(ageDialog).getByRole('button', { name: 'Cancel' }))
 
+    expect(screen.getByRole('heading', { name: 'Edit details' })).toBeInTheDocument()
     expect(mockExecute).not.toHaveBeenCalledWith(
       expect.stringContaining('age_years'),
       expect.anything(),

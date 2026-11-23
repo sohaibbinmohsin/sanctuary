@@ -78,7 +78,7 @@ describe('Animal detail sterilized', () => {
     const sexLabel = screen.getByText('Sex')
     const sterilizedLabel = screen.getByText('Sterilized')
     expect(sexLabel.compareDocumentPosition(sterilizedLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.getByText('Unknown')).toBeInTheDocument()
+    expect(sterilizedLabel.closest('.characteristic-item')).toHaveTextContent('Unknown')
 
     fireEvent.click(screen.getByRole('button', { name: /Edit details/i }))
     const dialog = screen.getByRole('dialog')
