@@ -15,12 +15,17 @@
 #   and not uploaded as an artifact.
 # - A Sheet link with no gid is downloaded as /export?format=csv. An explicit
 #   gid is preserved. gid=0 is not assumed, because that tab may not exist.
+# - Apply requires organization_id. The job fails before any database write
+#   when that input is missing or not a UUID. Dry-run does not need it.
 # - Logs are counts and the mode only. The job does not print the database
 #   URL, the source link, row contents, names, shelter codes, or notes.
+#   The job summary records whether an organization id was provided.
 #
 # scripts/import-aws-census.mjs:
-#   --csv <file>     required
-#   --apply          the only flag that opens a connection and writes
+#   --csv <file>              required
+#   --apply                   the only flag that opens a connection and writes
+#   --organization-id <uuid>  required with --apply; the organization is
+#                             selected by this id
 #   DATABASE_PROD_URL (also SUPABASE_DB_URL / DATABASE_URL / POSTGRES_URL)
 # Dry-run returns before opening a connection.
 
@@ -46,6 +51,10 @@ on:
         options:
           - dry-run
           - apply
+      organization_id:
+        description: Organization UUID. Required when mode is apply. Dry-run does not use it.
+        required: false
+        type: string
 
 concurrency:
   group: data-import-production
@@ -64,6 +73,27 @@ jobs:
       SUPABASE_PROJECT_ID: ${{ secrets.PRODUCTION_PROJECT_ID }}
 
     steps:
+      - name: Require organization id for apply
+        env:
+          IMPORT_MODE: ${{ inputs.mode }}
+          ORGANIZATION_ID: ${{ inputs.organization_id }}
+        run: |
+          set -euo pipefail
+          if [ "$IMPORT_MODE" != "apply" ]; then
+            exit 0
+          fi
+          python3 - <<'PY'
+          import os, re, sys
+          org_id = os.environ.get("ORGANIZATION_ID", "").strip()
+          uuid_re = re.compile(
+              r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              re.IGNORECASE,
+          )
+          if uuid_re.fullmatch(org_id) is None:
+              sys.stdout.write("::error::organization_id is required for apply and must be a UUID\n")
+              sys.exit(1)
+          PY
+
       - uses: actions/checkout@v4
 
       - name: Check required secrets
@@ -353,6 +383,7 @@ jobs:
           IMPORT_MODE: ${{ inputs.mode }}
           IMPORT_SCRIPT: ${{ steps.source.outputs.script }}
           SOURCE_CSV: ${{ steps.source.outputs.source_csv }}
+          ORGANIZATION_ID: ${{ inputs.organization_id }}
         run: |
           set -euo pipefail
           case "$IMPORT_MODE" in
@@ -403,6 +434,20 @@ jobs:
               sys.exit("script path refused")
           PY
 
+          if [ "$IMPORT_MODE" = "apply" ]; then
+            python3 - <<'PY'
+          import os, re, sys
+          org_id = os.environ.get("ORGANIZATION_ID", "").strip()
+          uuid_re = re.compile(
+              r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              re.IGNORECASE,
+          )
+          if uuid_re.fullmatch(org_id) is None:
+              sys.stdout.write("::error::organization_id is required for apply and must be a UUID\n")
+              sys.exit(1)
+          PY
+          fi
+
           ENCODED_PASSWORD=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['SUPABASE_DB_PASSWORD'], safe=''))")
           REGION=$(curl -fsS \
             -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
@@ -426,18 +471,21 @@ jobs:
           PY
           export DATABASE_PROD_URL="$DB_URL"
           unset DB_URL ENCODED_PASSWORD
+          ORG_ID_STATUS=$(python3 -c 'import os; print("provided" if os.environ.get("ORGANIZATION_ID", "").strip() else "omitted")')
           echo "Using session pooler (region=${REGION})"
           echo "Mode: ${IMPORT_MODE}"
+          echo "Organization id: ${ORG_ID_STATUS}"
           {
             echo "## Data import"
             echo ""
             echo "- Script: \`${IMPORT_SCRIPT}\`"
             echo "- Mode: \`${IMPORT_MODE}\`"
+            echo "- Organization id: \`${ORG_ID_STATUS}\`"
             echo "- Region: \`${REGION}\`"
           } >> "$GITHUB_STEP_SUMMARY"
           ARGS=(--experimental-strip-types "$IMPORT_SCRIPT" --csv "$SOURCE_CSV")
           if [ "$IMPORT_MODE" = "apply" ]; then
-            ARGS+=(--apply)
+            ARGS+=(--apply --organization-id "$ORGANIZATION_ID")
           fi
           node "${ARGS[@]}"
 

@@ -3,8 +3,6 @@ import type { Sterilized } from './sterilized.ts'
 import type { VaccineId } from '../../treatments/domain/vaccines.ts'
 import { nextShelterId } from '../../../shared/lib/ids/shelterId.ts'
 
-export const AWS_LUMS_ORG_NAME = 'Animal Welfare Society LUMS'
-
 export const CENSUS_HEADERS = [
   'Name',
   'Picture',
