@@ -31,6 +31,47 @@ describe('parseCensusAge', () => {
 describe('census csv', () => {
   it('rejects a header that is not the Sheet1 contract', () => {
     expect(() => parseCensusCsv('Name,Age\nMona,5 years\n')).toThrow(/Census CSV header must be/)
+    expect(() =>
+      parseCensusCsv(
+        'Picture,Name,Marking,Age,Sex,Rabies Vaccination,Calci/FPV Vaccination,Neutered/Spayed\n',
+      ),
+    ).toThrow(/Census CSV header must be/)
+    expect(() =>
+      parseCensusCsv(
+        'Name,Picture,Marking,Age,Sex,Rabies Vaccination,Calci/FPV Vaccination,Concerning Medical Issues,Remarks\n',
+      ),
+    ).toThrow(/Census CSV header must be/)
+  })
+
+  it('ignores trailing Concerning Medical Issues and Remarks columns', () => {
+    const extended = [
+      'Name,Picture,Marking,Age,Sex,Rabies Vaccination,Calci/FPV Vaccination,Neutered/Spayed,Concerning Medical Issues,Remarks',
+      'Mona,https://cdn.example/mona.jpg,"white, paw",5 years,Female,Yes,No,Unknown,limping,foster note',
+    ].join('\n')
+    const rows = parseCensusCsv(extended)
+    expect(rows).toEqual([
+      {
+        rowNumber: 2,
+        name: 'Mona',
+        picture: 'https://cdn.example/mona.jpg',
+        marking: 'white, paw',
+        age: '5 years',
+        sex: 'Female',
+        rabies: 'Yes',
+        calciFpv: 'No',
+        neuteredSpayed: 'Unknown',
+      },
+    ])
+    const serialized = JSON.stringify(rows)
+    expect(serialized).not.toContain('limping')
+    expect(serialized).not.toContain('foster note')
+    expect(serialized).not.toContain('Concerning Medical Issues')
+    expect(serialized).not.toContain('Remarks')
+    const plan = planCensusImport(rows)
+    expect(plan.animals).toHaveLength(1)
+    expect(plan.animals[0]).toMatchObject({ name: 'Mona', vaccines: ['rabies'] })
+    expect(JSON.stringify(plan)).not.toContain('limping')
+    expect(JSON.stringify(plan)).not.toContain('foster note')
   })
 
   it('parses quotes and keeps the picture cell only on the source row', () => {

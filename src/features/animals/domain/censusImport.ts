@@ -121,7 +121,10 @@ export function parseCensusCsv(text: string): CensusSourceRow[] {
   if (table.length === 0) throw new Error('Census CSV is empty.')
   const header = table[0]!.map((value) => value.trim())
   const expected = CENSUS_HEADERS.join(', ')
-  if (header.length !== CENSUS_HEADERS.length || header.some((value, index) => value !== CENSUS_HEADERS[index])) {
+  const prefixMatches =
+    header.length >= CENSUS_HEADERS.length &&
+    CENSUS_HEADERS.every((value, index) => header[index] === value)
+  if (!prefixMatches) {
     throw new Error(`Census CSV header must be ${expected}. Received ${header.join(', ')}.`)
   }
   return table.slice(1).map((cols, index) => ({

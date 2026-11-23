@@ -13,6 +13,8 @@
 # - source_url is a private https Google Sheet or Drive link. The CSV is
 #   downloaded to the runner temp directory and deleted. It is not committed
 #   and not uploaded as an artifact.
+# - A Sheet link with no gid is downloaded as /export?format=csv. An explicit
+#   gid is preserved. gid=0 is not assumed, because that tab may not exist.
 # - Logs are counts and the mode only. The job does not print the database
 #   URL, the source link, row contents, names, shelter codes, or notes.
 #
@@ -161,10 +163,13 @@ jobs:
               return values[0]
 
           def sheet_download(sheet_id, gid):
-              return (
+              url = (
                   "https://docs.google.com/spreadsheets/d/"
-                  f"{sheet_id}/export?format=csv&gid={gid}"
+                  f"{sheet_id}/export?format=csv"
               )
+              if gid is None:
+                  return url
+              return f"{url}&gid={gid}"
 
           def drive_download(file_id):
               return f"https://drive.google.com/uc?export=download&id={file_id}"
@@ -178,7 +183,8 @@ jobs:
               host = hostname(raw.strip())
               query = urllib.parse.parse_qs(parts.query, keep_blank_values=False)
               fragment = urllib.parse.parse_qs(parts.fragment, keep_blank_values=False)
-              gid = one_query(query, "gid", GID_RE) or one_query(fragment, "gid", GID_RE) or "0"
+              # No gid means the first sheet. Do not invent gid=0; that tab may not exist.
+              gid = one_query(query, "gid", GID_RE) or one_query(fragment, "gid", GID_RE)
               resourcekey = one_query(query, "resourcekey", RESOURCEKEY_RE)
               extra = ""
               if resourcekey:
