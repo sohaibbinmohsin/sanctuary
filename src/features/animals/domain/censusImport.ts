@@ -56,11 +56,9 @@ export type CensusAnimalPlan = {
   vaccines: VaccineId[]
 }
 
-export type CensusManualSplit = { rowNumber: number; name: string; reason: 'manual_split' }
 export type CensusSkipped = { rowNumber: number; name: string; reason: CensusSkipReason }
 export type CensusImportPlan = {
   animals: CensusAnimalPlan[]
-  manualSplits: CensusManualSplit[]
   skipped: CensusSkipped[]
 }
 
@@ -140,8 +138,11 @@ export function parseCensusCsv(text: string): CensusSourceRow[] {
   }))
 }
 
-export function isManualSplitName(name: string): boolean {
-  return /\+|\/|&|\band\b/i.test(name)
+export function splitCensusNames(name: string): string[] {
+  return name
+    .split(/\s*(?:\+|\/|&|\band\b)\s*/i)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
 }
 
 export function parseCensusAge(raw: string): { years: number; months: number } | null {
@@ -166,23 +167,21 @@ export function parseCensusAge(raw: string): { years: number; months: number } |
     years = 0
     months = Number(monthsOnly[1])
   } else {
-    throw new CensusCellError('unparsed_age', `Unparsed age: ${raw}`)
+    return null
   }
   try {
     assertAnimalAge(years, months)
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unparsed age'
-    throw new CensusCellError('unparsed_age', message)
+  } catch {
+    return null
   }
   return { years, months }
 }
 
 export function parseCensusSex(raw: string): 'Male' | 'Female' | null {
   const text = raw.trim().toLowerCase()
-  if (text === '' || text === 'unknown' || text === 'unk' || text === '?') return null
   if (text === 'male' || text === 'm') return 'Male'
   if (text === 'female' || text === 'f') return 'Female'
-  throw new CensusCellError('unparsed_sex', `Unparsed sex: ${raw}`)
+  return null
 }
 
 export function parseCensusSterilized(raw: string): Sterilized {
@@ -202,7 +201,6 @@ export function parseCensusYes(raw: string): boolean {
 
 export function planCensusImport(rows: CensusSourceRow[]): CensusImportPlan {
   const animals: CensusAnimalPlan[] = []
-  const manualSplits: CensusManualSplit[] = []
   const skipped: CensusSkipped[] = []
 
   for (const row of rows) {
@@ -211,8 +209,9 @@ export function planCensusImport(rows: CensusSourceRow[]): CensusImportPlan {
       skipped.push({ rowNumber: row.rowNumber, name: '', reason: 'blank_name' })
       continue
     }
-    if (isManualSplitName(name)) {
-      manualSplits.push({ rowNumber: row.rowNumber, name, reason: 'manual_split' })
+    const names = splitCensusNames(name)
+    if (names.length === 0) {
+      skipped.push({ rowNumber: row.rowNumber, name: '', reason: 'blank_name' })
       continue
     }
     try {
@@ -225,24 +224,26 @@ export function planCensusImport(rows: CensusSourceRow[]): CensusImportPlan {
       if (rabies) vaccines.push('rabies')
       if (calci) vaccines.push('calci_fpv')
       const markings = row.marking.trim()
-      animals.push({
-        rowNumber: row.rowNumber,
-        name,
-        species: 'Cat',
-        sex,
-        markings: markings || null,
-        ageYears: age ? age.years : null,
-        ageMonths: age ? age.months : null,
-        sterilized,
-        vaccines,
-      })
+      for (const catName of names) {
+        animals.push({
+          rowNumber: row.rowNumber,
+          name: catName,
+          species: 'Cat',
+          sex,
+          markings: markings || null,
+          ageYears: age ? age.years : null,
+          ageMonths: age ? age.months : null,
+          sterilized,
+          vaccines: [...vaccines],
+        })
+      }
     } catch (err) {
       const reason = err instanceof CensusCellError ? err.reason : 'unparsed_age'
       skipped.push({ rowNumber: row.rowNumber, name, reason })
     }
   }
 
-  return { animals, manualSplits, skipped }
+  return { animals, skipped }
 }
 
 export function assignCensusShelterCodes(
