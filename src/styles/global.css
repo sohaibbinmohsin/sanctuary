@@ -31,7 +31,7 @@ body,
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
-  overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100vw;
 }
 
@@ -4842,6 +4842,14 @@ a.primary {
   padding: 0.4rem 0.4rem var(--space-1) 0.15rem;
   scroll-padding-left: 0;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.photo-strip::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .photo-strip__add-wrap {
@@ -5565,6 +5573,12 @@ a.primary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
+}
+
+@media (max-width: 640px) {
+  .characteristic-item--stack {
+    grid-column: 1 / -1;
+  }
 }
 
 .characteristic-item {

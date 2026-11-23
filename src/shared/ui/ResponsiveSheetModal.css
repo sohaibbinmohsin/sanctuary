@@ -48,6 +48,19 @@
   overflow-y: auto;
 }
 
+.responsive-modal__card:has(.age-wheels),
+.responsive-modal__card:has([data-sheet='animal-details']) {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.responsive-modal__card:has(.age-wheels)::-webkit-scrollbar,
+.responsive-modal__card:has([data-sheet='animal-details'])::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .responsive-modal__card::before {
   content: '';
   display: block;

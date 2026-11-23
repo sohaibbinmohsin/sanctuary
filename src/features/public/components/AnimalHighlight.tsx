@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { CaretLeft, CaretRight, PawPrint, SealCheck, X } from '@phosphor-icons/react'
 import { VerifiedPhotoBadge } from '@/features/public/components/VerifiedPhotoBadge'
+import { formatAgePhrase } from '@/features/animals/domain/age'
 import {
   formatPublicWhen,
   publicCareLabel,
@@ -30,6 +31,7 @@ export function AnimalHighlight({
   const hasVerified = animal.photos.some((p) => p.verified)
   const photos = animal.photos
   const photo = photos[photoIndex] ?? null
+  const agePhrase = formatAgePhrase(animal.ageYears, animal.ageMonths)
   const detailBits = [animal.species, animal.sex, animal.statusLabel].filter(
     Boolean,
   )
@@ -185,6 +187,12 @@ export function AnimalHighlight({
                     <dd>{animal.sex}</dd>
                   </div>
                 ) : null}
+                {agePhrase ? (
+                  <div>
+                    <dt>Age</dt>
+                    <dd>{agePhrase}</dd>
+                  </div>
+                ) : null}
                 {animal.statusLabel ? (
                   <div>
                     <dt>Status</dt>
@@ -219,7 +227,7 @@ export function AnimalHighlight({
                       {formatPublicWhen(entry.treatedAt)}
                     </span>
                     <span className="public-shelter__care-type">
-                      {publicCareLabel(entry.treatmentType)}
+                      {publicCareLabel(entry.treatmentType, entry.vaccine)}
                     </span>
                     {entry.notes ? (
                       <span className="public-shelter__care-notes">

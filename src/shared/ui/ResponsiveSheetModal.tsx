@@ -1,6 +1,25 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import './ResponsiveSheetModal.css'
+
+let bodyScrollLocks = 0
+let bodyOverflowBeforeLock: string | null = null
+
+function lockPageScroll() {
+  if (bodyScrollLocks === 0) {
+    bodyOverflowBeforeLock = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  }
+  bodyScrollLocks += 1
+}
+
+function unlockPageScroll() {
+  bodyScrollLocks = Math.max(0, bodyScrollLocks - 1)
+  if (bodyScrollLocks === 0) {
+    document.body.style.overflow = bodyOverflowBeforeLock ?? ''
+    bodyOverflowBeforeLock = null
+  }
+}
 
 export type ResponsiveSheetModalProps = {
   isOpen: boolean
@@ -17,19 +36,23 @@ export function ResponsiveSheetModal({
   children,
   closeable = true,
 }: ResponsiveSheetModalProps) {
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
   useEffect(() => {
     if (!isOpen) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (closeable && e.key === 'Escape') onClose()
+      if (closeable && e.key === 'Escape') onCloseRef.current()
     }
     window.addEventListener('keydown', onKeyDown)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      document.body.style.overflow = prevOverflow
-    }
-  }, [isOpen, onClose, closeable])
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isOpen, closeable])
+
+  useEffect(() => {
+    if (!isOpen) return
+    lockPageScroll()
+    return () => unlockPageScroll()
+  }, [isOpen])
 
   if (!isOpen) return null
 

@@ -23,7 +23,9 @@ import {
 import { VerifiedExplainDialog } from '@/features/public/components/VerifiedExplainDialog'
 import { isReservedPublicSlug } from '@/shared/lib/public/slug'
 import {
+  formatAgePhrase,
   formatPublicWhen,
+  publicAnimalMetaLine,
 } from '@/shared/lib/public/format'
 import { formatCurrency } from '@/features/ledger/domain/ledger'
 import { AnimalLoader } from '@/shared/ui/AnimalLoader'
@@ -54,6 +56,7 @@ function animalSearchText(animal: PublicAnimalDto): string {
     animal.shelterCode,
     animal.species,
     animal.sex,
+    formatAgePhrase(animal.ageYears, animal.ageMonths),
     animal.statusLabel,
     animal.markings,
   ]
@@ -484,9 +487,7 @@ function AnimalsPanel({
                       </span>
                     </div>
                     <p className="public-shelter__animal-meta">
-                      {[animal.species, animal.sex, animal.statusLabel]
-                        .filter(Boolean)
-                        .join(' · ')}
+                      {publicAnimalMetaLine(animal)}
                     </p>
                   </div>
                 </div>

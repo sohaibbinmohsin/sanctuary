@@ -1,3 +1,8 @@
+import { formatAgePhrase } from '@/features/animals/domain/age'
+import { vaccinationCareTitle } from '@/features/treatments/domain/vaccines'
+
+export { formatAgePhrase }
+
 /** Friendly labels for care entries on the public shelter page. */
 export const PUBLIC_CARE_LABELS: Record<string, string> = {
   meds: 'Medicine',
@@ -9,7 +14,8 @@ export const PUBLIC_CARE_LABELS: Record<string, string> = {
   status: 'Status',
 }
 
-export function publicCareLabel(treatmentType: string): string {
+export function publicCareLabel(treatmentType: string, vaccine?: string | null): string {
+  if (treatmentType === 'vaccination') return vaccinationCareTitle(vaccine)
   return PUBLIC_CARE_LABELS[treatmentType] ?? treatmentType
 }
 
@@ -50,4 +56,21 @@ export function compareCareNewestFirst(
   b: { treatedAt: string },
 ): number {
   return b.treatedAt.localeCompare(a.treatedAt)
+}
+
+export function publicAnimalMetaLine(animal: {
+  species: string | null
+  sex: string | null
+  statusLabel: string
+  ageYears: number | null
+  ageMonths: number | null
+}): string {
+  return [
+    animal.species,
+    animal.sex,
+    formatAgePhrase(animal.ageYears, animal.ageMonths),
+    animal.statusLabel,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
